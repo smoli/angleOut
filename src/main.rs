@@ -28,6 +28,7 @@ use block::{spawn_block, spawn_block_row};
 use ball::{sys_update_ball_collision_group_active, sys_update_inactive_ball};
 use gamestate::GameState;
 use crate::ball::sys_launch_inactive_ball;
+use crate::block::sys_handle_block_hit;
 
 fn main() {
     App::new()
@@ -81,6 +82,8 @@ fn main() {
         .add_system(sys_update_ball_collision_group_active)
         .add_system(sys_update_inactive_ball)
         .add_system(sys_launch_inactive_ball)
+        // .add_system(display_events)
+        .add_system(sys_handle_block_hit)
 
         .run();
 }
@@ -91,7 +94,7 @@ fn spawn_camera(mut commands: Commands) {
 
 fn system_spawn_blocks(mut commands: Commands) {
     for i in 0..5 {
-        spawn_block_row(&mut commands, 1, 0.0, i as Real * BLOCK_HEIGHT + BLOCK_GAP + BLOCK_HEIGHT, BLOCK_GAP, 7 );
+        spawn_block_row(&mut commands, 1, 0.0, i as Real * (BLOCK_HEIGHT + BLOCK_GAP) + BLOCK_HEIGHT, BLOCK_GAP, 7 );
     }
 }
 
@@ -125,5 +128,20 @@ fn sys_gamepad_info(
         if left_stick_x.abs() > 0.01 {
             info!("{:?} LeftStickX value is {}", gamepad, left_stick_x);
         }
+    }
+}
+
+/* A system that displays the events. */
+fn display_events(
+    mut collision_events: EventReader<CollisionEvent>,
+    mut contact_force_events: EventReader<ContactForceEvent>,
+) {
+    for collision_event in collision_events.iter() {
+        println!("Received collision event: {:?}", collision_event);
+        println!("{:?}", collision_event)
+    }
+
+    for contact_force_event in contact_force_events.iter() {
+        println!("Received contact force event: {:?}", contact_force_event);
     }
 }

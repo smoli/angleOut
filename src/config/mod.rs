@@ -9,7 +9,8 @@ pub const SCREEN_HEIGHT: Real = 500.0;
 pub const SCREEN_WIDTH_H: Real = SCREEN_WIDTH / 2.0;
 pub const SCREEN_HEIGHT_H: Real = 500.0 / 2.0;
 pub const BALL_SIZE: Real = 10.0;
-pub const MAX_BALL_SPEED: Real = 500.0;
+pub const MAX_BALL_SPEED: Real = 700.0;
+pub const MIN_BALL_SPEED: Real = 400.0;
 pub const MAX_RESTITUTION: Real = 1.0;
 
 pub const PADDLE_WIDTH: Real = 150.0;

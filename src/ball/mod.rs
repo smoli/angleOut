@@ -7,7 +7,7 @@ use bevy_rapier2d::prelude::CollisionGroups;
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::Action;
-use crate::config::{BALL_SIZE, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, PADDLE_THICKNESS};
+use crate::config::{BALL_SIZE, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_THICKNESS};
 use crate::gamestate::GameState;
 
 
@@ -25,7 +25,7 @@ pub fn spawn_ball(mut commands: Commands) {
     commands
         .spawn(Ball {})
         .insert(RigidBody::Dynamic)
-        .insert(GravityScale(0.0))
+        .insert(GravityScale(0.01))
         .insert(Collider::ball(BALL_SIZE))
         .insert(Restitution::coefficient(MAX_RESTITUTION))
         .insert(Friction::coefficient(0.0))
@@ -84,12 +84,14 @@ pub fn sys_launch_inactive_ball(mut commands: Commands, mut query: Query<(Entity
 
 
 
-pub fn sys_limit_ball_velocity(mut query: Query<&mut Velocity, With<Ball>>) {
+pub fn sys_limit_ball_velocity(mut query: Query<&mut Velocity, With<ActiveBall>>) {
     for (mut velo) in &mut query {
         let v = velo.linvel.length();
 
         if v > MAX_BALL_SPEED {
             velo.linvel = velo.linvel / v * MAX_BALL_SPEED;
+        } else if v < MIN_BALL_SPEED  {
+            velo.linvel = velo.linvel / v * MIN_BALL_SPEED;
         }
     }
 }
