@@ -1,6 +1,7 @@
 use bevy::prelude::{Commands, Component, KeyCode, Query, Res, Transform, TransformBundle, With};
+use bevy_rapier2d::geometry::CollisionGroups;
 use bevy_rapier2d::prelude::{Collider, Real, Restitution, RigidBody};
-use crate::config::{BLOCK_HEIGHT_H, BLOCK_WIDTH_H, BLOCK_WIDTH, BLOCK_HEIGHT, MAX_RESTITUTION};
+use crate::config::{BLOCK_HEIGHT_H, BLOCK_WIDTH_H, BLOCK_WIDTH, BLOCK_HEIGHT, MAX_RESTITUTION, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL};
 
 
 #[derive(Component)]
@@ -18,6 +19,7 @@ pub fn spawn_block(commands: &mut Commands, hit_points: usize, x: Real, y: Real)
         .insert(Collider::cuboid( BLOCK_WIDTH_H, BLOCK_HEIGHT_H))
         .insert(Restitution::coefficient(MAX_RESTITUTION))
         .insert(TransformBundle::from(Transform::from_xyz(x, y, 0.0)))
+        .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL));
     ;
 
 }

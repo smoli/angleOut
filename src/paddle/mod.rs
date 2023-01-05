@@ -1,4 +1,4 @@
-use bevy::prelude::{Commands, Component, Query, Res, Time, Transform, TransformBundle};
+use bevy::prelude::{Commands, Component, Query, Res, ResMut, Time, Transform, TransformBundle};
 use bevy_rapier2d::dynamics::{MassProperties, RigidBody};
 use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution};
 use leafwing_input_manager::InputManagerBundle;
@@ -7,8 +7,10 @@ use leafwing_input_manager::input_map::InputMap;
 use leafwing_input_manager::axislike::{DualAxis, DualAxisData};
 use bevy::math::{Quat, Vec2};
 use bevy_rapier2d::math::Real;
+use bevy_rapier2d::prelude::CollisionGroups;
 use crate::actions::Action;
-use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, MAX_RESTITUTION, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H, SCREEN_HEIGHT_H, SCREEN_WIDTH_H};
+use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_PADDLE, MAX_RESTITUTION, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H, SCREEN_HEIGHT_H, SCREEN_WIDTH_H};
+use crate::gamestate::GameState;
 
 
 #[derive(Component)]
@@ -51,7 +53,9 @@ pub fn spawn_paddle(mut commands: Commands) {
                 .insert(DualAxis::left_stick(), Action::ArticulateLeft)
                 .insert(DualAxis::right_stick(), Action::ArticulateRight)
                 .build(),
-        });
+        })
+        .insert(CollisionGroups::new(COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_BALL));
+    ;
 }
 
 
@@ -91,7 +95,7 @@ pub fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Acti
 }
 
 
-pub fn sys_update_paddle_position(time: Res<Time>, mut query: Query<(&mut Transform, &mut Paddle)>) {
+pub fn sys_update_paddle_position(time: Res<Time>, mut gamestate: ResMut<GameState>, mut query: Query<(&mut Transform, &mut Paddle)>) {
     for (mut trans, mut paddle) in &mut query {
         let dp = paddle.target_position.extend(trans.translation.z) - trans.translation;
 
@@ -110,5 +114,8 @@ pub fn sys_update_paddle_position(time: Res<Time>, mut query: Query<(&mut Transf
         }
         paddle.current_rotation = a;
         trans.rotation = Quat::from_rotation_z(-a);
+
+        gamestate.paddle_position = trans.translation.clone();
+        gamestate.paddle_rotation = paddle.current_rotation;
     }
 }

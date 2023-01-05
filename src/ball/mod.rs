@@ -1,21 +1,29 @@
-use bevy::prelude::{Commands, Component, KeyCode, Query, Res, Transform, TransformBundle, With};
+use bevy::prelude::{Commands, Component, Entity, GamepadButtonType, KeyCode, Query, Res, Transform, TransformBundle, Vec3, With, Without};
 use bevy_rapier2d::dynamics::{ExternalImpulse, GravityScale, MassProperties, RigidBody, Velocity};
-use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution};
+use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution, Group};
 use bevy::math::Vec2;
 use bevy::input::Input;
-use crate::config::{BALL_SIZE, MAX_BALL_SPEED, MAX_RESTITUTION};
+use bevy_rapier2d::prelude::CollisionGroups;
+use leafwing_input_manager::InputManagerBundle;
+use leafwing_input_manager::prelude::{ActionState, InputMap};
+use crate::actions::Action;
+use crate::config::{BALL_SIZE, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, PADDLE_THICKNESS};
+use crate::gamestate::GameState;
 
 
 #[derive(Component)]
-pub struct Ball {
-    launching: bool,
-}
+pub struct Ball {}
+
+#[derive(Component)]
+pub struct ActiveBall;
+
+#[derive(Component)]
+pub struct InactiveBall;
 
 
 pub fn spawn_ball(mut commands: Commands) {
-    /* Create the bouncing ball. */
     commands
-        .spawn(Ball { launching: false })
+        .spawn(Ball {})
         .insert(RigidBody::Dynamic)
         .insert(GravityScale(0.0))
         .insert(Collider::ball(BALL_SIZE))
@@ -24,7 +32,7 @@ pub fn spawn_ball(mut commands: Commands) {
         .insert(ColliderMassProperties::Density(20.0))
         .insert(ColliderMassProperties::MassProperties(MassProperties {
             local_center_of_mass: Default::default(),
-            mass: 2.0,
+            mass: 1.0,
             principal_inertia: 0.0,
 
         }))
@@ -36,20 +44,44 @@ pub fn spawn_ball(mut commands: Commands) {
         .insert(ExternalImpulse {
             impulse: Vec2::new(0.0, 0.0),
             torque_impulse: 0.0,
-        });
+        })
+
+        .insert(InputManagerBundle::<Action> {
+            action_state: ActionState::default(),
+            input_map: InputMap::default()
+                .insert(GamepadButtonType::RightTrigger2, Action::LaunchBall)
+                .build(),
+        })
+
+        .insert(CollisionGroups::new(COLLIDER_GROUP_BALL, COLLIDER_GROUP_ARENA | COLLIDER_GROUP_BLOCK))
+    ;
+}
+
+pub fn sys_update_ball_collision_group_active(mut query: Query<&mut CollisionGroups, With<ActiveBall>>) {
+    for mut col in &mut query {
+        col.filters = col.filters | COLLIDER_GROUP_PADDLE;
+    }
+}
+
+pub fn sys_update_inactive_ball(gamestate: Res<GameState>, mut query: Query<(&mut Transform, &mut CollisionGroups), (Without<ActiveBall>, With<Ball>)>) {
+    for (mut trans, mut col) in &mut query {
+        col.filters = col.filters & !COLLIDER_GROUP_PADDLE;
+        trans.translation = gamestate.paddle_position.clone() + Vec3::new(0.0, PADDLE_THICKNESS + 1.5 * BALL_SIZE, 0.0);
+    }
 }
 
 
-pub fn sys_apply_force_to_ball_on_space(
-    input: Res<Input<KeyCode>>,
-    mut impulse: Query<&mut ExternalImpulse>) {
-    if !input.just_pressed(KeyCode::Space) { return; }
+pub fn sys_launch_inactive_ball(mut commands: Commands, mut query: Query<(Entity, &ActionState<Action>, &mut ExternalImpulse), (Without<ActiveBall>, With<Ball>)>) {
+    for (ball, action, mut impluse) in &mut query {
+        if !action.pressed(Action::LaunchBall) { continue }
 
+        impluse.impulse = Vec2::new(0.0, 1000.0);
 
-    let mut ef = impulse.single_mut();
-
-    ef.impulse = Vec2::new(200.0, 200.0);
+        commands.entity(ball)
+            .insert(ActiveBall {});
+    }
 }
+
 
 
 pub fn sys_limit_ball_velocity(mut query: Query<&mut Velocity, With<Ball>>) {

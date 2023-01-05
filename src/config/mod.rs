@@ -1,3 +1,5 @@
+use std::convert::Into;
+use bevy_rapier2d::geometry::Group;
 use bevy_rapier2d::math::Real;
 
 pub const PIXELS_PER_METER: f32 = 100.0;
@@ -27,7 +29,19 @@ pub const BLOCK_WIDTH_H:Real = BLOCK_WIDTH / 2.0;
 pub const BLOCK_HEIGHT:Real = 15.0;
 pub const BLOCK_HEIGHT_H:Real = BLOCK_HEIGHT / 2.0;
 
-const ARENA_WIDTH:Real = SCREEN_WIDTH / 2.0;
+pub const ARENA_WIDTH:Real = SCREEN_WIDTH / 2.0;
 pub const ARENA_WIDTH_H:Real = ARENA_WIDTH / 2.0;
-const ARENA_HEIGHT:Real = SCREEN_HEIGHT;
+pub const ARENA_HEIGHT:Real = SCREEN_HEIGHT;
 pub const ARENA_HEIGHT_H:Real = ARENA_HEIGHT / 2.0;
+
+pub const COLLIDER_GROUP_NONE:Group   = Group::empty();
+pub const COLLIDER_GROUP_BALL:Group   = Group::GROUP_1;
+pub const COLLIDER_GROUP_PADDLE:Group = Group::GROUP_2;
+pub const COLLIDER_GROUP_BLOCK:Group  = Group::GROUP_3;
+pub const COLLIDER_GROUP_ARENA:Group  = Group::GROUP_4;
+pub const COLLIDER_GROUP_DEATH:Group  = Group::GROUP_5;
+
+
+pub const BLOCK_GAP: Real = BLOCK_WIDTH / 5.0;
+
+

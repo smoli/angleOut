@@ -4,9 +4,11 @@ mod arena;
 mod config;
 mod actions;
 mod block;
+mod gamestate;
 
 #[allow(unused_imports)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+use bevy::ecs::system::WorldState;
 use bevy::prelude::*;
 use bevy::prelude::KeyCode::{Ax, V};
 use bevy::window::WindowResizeConstraints;
@@ -21,11 +23,19 @@ use leafwing_input_manager::axislike::DualAxisData;
 use leafwing_input_manager::prelude::*;
 use leafwing_input_manager::prelude::DualAxis;
 use actions::Action;
-use config::{PIXELS_PER_METER, SCREEN_HEIGHT, SCREEN_WIDTH, BLOCK_WIDTH, BLOCK_HEIGHT, SCREEN_WIDTH_H, SCREEN_HEIGHT_H};
+use config::{BLOCK_GAP, BLOCK_HEIGHT, BLOCK_WIDTH, PIXELS_PER_METER, SCREEN_HEIGHT, SCREEN_HEIGHT_H, SCREEN_WIDTH, SCREEN_WIDTH_H};
 use block::{spawn_block, spawn_block_row};
+use ball::{sys_update_ball_collision_group_active, sys_update_inactive_ball};
+use gamestate::GameState;
+use crate::ball::sys_launch_inactive_ball;
 
 fn main() {
     App::new()
+        .insert_resource(GameState {
+            paddle_rotation: 0.0,
+            paddle_position: Default::default(),
+        })
+
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
 
         .insert_resource(RapierConfiguration {
@@ -64,12 +74,13 @@ fn main() {
 
         .add_startup_system(paddle::spawn_paddle)
 
-        .add_system(ball::sys_apply_force_to_ball_on_space)
-
         .add_system(paddle::sys_articulate_paddle)
         .add_system(paddle::sys_update_paddle_position)
 
         .add_system(ball::sys_limit_ball_velocity)
+        .add_system(sys_update_ball_collision_group_active)
+        .add_system(sys_update_inactive_ball)
+        .add_system(sys_launch_inactive_ball)
 
         .run();
 }
@@ -77,9 +88,6 @@ fn main() {
 fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
-
-
-const BLOCK_GAP: Real = BLOCK_WIDTH / 5.0;
 
 fn system_spawn_blocks(mut commands: Commands) {
     for i in 0..5 {

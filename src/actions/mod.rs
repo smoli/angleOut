@@ -5,4 +5,5 @@ use leafwing_input_manager::Actionlike;
 pub enum Action {
     ArticulateLeft,
     ArticulateRight,
+    LaunchBall
 }
