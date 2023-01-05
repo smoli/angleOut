@@ -253,10 +253,19 @@ fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Action>,
 }
 
 const PADDLE_ROTATION_ACCEL:Real = 10.0;
+const PADDLE_POSITION_ACCEL:Real = 10.0;
 
 fn sys_update_paddle_position(time: Res<Time>, mut query: Query<(&mut Transform, &mut Paddle)>) {
     for (mut trans, mut paddle) in &mut query {
-        // trans.translation = paddle.target_position.extend(trans.translation.y);
+
+        let dp = paddle.target_position.extend(trans.translation.z) - trans.translation;
+
+        let mut tp = paddle.target_position.extend(trans.translation.z);
+        if dp.length() > 0.01 {
+            tp = trans.translation + dp * time.delta_seconds() * PADDLE_POSITION_ACCEL;
+        }
+
+        trans.translation = tp;
 
         let dr = paddle.target_rotation - paddle.current_rotation;
 
@@ -264,15 +273,9 @@ fn sys_update_paddle_position(time: Res<Time>, mut query: Query<(&mut Transform,
         if dr.abs() > 0.001 {
             a = paddle.current_rotation + dr * time.delta_seconds() * PADDLE_ROTATION_ACCEL;
         }
-
-
-        println!("C{}, T{} D{} A{}", paddle.current_rotation, paddle.target_rotation, dr, a);
-
         paddle.current_rotation = a;
-
         trans.rotation = Quat::from_rotation_z(-a);
 
-        // trans.rotation = Quat::from_rotation_z(paddle.target_rotation)
     }
 }
 
