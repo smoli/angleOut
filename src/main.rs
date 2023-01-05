@@ -3,6 +3,7 @@ mod ball;
 mod arena;
 mod config;
 mod actions;
+mod block;
 
 #[allow(unused_imports)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -20,7 +21,8 @@ use leafwing_input_manager::axislike::DualAxisData;
 use leafwing_input_manager::prelude::*;
 use leafwing_input_manager::prelude::DualAxis;
 use actions::Action;
-use config::{PIXELS_PER_METER, SCREEN_HEIGHT, SCREEN_WIDTH};
+use config::{PIXELS_PER_METER, SCREEN_HEIGHT, SCREEN_WIDTH, BLOCK_WIDTH, BLOCK_HEIGHT, SCREEN_WIDTH_H, SCREEN_HEIGHT_H};
+use block::{spawn_block, spawn_block_row};
 
 fn main() {
     App::new()
@@ -56,6 +58,8 @@ fn main() {
 
         .add_startup_system(arena::spawn_arena)
 
+        .add_startup_system(system_spawn_blocks)
+
         .add_startup_system(ball::spawn_ball)
 
         .add_startup_system(paddle::spawn_paddle)
@@ -74,6 +78,14 @@ fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
+
+const BLOCK_GAP: Real = BLOCK_WIDTH / 5.0;
+
+fn system_spawn_blocks(mut commands: Commands) {
+    for i in 0..5 {
+        spawn_block_row(&mut commands, 1, 0.0, i as Real * BLOCK_HEIGHT + BLOCK_GAP + BLOCK_HEIGHT, BLOCK_GAP, 7 );
+    }
+}
 
 fn sys_gamepad_info(
     gamepads: Res<Gamepads>,

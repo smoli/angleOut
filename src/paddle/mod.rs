@@ -8,16 +8,15 @@ use leafwing_input_manager::axislike::{DualAxis, DualAxisData};
 use bevy::math::{Quat, Vec2};
 use bevy_rapier2d::math::Real;
 use crate::actions::Action;
-use crate::config::{MAX_RESTITUTION, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H, SCREEN_HEIGHT_H, SCREEN_WIDTH_H};
+use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, MAX_RESTITUTION, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H, SCREEN_HEIGHT_H, SCREEN_WIDTH_H};
 
 
 #[derive(Component)]
 pub struct Paddle {
     target_position: Vec2,
     target_rotation: Real,
-    current_rotation: Real
+    current_rotation: Real,
 }
-
 
 
 pub fn spawn_paddle(mut commands: Commands) {
@@ -30,7 +29,7 @@ pub fn spawn_paddle(mut commands: Commands) {
         })
 
         .insert(Collider::cuboid(PADDLE_WIDTH_H, PADDLE_THICKNESS))
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, -SCREEN_HEIGHT_H + PADDLE_LIFT, 0.0)))
+        .insert(TransformBundle::from(Transform::from_xyz(0.0, -ARENA_HEIGHT_H + PADDLE_LIFT, 0.0)))
         .insert(Friction::coefficient(0.0))
         .insert(ColliderMassProperties::Density(20.0))
         .insert(ColliderMassProperties::MassProperties(MassProperties {
@@ -82,10 +81,10 @@ pub fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Acti
         let tx = if comp.length() < 0.2 {
             PADDLE_RESTING_X
         } else {
-            comp.x * (SCREEN_WIDTH_H - PADDLE_WIDTH_H - PADDLE_THICKNESS)
+            comp.x * (ARENA_WIDTH_H - PADDLE_WIDTH_H - PADDLE_THICKNESS)
         };
 
-        let ty = comp.y * PADDLE_LIFT - SCREEN_HEIGHT_H + PADDLE_LIFT;
+        let ty = comp.y * PADDLE_LIFT - ARENA_HEIGHT_H + PADDLE_LIFT;
 
         paddle.target_position = Vec2::new(tx, ty);
     }
@@ -94,7 +93,6 @@ pub fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Acti
 
 pub fn sys_update_paddle_position(time: Res<Time>, mut query: Query<(&mut Transform, &mut Paddle)>) {
     for (mut trans, mut paddle) in &mut query {
-
         let dp = paddle.target_position.extend(trans.translation.z) - trans.translation;
 
         let mut tp = paddle.target_position.extend(trans.translation.z);
@@ -112,6 +110,5 @@ pub fn sys_update_paddle_position(time: Res<Time>, mut query: Query<(&mut Transf
         }
         paddle.current_rotation = a;
         trans.rotation = Quat::from_rotation_z(-a);
-
     }
 }
