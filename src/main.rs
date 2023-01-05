@@ -14,21 +14,20 @@ use leafwing_input_manager::axislike::DualAxisData;
 use leafwing_input_manager::prelude::*;
 use leafwing_input_manager::prelude::DualAxis;
 
-const PIXELS_PER_METER:f32 = 100.0;
+const PIXELS_PER_METER: f32 = 100.0;
 
-const SCREEN_WIDTH:Real = 1000.0;
-const SCREEN_HEIGHT:Real = 500.0;
-const SCREEN_WIDTH_H:Real = SCREEN_WIDTH / 2.0;
-const SCREEN_HEIGHT_H:Real = 500.0 / 2.0;
+const SCREEN_WIDTH: Real = 1000.0;
+const SCREEN_HEIGHT: Real = 500.0;
+const SCREEN_WIDTH_H: Real = SCREEN_WIDTH / 2.0;
+const SCREEN_HEIGHT_H: Real = 500.0 / 2.0;
 const BALL_SIZE: Real = 10.0;
-const MAX_BALL_SPEED:Real = 500.0;
+const MAX_BALL_SPEED: Real = 500.0;
 const MAX_RESTITUTION: Real = 1.0;
 
 const PADDLE_WIDTH: Real = 150.0;
-const PADDLE_WIDTH_H:Real = PADDLE_WIDTH / 2.0;
+const PADDLE_WIDTH_H: Real = PADDLE_WIDTH / 2.0;
 const PADDLE_THICKNESS: Real = 10.0;
-const PADDLE_LIFT:Real = PADDLE_THICKNESS * 3.0;
-
+const PADDLE_LIFT: Real = PADDLE_THICKNESS * 3.0;
 
 
 // This is the list of "things in the game I want to be able to do based on input"
@@ -44,7 +43,11 @@ struct Ball {
 }
 
 #[derive(Component)]
-struct Paddle {}
+struct Paddle {
+    target_position: Vec2,
+    target_rotation: Real,
+    current_rotation: Real
+}
 
 fn main() {
     App::new()
@@ -87,6 +90,7 @@ fn main() {
         .add_system(sys_apply_force_to_ball_on_space)
 
         .add_system(sys_articulate_paddle)
+        .add_system(sys_update_paddle_position)
 
         .add_system(sys_limit_ball_velocity)
 
@@ -98,10 +102,13 @@ fn spawn_camera(mut commands: Commands) {
 }
 
 fn spawn_paddle(mut commands: Commands) {
-
     commands
         .spawn(RigidBody::KinematicPositionBased)
-        .insert(Paddle {})
+        .insert(Paddle {
+            target_position: Default::default(),
+            target_rotation: 0.0,
+            current_rotation: 0.0,
+        })
 
         .insert(Collider::cuboid(PADDLE_WIDTH_H, PADDLE_THICKNESS))
         .insert(TransformBundle::from(Transform::from_xyz(0.0, -SCREEN_HEIGHT_H + PADDLE_LIFT, 0.0)))
@@ -113,10 +120,10 @@ fn spawn_paddle(mut commands: Commands) {
             principal_inertia: 0.0,
 
         }))
-      /*  .insert(Velocity {
-            linvel: Vec2::new(0.0, 0.0),
-            angvel: 0.0,
-        })*/
+        /*  .insert(Velocity {
+              linvel: Vec2::new(0.0, 0.0),
+              angvel: 0.0,
+          })*/
         // .insert(Dominance::group(100))
         .insert(Restitution::coefficient(MAX_RESTITUTION))
 
@@ -206,42 +213,68 @@ fn sys_limit_ball_velocity(mut query: Query<&mut Velocity, With<Ball>>) {
     }
 }
 
-fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Action>), With<Paddle>>) {
-    for (mut trans, action_state) in &mut query {
+const PADDLE_RESTING_Y: Real = -SCREEN_HEIGHT_H + PADDLE_LIFT;
+const PADDLE_RESTING_X: Real = 0.0;
+const PADDLE_RESTING_ROTATION: Real = 0.0;
+
+fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Action>, &mut Paddle)>) {
+    for (mut trans, action_state, mut paddle) in &mut query {
         if !action_state.pressed(Action::ArticulateLeft) && !action_state.pressed(Action::ArticulateRight) {
-            trans.rotation = Quat::from_rotation_z(0.0);
-            trans.translation.x = 0.0;
-            trans.translation.y = -SCREEN_HEIGHT_H + PADDLE_LIFT;
-             return;
-         }
+            paddle.target_position = Vec2::new(PADDLE_RESTING_X, PADDLE_RESTING_Y);
+            paddle.target_rotation = PADDLE_RESTING_ROTATION;
+            return;
+        }
 
         let axis_pair_l: DualAxisData = action_state.clamped_axis_pair(Action::ArticulateLeft).unwrap();
         let axis_pair_r: DualAxisData = action_state.clamped_axis_pair(Action::ArticulateRight).unwrap();
 
         // Rotation
         let mut d = Vec2::new(-1.0, axis_pair_l.y()) - Vec2::new(1.0, axis_pair_r.y());
-        d = d.normalize();
 
-        let mut a = d.y.atan2(d.x);
-        if a.abs() < 0.1 { a = 0.0 }
+        let mut a = d.perp().angle_between(Vec2::new(0.0, -1.0));
+        if a.abs() < 0.1 { a = PADDLE_RESTING_ROTATION }
 
-        trans.rotation = Quat::from_rotation_z(a);
+        paddle.target_rotation = a;
 
 
         // Translation
         let comp = (axis_pair_l.xy() + axis_pair_r.xy()) * 0.5;
 
-        if comp.length() < 0.2 {
-            trans.translation.x = 0.0;
+        let tx = if comp.length() < 0.2 {
+            PADDLE_RESTING_X
         } else {
-            trans.translation.x = comp.x * (SCREEN_WIDTH_H - PADDLE_WIDTH_H - PADDLE_THICKNESS);
-        }
-            trans.translation.y = comp.y * PADDLE_LIFT - SCREEN_HEIGHT_H + PADDLE_LIFT;
+            comp.x * (SCREEN_WIDTH_H - PADDLE_WIDTH_H - PADDLE_THICKNESS)
+        };
 
+        let ty = comp.y * PADDLE_LIFT - SCREEN_HEIGHT_H + PADDLE_LIFT;
 
+        paddle.target_position = Vec2::new(tx, ty);
     }
 }
 
+const PADDLE_ROTATION_ACCEL:Real = 10.0;
+
+fn sys_update_paddle_position(time: Res<Time>, mut query: Query<(&mut Transform, &mut Paddle)>) {
+    for (mut trans, mut paddle) in &mut query {
+        // trans.translation = paddle.target_position.extend(trans.translation.y);
+
+        let dr = paddle.target_rotation - paddle.current_rotation;
+
+        let mut a = paddle.target_rotation;
+        if dr.abs() > 0.001 {
+            a = paddle.current_rotation + dr * time.delta_seconds() * PADDLE_ROTATION_ACCEL;
+        }
+
+
+        println!("C{}, T{} D{} A{}", paddle.current_rotation, paddle.target_rotation, dr, a);
+
+        paddle.current_rotation = a;
+
+        trans.rotation = Quat::from_rotation_z(-a);
+
+        // trans.rotation = Quat::from_rotation_z(paddle.target_rotation)
+    }
+}
 
 
 fn sys_gamepad_info(
