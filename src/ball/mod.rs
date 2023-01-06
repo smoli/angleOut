@@ -1,13 +1,14 @@
 use bevy::prelude::{Commands, Component, Entity, GamepadButtonType, KeyCode, Query, Res, Transform, TransformBundle, Vec3, With, Without};
 use bevy_rapier2d::dynamics::{ExternalImpulse, GravityScale, MassProperties, RigidBody, Velocity};
 use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution, Group};
-use bevy::math::Vec2;
+use bevy::math::{Quat, Vec2};
 use bevy::input::Input;
-use bevy_rapier2d::prelude::CollisionGroups;
+use bevy_rapier2d::math::Real;
+use bevy_rapier2d::prelude::{CollisionGroups, LockedAxes};
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::Action;
-use crate::config::{BALL_SIZE, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_THICKNESS};
+use crate::config::{BALL_SIZE, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_THICKNESS, SCREEN_HEIGHT_H};
 use crate::gamestate::GameState;
 
 
@@ -36,7 +37,7 @@ pub fn spawn_ball(mut commands: Commands) {
             principal_inertia: 0.0,
 
         }))
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 0.0)))
+        .insert(TransformBundle::from(Transform::from_xyz(0.0, SCREEN_HEIGHT_H, 0.0)))
         .insert(Velocity {
             linvel: Default::default(),
             angvel: 0.0,
@@ -52,36 +53,47 @@ pub fn spawn_ball(mut commands: Commands) {
                 .insert(GamepadButtonType::RightTrigger2, Action::LaunchBall)
                 .build(),
         })
-
-        .insert(CollisionGroups::new(COLLIDER_GROUP_BALL, COLLIDER_GROUP_ARENA | COLLIDER_GROUP_BLOCK))
+        .insert(LockedAxes::ROTATION_LOCKED)
+        .insert(CollisionGroups::new(COLLIDER_GROUP_BALL, COLLIDER_GROUP_ARENA))
     ;
 }
 
 pub fn sys_update_ball_collision_group_active(mut query: Query<&mut CollisionGroups, With<ActiveBall>>) {
     for mut col in &mut query {
-        col.filters = col.filters | COLLIDER_GROUP_PADDLE;
+        col.filters = col.filters | COLLIDER_GROUP_PADDLE | COLLIDER_GROUP_BLOCK;
     }
 }
 
 pub fn sys_update_inactive_ball(gamestate: Res<GameState>, mut query: Query<(&mut Transform, &mut CollisionGroups), (Without<ActiveBall>, With<Ball>)>) {
     for (mut trans, mut col) in &mut query {
         col.filters = col.filters & !COLLIDER_GROUP_PADDLE;
+        col.filters = col.filters & !COLLIDER_GROUP_BLOCK;
         trans.translation = gamestate.paddle_position.clone() + Vec3::new(0.0, PADDLE_THICKNESS + 1.5 * BALL_SIZE, 0.0);
     }
 }
 
 
-pub fn sys_launch_inactive_ball(mut commands: Commands, mut query: Query<(Entity, &ActionState<Action>, &mut ExternalImpulse), (Without<ActiveBall>, With<Ball>)>) {
-    for (ball, action, mut impluse) in &mut query {
-        if !action.pressed(Action::LaunchBall) { continue }
+pub fn determine_launch_impulse(angle: Real, value: Real) -> Vec2 {
+    let mut imp = Vec3::new(0.0, value, 0.0);
 
-        impluse.impulse = Vec2::new(0.0, 1000.0);
+    println!("Launch for {angle} {:?}", imp);
+
+    let r = Quat::from_rotation_z(-angle) * imp;
+
+    Vec2::new(r.x, r.y)
+}
+
+pub fn sys_launch_inactive_ball(gamestate: Res<GameState>, mut commands: Commands, mut query: Query<(Entity, &ActionState<Action>, &mut ExternalImpulse), (Without<ActiveBall>, With<Ball>)>) {
+    for (ball, action, mut impluse) in &mut query {
+        if !action.pressed(Action::LaunchBall) { continue; }
+
+
+        impluse.impulse = determine_launch_impulse(gamestate.paddle_rotation, 1000.0);
 
         commands.entity(ball)
             .insert(ActiveBall {});
     }
 }
-
 
 
 pub fn sys_limit_ball_velocity(mut query: Query<&mut Velocity, With<ActiveBall>>) {
@@ -90,7 +102,7 @@ pub fn sys_limit_ball_velocity(mut query: Query<&mut Velocity, With<ActiveBall>>
 
         if v > MAX_BALL_SPEED {
             velo.linvel = velo.linvel / v * MAX_BALL_SPEED;
-        } else if v < MIN_BALL_SPEED  {
+        } else if v < MIN_BALL_SPEED {
             velo.linvel = velo.linvel / v * MIN_BALL_SPEED;
         }
     }

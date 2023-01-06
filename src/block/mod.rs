@@ -3,9 +3,11 @@ use bevy_rapier2d::geometry::CollisionGroups;
 use bevy_rapier2d::prelude::{ActiveEvents, Collider, ContactForceEvent, Friction, Real, Restitution, RigidBody, Sensor};
 use bevy_rapier2d::rapier::prelude::{CollisionEvent, CollisionEventFlags};
 use crate::config::{BLOCK_HEIGHT_H, BLOCK_WIDTH_H, BLOCK_WIDTH, BLOCK_HEIGHT, MAX_RESTITUTION, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL};
+use crate::paddle::Paddle;
 
 
-pub struct BlockHitEvent(Entity);
+#[derive(Component, Debug)]
+pub struct BlockHitState;
 
 #[derive(Component, Debug)]
 pub struct Block {
@@ -24,7 +26,7 @@ pub fn spawn_block(commands: &mut Commands, hit_points: usize, x: Real, y: Real)
         .insert(Restitution::coefficient(MAX_RESTITUTION))
         .insert(Friction::coefficient(0.0))
         .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL))
-        .insert(ActiveEvents::CONTACT_FORCE_EVENTS)
+        .insert(ActiveEvents::COLLISION_EVENTS)
     ;
 }
 
@@ -46,20 +48,17 @@ pub fn spawn_block_row(commands: &mut Commands, hit_points: usize, cx: Real, y: 
     }
 }
 
-pub fn sys_handle_block_hit(mut commands: Commands, mut events: EventReader<ContactForceEvent>, mut query: Query<(Entity, &mut Block)>) {
-    for ev in events.iter() {
-        for (entity, mut block) in &mut query {
-            if entity == ev.collider1 {
-                println!("Block was hit(1)! {:?}", block)
-            } else if entity == ev.collider2 {
-                println!("Block was hit(2)! {:?}", block)
-            } else {
-                continue;
-            }
+pub fn sys_handle_block_hit(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Block), With<BlockHitState>>)
+{
+    for (entity, mut block) in &mut query {
 
-            commands.entity(entity)
-                .despawn();
-
+        block.hit_points -= 1;
+        if block.hit_points > 0 {
+            commands.entity(entity).remove::<BlockHitState>();
+        } else {
+            commands.entity(entity).despawn();
         }
     }
 }

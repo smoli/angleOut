@@ -1,4 +1,4 @@
-use bevy::prelude::{Commands, Component, Query, Res, ResMut, Time, Transform, TransformBundle};
+use bevy::prelude::{Commands, Component, Entity, Query, Res, ResMut, Time, Transform, TransformBundle, With};
 use bevy_rapier2d::dynamics::{MassProperties, RigidBody};
 use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution};
 use leafwing_input_manager::InputManagerBundle;
@@ -7,8 +7,10 @@ use leafwing_input_manager::input_map::InputMap;
 use leafwing_input_manager::axislike::{DualAxis, DualAxisData};
 use bevy::math::{Quat, Vec2};
 use bevy_rapier2d::math::Real;
-use bevy_rapier2d::prelude::CollisionGroups;
+use bevy_rapier2d::prelude::{ActiveEvents, CollisionGroups, ExternalImpulse};
 use crate::actions::Action;
+use crate::ball::{ActiveBall, determine_launch_impulse};
+use crate::block::BlockHitState;
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_PADDLE, MAX_RESTITUTION, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H, SCREEN_HEIGHT_H, SCREEN_WIDTH_H};
 use crate::gamestate::GameState;
 
@@ -54,6 +56,9 @@ pub fn spawn_paddle(mut commands: Commands) {
                 .insert(DualAxis::right_stick(), Action::ArticulateRight)
                 .build(),
         })
+
+        .insert(ActiveEvents::COLLISION_EVENTS)
+
         .insert(CollisionGroups::new(COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_BALL));
     ;
 }
@@ -117,5 +122,23 @@ pub fn sys_update_paddle_position(time: Res<Time>, mut gamestate: ResMut<GameSta
 
         gamestate.paddle_position = trans.translation.clone();
         gamestate.paddle_rotation = paddle.current_rotation;
+    }
+}
+
+
+// TODO: When we're having multiple balls this will put the impulse on all of them
+//       Not only those who are just now touching the paddle. We need to tag the ball
+//       as well and adjust the balls query below.
+pub fn sys_bounce_ball_from_paddle(
+    mut commands: Commands,
+    gamestate: Res<GameState>,
+    paddle: Query<(Entity, &BlockHitState), With<(Paddle)>>,
+    mut balls: Query<&mut ExternalImpulse, With<ActiveBall>>) {
+
+    for (paddle, _) in &paddle {
+        commands.entity(paddle).remove::<BlockHitState>();
+        for mut impulse in &mut balls {
+            impulse.impulse = determine_launch_impulse(gamestate.paddle_rotation, 1500.0);
+        }
     }
 }

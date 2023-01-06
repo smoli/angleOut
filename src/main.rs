@@ -8,12 +8,16 @@ mod gamestate;
 
 #[allow(unused_imports)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+use bevy::ecs::query::{QueryEntityError, ReadOnlyWorldQuery, WorldQuery};
 use bevy::ecs::system::WorldState;
 use bevy::prelude::*;
-use bevy::prelude::KeyCode::{Ax, V};
+use bevy::prelude::KeyCode::{Ax, B, V};
+use bevy::utils::tracing::event;
 use bevy::window::WindowResizeConstraints;
 use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_inspector_egui_rapier::InspectableRapierPlugin;
+use bevy_prototype_lyon::plugin::ShapePlugin;
+use bevy_prototype_lyon::prelude::{DrawMode, GeometryBuilder, Path, PathBuilder, StrokeMode};
 use bevy_rapier2d::na::point;
 use bevy_rapier2d::parry::math::AngularInertia;
 use bevy_rapier2d::prelude::*;
@@ -28,7 +32,8 @@ use block::{spawn_block, spawn_block_row};
 use ball::{sys_update_ball_collision_group_active, sys_update_inactive_ball};
 use gamestate::GameState;
 use crate::ball::sys_launch_inactive_ball;
-use crate::block::sys_handle_block_hit;
+use crate::block::{Block, BlockHitState, sys_handle_block_hit};
+use crate::paddle::{Paddle, sys_bounce_ball_from_paddle};
 
 fn main() {
     App::new()
@@ -58,6 +63,8 @@ fn main() {
         // .add_plugin(LogDiagnosticsPlugin::default())
         // .add_plugin(FrameTimeDiagnosticsPlugin::default())
 
+        .add_plugin(ShapePlugin)
+
         .add_plugin(InspectableRapierPlugin)
         .add_plugin(WorldInspectorPlugin::default())
 
@@ -74,6 +81,8 @@ fn main() {
         .add_startup_system(ball::spawn_ball)
 
         .add_startup_system(paddle::spawn_paddle)
+        .add_startup_system(spawn_paddle_normal)
+        .add_system(system_adjust_paddle_normal)
 
         .add_system(paddle::sys_articulate_paddle)
         .add_system(paddle::sys_update_paddle_position)
@@ -82,7 +91,8 @@ fn main() {
         .add_system(sys_update_ball_collision_group_active)
         .add_system(sys_update_inactive_ball)
         .add_system(sys_launch_inactive_ball)
-        // .add_system(display_events)
+        .add_system(sys_bounce_ball_from_paddle)
+        .add_system(handle_collision_events)
         .add_system(sys_handle_block_hit)
 
         .run();
@@ -94,7 +104,7 @@ fn spawn_camera(mut commands: Commands) {
 
 fn system_spawn_blocks(mut commands: Commands) {
     for i in 0..5 {
-        spawn_block_row(&mut commands, 1, 0.0, i as Real * (BLOCK_HEIGHT + BLOCK_GAP) + BLOCK_HEIGHT, BLOCK_GAP, 7 );
+        spawn_block_row(&mut commands, 1, 0.0, i as Real * (BLOCK_HEIGHT + BLOCK_GAP) + BLOCK_HEIGHT, BLOCK_GAP, 7);
     }
 }
 
@@ -131,17 +141,68 @@ fn sys_gamepad_info(
     }
 }
 
-/* A system that displays the events. */
-fn display_events(
+
+fn tag_collision_both<F: ReadOnlyWorldQuery>(
+    commands: &mut Commands,
+    event: &CollisionEvent,
+    query: &Query<Entity, F>,
+    tag: impl Component) -> bool
+{
+    match event {
+        CollisionEvent::Started(a, b, _) => {
+            match query.get(*a) {
+                Ok(e) => {
+                    commands.entity(e)
+                        .insert(tag);
+                    true
+                }
+                Err(_) => match query.get(*b) {
+                    Ok(e) => {
+                        commands.entity(e)
+                            .insert(tag);
+                        true
+                    }
+                    Err(_) => false
+                }
+            }
+        }
+        _ => false
+    }
+}
+
+fn handle_collision_events(
+    mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    mut contact_force_events: EventReader<ContactForceEvent>,
+    block: Query<Entity, With<Block>>,
+    paddle: Query<Entity, With<Paddle>>,
 ) {
     for collision_event in collision_events.iter() {
-        println!("Received collision event: {:?}", collision_event);
-        println!("{:?}", collision_event)
+        // println!("Received collision event: {:?}", collision_event);
+        // println!("{:?}", collision_event);
+
+        if tag_collision_both::<With<Block>>(&mut commands, collision_event, &block, BlockHitState {}) {
+            println!("Tagged Block");
+        } else if tag_collision_both::<With<Paddle>>(&mut commands, collision_event, &paddle, BlockHitState {}) {
+            println!("Tagged Paddle");
+        }
     }
 
-    for contact_force_event in contact_force_events.iter() {
-        println!("Received contact force event: {:?}", contact_force_event);
+}
+
+fn spawn_paddle_normal(mut commands: Commands) {
+    let mut path = PathBuilder::new();
+    path.move_to(Vec2::ZERO);
+    path.line_to(Vec2::new(0.0, 100.0));
+    let line = path.build();
+    commands.spawn(GeometryBuilder::build_as(
+        &line,
+        DrawMode::Stroke(StrokeMode::new(Color::LIME_GREEN, 10.0)),
+        Transform::default(),
+    ));
+}
+
+fn system_adjust_paddle_normal(gameState: Res<GameState>, mut paths: Query<&mut Transform, With<Path>>) {
+    for mut p in &mut paths {
+        p.rotation = Quat::from_rotation_z(-gameState.paddle_rotation);
     }
 }
