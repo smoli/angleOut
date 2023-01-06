@@ -115,7 +115,7 @@ pub fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Acti
 }
 
 
-pub fn sys_update_paddle_position(time: Res<Time>, mut gamestate: ResMut<PaddleState>, mut query: Query<(&mut Transform, &mut Paddle)>) {
+pub fn sys_update_paddle_position(time: Res<Time>, mut paddleState: ResMut<PaddleState>, mut query: Query<(&mut Transform, &mut Paddle)>) {
     for (mut trans, mut paddle) in &mut query {
         let dp = paddle.target_position.extend(trans.translation.z) - trans.translation;
 
@@ -135,8 +135,8 @@ pub fn sys_update_paddle_position(time: Res<Time>, mut gamestate: ResMut<PaddleS
         paddle.current_rotation = a;
         trans.rotation = Quat::from_rotation_z(-a);
 
-        gamestate.paddle_position = trans.translation.clone();
-        gamestate.paddle_rotation = paddle.current_rotation;
+        paddleState.paddle_position = trans.translation.clone();
+        paddleState.paddle_rotation = paddle.current_rotation;
     }
 }
 
@@ -146,14 +146,14 @@ pub fn sys_update_paddle_position(time: Res<Time>, mut gamestate: ResMut<PaddleS
 //       as well and adjust the balls query below.
 pub fn sys_bounce_ball_from_paddle(
     mut commands: Commands,
-    gamestate: Res<PaddleState>,
+    paddleState: Res<PaddleState>,
     paddle: Query<(Entity, &BlockHitState), With<(Paddle)>>,
     mut balls: Query<&mut ExternalImpulse, With<ActiveBall>>) {
 
     for (paddle, _) in &paddle {
         commands.entity(paddle).remove::<BlockHitState>();
         for mut impulse in &mut balls {
-            impulse.impulse = determine_launch_impulse(gamestate.paddle_rotation, 1500.0);
+            impulse.impulse = determine_launch_impulse(paddleState.paddle_rotation, 1500.0);
         }
     }
 }

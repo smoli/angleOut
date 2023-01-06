@@ -62,8 +62,7 @@ fn main() {
         }))
 
 
-        .add_plugin(InspectableRapierPlugin)
-        .add_plugin(WorldInspectorPlugin::default())
+        .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(PIXELS_PER_METER))
 
         .add_plugin(InputManagerPlugin::<Action>::default())
 
@@ -83,8 +82,9 @@ fn main() {
         /* Debug Stuff */
         // .add_plugin(LogDiagnosticsPlugin::default())
         // .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        // .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(PIXELS_PER_METER))
-        // .add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(RapierDebugRenderPlugin::default())
+        // .add_plugin(WorldInspectorPlugin::default())
+        // .add_plugin(InspectableRapierPlugin)
         // .add_plugin(ShapePlugin)
         // .add_startup_system(spawn_paddle_normal)
         // .add_system(system_adjust_paddle_normal)
@@ -180,7 +180,6 @@ fn handle_collision_events(
             println!("Tagged Paddle");
         }
     }
-
 }
 
 fn spawn_paddle_normal(mut commands: Commands) {
@@ -195,8 +194,8 @@ fn spawn_paddle_normal(mut commands: Commands) {
     ));
 }
 
-fn system_adjust_paddle_normal(gameState: Res<PaddleState>, mut paths: Query<&mut Transform, With<Path>>) {
+fn system_adjust_paddle_normal(paddleState: Res<PaddleState>, mut paths: Query<&mut Transform, With<Path>>) {
     for mut p in &mut paths {
-        p.rotation = Quat::from_rotation_z(-gameState.paddle_rotation);
+        p.rotation = Quat::from_rotation_z(-paddleState.paddle_rotation);
     }
 }

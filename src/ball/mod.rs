@@ -82,11 +82,11 @@ pub fn sys_update_ball_collision_group_active(mut query: Query<&mut CollisionGro
     }
 }
 
-pub fn sys_update_inactive_ball(gamestate: Res<PaddleState>, mut query: Query<(&mut Transform, &mut CollisionGroups), (Without<ActiveBall>, With<Ball>)>) {
+pub fn sys_update_inactive_ball(paddleState: Res<PaddleState>, mut query: Query<(&mut Transform, &mut CollisionGroups), (Without<ActiveBall>, With<Ball>)>) {
     for (mut trans, mut col) in &mut query {
         col.filters = col.filters & !COLLIDER_GROUP_PADDLE;
         col.filters = col.filters & !COLLIDER_GROUP_BLOCK;
-        trans.translation = gamestate.paddle_position.clone() + Vec3::new(0.0, PADDLE_THICKNESS + 1.5 * BALL_SIZE, 0.0);
+        trans.translation = paddleState.paddle_position.clone() + Vec3::new(0.0, PADDLE_THICKNESS + 1.5 * BALL_SIZE, 0.0);
     }
 }
 
@@ -101,12 +101,12 @@ pub fn determine_launch_impulse(angle: Real, value: Real) -> Vec2 {
     Vec2::new(r.x, r.y)
 }
 
-pub fn sys_launch_inactive_ball(gamestate: Res<PaddleState>, mut commands: Commands, mut query: Query<(Entity, &ActionState<Action>, &mut ExternalImpulse), (Without<ActiveBall>, With<Ball>)>) {
+pub fn sys_launch_inactive_ball(paddleState: Res<PaddleState>, mut commands: Commands, mut query: Query<(Entity, &ActionState<Action>, &mut ExternalImpulse), (Without<ActiveBall>, With<Ball>)>) {
     for (ball, action, mut impluse) in &mut query {
         if !action.pressed(Action::LaunchBall) { continue; }
 
 
-        impluse.impulse = determine_launch_impulse(gamestate.paddle_rotation, 1000.0);
+        impluse.impulse = determine_launch_impulse(paddleState.paddle_rotation, 1000.0);
 
         commands.entity(ball)
             .insert(ActiveBall {});
