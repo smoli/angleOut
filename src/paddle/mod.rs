@@ -13,7 +13,7 @@ use crate::actions::Action;
 use crate::ball::{ActiveBall, determine_launch_impulse};
 use crate::block::BlockHitState;
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_PADDLE, MAX_RESTITUTION, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H, SCREEN_HEIGHT_H, SCREEN_WIDTH_H};
-use crate::gamestate::GameState;
+use crate::paddle_state::PaddleState;
 
 
 #[derive(Component)]
@@ -115,7 +115,7 @@ pub fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Acti
 }
 
 
-pub fn sys_update_paddle_position(time: Res<Time>, mut gamestate: ResMut<GameState>, mut query: Query<(&mut Transform, &mut Paddle)>) {
+pub fn sys_update_paddle_position(time: Res<Time>, mut gamestate: ResMut<PaddleState>, mut query: Query<(&mut Transform, &mut Paddle)>) {
     for (mut trans, mut paddle) in &mut query {
         let dp = paddle.target_position.extend(trans.translation.z) - trans.translation;
 
@@ -146,7 +146,7 @@ pub fn sys_update_paddle_position(time: Res<Time>, mut gamestate: ResMut<GameSta
 //       as well and adjust the balls query below.
 pub fn sys_bounce_ball_from_paddle(
     mut commands: Commands,
-    gamestate: Res<GameState>,
+    gamestate: Res<PaddleState>,
     paddle: Query<(Entity, &BlockHitState), With<(Paddle)>>,
     mut balls: Query<&mut ExternalImpulse, With<ActiveBall>>) {
 

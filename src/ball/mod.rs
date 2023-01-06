@@ -10,7 +10,7 @@ use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::Action;
 use crate::config::{BALL_SIZE, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_THICKNESS, SCREEN_HEIGHT_H};
-use crate::gamestate::GameState;
+use crate::paddle_state::PaddleState;
 
 
 #[derive(Component)]
@@ -82,7 +82,7 @@ pub fn sys_update_ball_collision_group_active(mut query: Query<&mut CollisionGro
     }
 }
 
-pub fn sys_update_inactive_ball(gamestate: Res<GameState>, mut query: Query<(&mut Transform, &mut CollisionGroups), (Without<ActiveBall>, With<Ball>)>) {
+pub fn sys_update_inactive_ball(gamestate: Res<PaddleState>, mut query: Query<(&mut Transform, &mut CollisionGroups), (Without<ActiveBall>, With<Ball>)>) {
     for (mut trans, mut col) in &mut query {
         col.filters = col.filters & !COLLIDER_GROUP_PADDLE;
         col.filters = col.filters & !COLLIDER_GROUP_BLOCK;
@@ -101,7 +101,7 @@ pub fn determine_launch_impulse(angle: Real, value: Real) -> Vec2 {
     Vec2::new(r.x, r.y)
 }
 
-pub fn sys_launch_inactive_ball(gamestate: Res<GameState>, mut commands: Commands, mut query: Query<(Entity, &ActionState<Action>, &mut ExternalImpulse), (Without<ActiveBall>, With<Ball>)>) {
+pub fn sys_launch_inactive_ball(gamestate: Res<PaddleState>, mut commands: Commands, mut query: Query<(Entity, &ActionState<Action>, &mut ExternalImpulse), (Without<ActiveBall>, With<Ball>)>) {
     for (ball, action, mut impluse) in &mut query {
         if !action.pressed(Action::LaunchBall) { continue; }
 

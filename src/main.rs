@@ -4,7 +4,7 @@ mod arena;
 mod config;
 mod actions;
 mod block;
-mod gamestate;
+mod paddle_state;
 
 #[allow(unused_imports)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -30,14 +30,14 @@ use actions::Action;
 use config::{BLOCK_GAP, BLOCK_HEIGHT, BLOCK_WIDTH, PIXELS_PER_METER, SCREEN_HEIGHT, SCREEN_HEIGHT_H, SCREEN_WIDTH, SCREEN_WIDTH_H};
 use block::{spawn_block, spawn_block_row};
 use ball::{sys_update_ball_collision_group_active, sys_update_inactive_ball};
-use gamestate::GameState;
+use paddle_state::PaddleState;
 use crate::ball::{BallPlugin, sys_launch_inactive_ball};
 use crate::block::{Block, BlockHitState, sys_handle_block_hit};
 use crate::paddle::{Paddle, PaddlePlugin, sys_bounce_ball_from_paddle};
 
 fn main() {
     App::new()
-        .insert_resource(GameState {
+        .insert_resource(PaddleState {
             paddle_rotation: 0.0,
             paddle_position: Default::default(),
         })
@@ -83,11 +83,11 @@ fn main() {
         /* Debug Stuff */
         // .add_plugin(LogDiagnosticsPlugin::default())
         // .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(ShapePlugin)
-        .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(PIXELS_PER_METER))
-        .add_plugin(RapierDebugRenderPlugin::default())
-        .add_startup_system(spawn_paddle_normal)
-        .add_system(system_adjust_paddle_normal)
+        // .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(PIXELS_PER_METER))
+        // .add_plugin(RapierDebugRenderPlugin::default())
+        // .add_plugin(ShapePlugin)
+        // .add_startup_system(spawn_paddle_normal)
+        // .add_system(system_adjust_paddle_normal)
 
         .run();
 }
@@ -195,7 +195,7 @@ fn spawn_paddle_normal(mut commands: Commands) {
     ));
 }
 
-fn system_adjust_paddle_normal(gameState: Res<GameState>, mut paths: Query<&mut Transform, With<Path>>) {
+fn system_adjust_paddle_normal(gameState: Res<PaddleState>, mut paths: Query<&mut Transform, With<Path>>) {
     for mut p in &mut paths {
         p.rotation = Quat::from_rotation_z(-gameState.paddle_rotation);
     }
