@@ -13,7 +13,7 @@ use crate::actions::Action;
 use crate::ball::{ActiveBall, determine_launch_impulse};
 use crate::block::BlockHitState;
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_PADDLE, MAX_RESTITUTION, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H, SCREEN_HEIGHT_H, SCREEN_WIDTH_H};
-use crate::paddle_state::PaddleState;
+use crate::states::PaddleState;
 
 
 #[derive(Component)]

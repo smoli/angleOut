@@ -4,7 +4,8 @@ mod arena;
 mod config;
 mod actions;
 mod block;
-mod paddle_state;
+mod states;
+mod ui;
 
 #[allow(unused_imports)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -30,16 +31,24 @@ use actions::Action;
 use config::{BLOCK_GAP, BLOCK_HEIGHT, BLOCK_WIDTH, PIXELS_PER_METER, SCREEN_HEIGHT, SCREEN_HEIGHT_H, SCREEN_WIDTH, SCREEN_WIDTH_H};
 use block::{spawn_block, spawn_block_row};
 use ball::{sys_update_ball_collision_group_active, sys_update_inactive_ball};
-use paddle_state::PaddleState;
+use states::PaddleState;
 use crate::ball::{BallPlugin, sys_launch_inactive_ball};
 use crate::block::{Block, BlockHitState, sys_handle_block_hit};
 use crate::paddle::{Paddle, PaddlePlugin, sys_bounce_ball_from_paddle};
+use crate::states::GameState;
+use crate::ui::UIStatsPlugin;
 
 fn main() {
     App::new()
         .insert_resource(PaddleState {
             paddle_rotation: 0.0,
             paddle_position: Default::default(),
+        })
+
+        .insert_resource(GameState {
+            running: false,
+            blocks: 0,
+            points: 0,
         })
 
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
@@ -79,6 +88,9 @@ fn main() {
         .add_system(handle_collision_events)
         .add_system(sys_handle_block_hit)
 
+        /* UI */
+        .add_plugin(UIStatsPlugin)
+
         /* Debug Stuff */
         // .add_plugin(LogDiagnosticsPlugin::default())
         // .add_plugin(FrameTimeDiagnosticsPlugin::default())
@@ -96,10 +108,12 @@ fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn system_spawn_blocks(mut commands: Commands) {
+fn system_spawn_blocks(mut gameState: ResMut<GameState>, mut commands: Commands) {
     for i in 0..5 {
         spawn_block_row(&mut commands, 1, 0.0, i as Real * (BLOCK_HEIGHT + BLOCK_GAP) + BLOCK_HEIGHT, BLOCK_GAP, 7);
     }
+
+    gameState.addBlocks(5 * 7);
 }
 
 fn sys_gamepad_info(

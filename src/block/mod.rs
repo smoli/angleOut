@@ -1,9 +1,10 @@
-use bevy::prelude::{Commands, Component, Entity, EventReader, KeyCode, Query, Res, Transform, TransformBundle, With};
+use bevy::prelude::{Commands, Component, Entity, EventReader, KeyCode, Query, Res, ResMut, Transform, TransformBundle, With};
 use bevy_rapier2d::geometry::CollisionGroups;
 use bevy_rapier2d::prelude::{ActiveEvents, Collider, ContactForceEvent, Friction, Real, Restitution, RigidBody, Sensor};
 use bevy_rapier2d::rapier::prelude::{CollisionEvent, CollisionEventFlags};
 use crate::config::{BLOCK_HEIGHT_H, BLOCK_WIDTH_H, BLOCK_WIDTH, BLOCK_HEIGHT, MAX_RESTITUTION, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL};
 use crate::paddle::Paddle;
+use crate::states::GameState;
 
 
 #[derive(Component, Debug)]
@@ -41,7 +42,6 @@ pub fn spawn_block_row(commands: &mut Commands, hit_points: usize, cx: Real, y: 
         x += gap * 1.5;
     }
 
-    println!("cx: {cx}  count: {count} gap: {gap} width: {BLOCK_WIDTH} -> x: {x}");
     for i in 0..count {
         spawn_block(commands, hit_points, x, y);
         x += BLOCK_WIDTH + gap;
@@ -49,6 +49,7 @@ pub fn spawn_block_row(commands: &mut Commands, hit_points: usize, cx: Real, y: 
 }
 
 pub fn sys_handle_block_hit(
+    mut gameState: ResMut<GameState>,
     mut commands: Commands,
     mut query: Query<(Entity, &mut Block), With<BlockHitState>>)
 {
@@ -59,6 +60,8 @@ pub fn sys_handle_block_hit(
             commands.entity(entity).remove::<BlockHitState>();
         } else {
             commands.entity(entity).despawn();
+            gameState.subBlocks(1);
         }
     }
+
 }

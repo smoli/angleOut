@@ -10,7 +10,7 @@ use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::Action;
 use crate::config::{BALL_SIZE, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_THICKNESS, SCREEN_HEIGHT_H};
-use crate::paddle_state::PaddleState;
+use crate::states::PaddleState;
 
 
 #[derive(Component)]
