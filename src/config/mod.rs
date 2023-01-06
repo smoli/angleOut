@@ -15,8 +15,8 @@ pub const MAX_RESTITUTION: Real = 1.0;
 
 pub const PADDLE_WIDTH: Real = 150.0;
 pub const PADDLE_WIDTH_H: Real = PADDLE_WIDTH / 2.0;
-pub const PADDLE_THICKNESS: Real = 10.0;
-pub const PADDLE_LIFT: Real = PADDLE_THICKNESS * 3.0;
+pub const PADDLE_THICKNESS: Real = 78.0 / 2.0;
+pub const PADDLE_LIFT: Real = PADDLE_THICKNESS * 1.0;
 
 pub const PADDLE_ROTATION_ACCEL:Real = 5.0;
 pub const PADDLE_POSITION_ACCEL:Real = 5.0;

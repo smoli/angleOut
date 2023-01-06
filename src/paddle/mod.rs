@@ -1,6 +1,6 @@
 use bevy::app::{App, Plugin};
 use bevy::audio::Audio;
-use bevy::prelude::{AssetServer, Commands, Component, Entity, Query, Res, ResMut, Time, Transform, TransformBundle, With};
+use bevy::prelude::{AssetServer, Commands, Component, Entity, Query, Res, ResMut, SpriteBundle, Time, Transform, TransformBundle, With};
 use bevy_rapier2d::dynamics::{MassProperties, RigidBody};
 use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution};
 use leafwing_input_manager::InputManagerBundle;
@@ -8,6 +8,7 @@ use leafwing_input_manager::action_state::ActionState;
 use leafwing_input_manager::input_map::InputMap;
 use leafwing_input_manager::axislike::{DualAxis, DualAxisData};
 use bevy::math::{Quat, Vec2, Vec3};
+use bevy::utils::default;
 use bevy_rapier2d::math::Real;
 use bevy_rapier2d::prelude::{ActiveEvents, CollisionGroups, ExternalImpulse};
 use crate::actions::Action;
@@ -39,13 +40,18 @@ impl Plugin for PaddlePlugin {
 }
 
 
-fn spawn_paddle(mut commands: Commands) {
+fn spawn_paddle(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(RigidBody::KinematicPositionBased)
         .insert(Paddle {
             target_position: Default::default(),
             target_rotation: 0.0,
             current_rotation: 0.0,
+        })
+
+        .insert(SpriteBundle {
+            texture: asset_server.load("shiprender.png"),
+            ..default()
         })
 
         .insert(Collider::cuboid(PADDLE_WIDTH_H, PADDLE_THICKNESS))
