@@ -31,9 +31,9 @@ use config::{BLOCK_GAP, BLOCK_HEIGHT, BLOCK_WIDTH, PIXELS_PER_METER, SCREEN_HEIG
 use block::{spawn_block, spawn_block_row};
 use ball::{sys_update_ball_collision_group_active, sys_update_inactive_ball};
 use gamestate::GameState;
-use crate::ball::sys_launch_inactive_ball;
+use crate::ball::{BallPlugin, sys_launch_inactive_ball};
 use crate::block::{Block, BlockHitState, sys_handle_block_hit};
-use crate::paddle::{Paddle, sys_bounce_ball_from_paddle};
+use crate::paddle::{Paddle, PaddlePlugin, sys_bounce_ball_from_paddle};
 
 fn main() {
     App::new()
@@ -60,40 +60,34 @@ fn main() {
             },
             ..default()
         }))
-        // .add_plugin(LogDiagnosticsPlugin::default())
-        // .add_plugin(FrameTimeDiagnosticsPlugin::default())
 
-        .add_plugin(ShapePlugin)
 
         .add_plugin(InspectableRapierPlugin)
         .add_plugin(WorldInspectorPlugin::default())
 
         .add_plugin(InputManagerPlugin::<Action>::default())
 
-        .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(PIXELS_PER_METER))
-        .add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(BallPlugin)
+        .add_plugin(PaddlePlugin)
+
         .add_startup_system(spawn_camera)
 
         .add_startup_system(arena::spawn_arena)
 
         .add_startup_system(system_spawn_blocks)
 
-        .add_startup_system(ball::spawn_ball)
 
-        .add_startup_system(paddle::spawn_paddle)
-        .add_startup_system(spawn_paddle_normal)
-        .add_system(system_adjust_paddle_normal)
-
-        .add_system(paddle::sys_articulate_paddle)
-        .add_system(paddle::sys_update_paddle_position)
-
-        .add_system(ball::sys_limit_ball_velocity)
-        .add_system(sys_update_ball_collision_group_active)
-        .add_system(sys_update_inactive_ball)
-        .add_system(sys_launch_inactive_ball)
-        .add_system(sys_bounce_ball_from_paddle)
         .add_system(handle_collision_events)
         .add_system(sys_handle_block_hit)
+
+        /* Debug Stuff */
+        // .add_plugin(LogDiagnosticsPlugin::default())
+        // .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(ShapePlugin)
+        .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(PIXELS_PER_METER))
+        .add_plugin(RapierDebugRenderPlugin::default())
+        .add_startup_system(spawn_paddle_normal)
+        .add_system(system_adjust_paddle_normal)
 
         .run();
 }

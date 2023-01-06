@@ -1,4 +1,5 @@
-use bevy::prelude::{Commands, Component, Entity, GamepadButtonType, KeyCode, Query, Res, Transform, TransformBundle, Vec3, With, Without};
+use bevy::app::App;
+use bevy::prelude::{Commands, Component, Entity, GamepadButtonType, KeyCode, Plugin, Query, Res, Transform, TransformBundle, Vec3, With, Without};
 use bevy_rapier2d::dynamics::{ExternalImpulse, GravityScale, MassProperties, RigidBody, Velocity};
 use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution, Group};
 use bevy::math::{Quat, Vec2};
@@ -21,6 +22,23 @@ pub struct ActiveBall;
 #[derive(Component)]
 pub struct InactiveBall;
 
+
+pub struct BallPlugin;
+
+impl Plugin for BallPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_startup_system(spawn_ball)
+
+            .add_system(sys_update_ball_collision_group_active)
+            .add_system(sys_update_inactive_ball)
+
+            .add_system(sys_launch_inactive_ball)
+            .add_system(sys_limit_ball_velocity)
+        ;
+    }
+    
+}
 
 pub fn spawn_ball(mut commands: Commands) {
     commands

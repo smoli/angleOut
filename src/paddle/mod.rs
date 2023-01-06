@@ -1,3 +1,4 @@
+use bevy::app::{App, Plugin};
 use bevy::prelude::{Commands, Component, Entity, Query, Res, ResMut, Time, Transform, TransformBundle, With};
 use bevy_rapier2d::dynamics::{MassProperties, RigidBody};
 use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution};
@@ -20,6 +21,20 @@ pub struct Paddle {
     target_position: Vec2,
     target_rotation: Real,
     current_rotation: Real,
+}
+
+pub struct PaddlePlugin;
+
+impl Plugin for PaddlePlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_startup_system(spawn_paddle)
+            .add_system(sys_articulate_paddle)
+            .add_system(sys_articulate_paddle)
+            .add_system(sys_update_paddle_position)
+            .add_system(sys_bounce_ball_from_paddle)
+        ;
+    }
 }
 
 
