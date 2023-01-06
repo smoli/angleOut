@@ -34,7 +34,7 @@ use ball::{sys_update_ball_collision_group_active, sys_update_inactive_ball};
 use states::PaddleState;
 use crate::ball::{BallPlugin, sys_launch_inactive_ball};
 use crate::block::{Block, BlockHitState, sys_handle_block_hit};
-use crate::paddle::{Paddle, PaddlePlugin, sys_bounce_ball_from_paddle};
+use crate::paddle::{Paddle, PaddlePlugin};
 use crate::states::GameState;
 use crate::ui::UIStatsPlugin;
 

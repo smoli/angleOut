@@ -6,13 +6,13 @@ use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::action_state::ActionState;
 use leafwing_input_manager::input_map::InputMap;
 use leafwing_input_manager::axislike::{DualAxis, DualAxisData};
-use bevy::math::{Quat, Vec2};
+use bevy::math::{Quat, Vec2, Vec3};
 use bevy_rapier2d::math::Real;
 use bevy_rapier2d::prelude::{ActiveEvents, CollisionGroups, ExternalImpulse};
 use crate::actions::Action;
 use crate::ball::{ActiveBall, determine_launch_impulse};
 use crate::block::BlockHitState;
-use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_PADDLE, MAX_RESTITUTION, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H, SCREEN_HEIGHT_H, SCREEN_WIDTH_H};
+use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_PADDLE, MAX_RESTITUTION, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H, SCREEN_HEIGHT_H, SCREEN_WIDTH_H};
 use crate::states::PaddleState;
 
 
@@ -38,7 +38,7 @@ impl Plugin for PaddlePlugin {
 }
 
 
-pub fn spawn_paddle(mut commands: Commands) {
+fn spawn_paddle(mut commands: Commands) {
     commands
         .spawn(RigidBody::KinematicPositionBased)
         .insert(Paddle {
@@ -79,7 +79,7 @@ pub fn spawn_paddle(mut commands: Commands) {
 }
 
 
-pub fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Action>, &mut Paddle)>) {
+fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Action>, &mut Paddle)>) {
     for (mut trans, action_state, mut paddle) in &mut query {
         if !action_state.pressed(Action::ArticulateLeft) && !action_state.pressed(Action::ArticulateRight) {
             paddle.target_position = Vec2::new(PADDLE_RESTING_X, PADDLE_RESTING_Y);
@@ -105,7 +105,7 @@ pub fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Acti
         let tx = if comp.length() < 0.2 {
             PADDLE_RESTING_X
         } else {
-            comp.x * (ARENA_WIDTH_H - PADDLE_WIDTH_H - PADDLE_THICKNESS)
+            comp.x * (ARENA_WIDTH - PADDLE_WIDTH_H - PADDLE_THICKNESS)
         };
 
         let ty = comp.y * PADDLE_LIFT - ARENA_HEIGHT_H + PADDLE_LIFT;
@@ -115,14 +115,16 @@ pub fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Acti
 }
 
 
-pub fn sys_update_paddle_position(time: Res<Time>, mut paddleState: ResMut<PaddleState>, mut query: Query<(&mut Transform, &mut Paddle)>) {
+fn sys_update_paddle_position(time: Res<Time>, mut paddleState: ResMut<PaddleState>, mut query: Query<(&mut Transform, &mut Paddle)>) {
     for (mut trans, mut paddle) in &mut query {
         let dp = paddle.target_position.extend(trans.translation.z) - trans.translation;
 
-        let mut tp = paddle.target_position.extend(trans.translation.z);
+        let mut tp:Vec3 = paddle.target_position.extend(trans.translation.z);
         if dp.length() > 0.01 {
             tp = trans.translation + dp * time.delta_seconds() * PADDLE_POSITION_ACCEL;
         }
+
+        tp.x = tp.x.clamp(PADDLE_WIDTH_H - ARENA_WIDTH_H, ARENA_WIDTH_H - PADDLE_WIDTH_H);
 
         trans.translation = tp;
 
@@ -144,7 +146,7 @@ pub fn sys_update_paddle_position(time: Res<Time>, mut paddleState: ResMut<Paddl
 // TODO: When we're having multiple balls this will put the impulse on all of them
 //       Not only those who are just now touching the paddle. We need to tag the ball
 //       as well and adjust the balls query below.
-pub fn sys_bounce_ball_from_paddle(
+fn sys_bounce_ball_from_paddle(
     mut commands: Commands,
     paddleState: Res<PaddleState>,
     paddle: Query<(Entity, &BlockHitState), With<(Paddle)>>,

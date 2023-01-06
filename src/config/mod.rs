@@ -19,7 +19,7 @@ pub const PADDLE_THICKNESS: Real = 10.0;
 pub const PADDLE_LIFT: Real = PADDLE_THICKNESS * 3.0;
 
 pub const PADDLE_ROTATION_ACCEL:Real = 5.0;
-pub const PADDLE_POSITION_ACCEL:Real = 10.0;
+pub const PADDLE_POSITION_ACCEL:Real = 5.0;
 
 pub const PADDLE_RESTING_Y: Real = -SCREEN_HEIGHT_H + PADDLE_LIFT;
 pub const PADDLE_RESTING_X: Real = 0.0;
