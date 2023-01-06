@@ -1,5 +1,6 @@
 use bevy::app::{App, Plugin};
-use bevy::prelude::{Commands, Component, Entity, Query, Res, ResMut, Time, Transform, TransformBundle, With};
+use bevy::audio::Audio;
+use bevy::prelude::{AssetServer, Commands, Component, Entity, Query, Res, ResMut, Time, Transform, TransformBundle, With};
 use bevy_rapier2d::dynamics::{MassProperties, RigidBody};
 use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution};
 use leafwing_input_manager::InputManagerBundle;
@@ -150,12 +151,18 @@ fn sys_bounce_ball_from_paddle(
     mut commands: Commands,
     paddleState: Res<PaddleState>,
     paddle: Query<(Entity, &BlockHitState), With<(Paddle)>>,
-    mut balls: Query<&mut ExternalImpulse, With<ActiveBall>>) {
+    mut balls: Query<&mut ExternalImpulse, With<ActiveBall>>,
+    asset_server: Res<AssetServer>,
+    audio: Res<Audio>
+) {
 
     for (paddle, _) in &paddle {
         commands.entity(paddle).remove::<BlockHitState>();
         for mut impulse in &mut balls {
             impulse.impulse = determine_launch_impulse(paddleState.paddle_rotation, 1500.0);
+
+            let thump = asset_server.load("impactMetal_002.ogg");
+            audio.play(thump);
         }
     }
 }

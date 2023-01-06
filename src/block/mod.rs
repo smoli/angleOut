@@ -1,4 +1,4 @@
-use bevy::prelude::{Commands, Component, Entity, EventReader, KeyCode, Query, Res, ResMut, Transform, TransformBundle, With};
+use bevy::prelude::{AssetServer, Audio, Commands, Component, Entity, EventReader, KeyCode, Query, Res, ResMut, Transform, TransformBundle, With};
 use bevy_rapier2d::geometry::CollisionGroups;
 use bevy_rapier2d::prelude::{ActiveEvents, Collider, ContactForceEvent, Friction, Real, Restitution, RigidBody, Sensor};
 use bevy_rapier2d::rapier::prelude::{CollisionEvent, CollisionEventFlags};
@@ -51,7 +51,10 @@ pub fn spawn_block_row(commands: &mut Commands, hit_points: usize, cx: Real, y: 
 pub fn sys_handle_block_hit(
     mut gameState: ResMut<GameState>,
     mut commands: Commands,
-    mut query: Query<(Entity, &mut Block), With<BlockHitState>>)
+    mut query: Query<(Entity, &mut Block), With<BlockHitState>>,
+    asset_server: Res<AssetServer>,
+    audio: Res<Audio>
+)
 {
     for (entity, mut block) in &mut query {
 
@@ -61,6 +64,8 @@ pub fn sys_handle_block_hit(
         } else {
             commands.entity(entity).despawn();
             gameState.subBlocks(1);
+            let boom = asset_server.load("explosionCrunch_000.ogg");
+            audio.play(boom);
         }
     }
 
