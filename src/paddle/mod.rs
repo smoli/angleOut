@@ -15,7 +15,7 @@ use crate::actions::Action;
 use crate::ball::{ActiveBall, determine_launch_impulse};
 use crate::block::BlockHitState;
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_PADDLE, MAX_RESTITUTION, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H, SCREEN_HEIGHT_H, SCREEN_WIDTH_H};
-use crate::states::PaddleState;
+use crate::states::{GameState, PaddleState};
 
 
 #[derive(Component)]
@@ -155,7 +155,8 @@ fn sys_update_paddle_position(time: Res<Time>, mut paddleState: ResMut<PaddleSta
 //       as well and adjust the balls query below.
 fn sys_bounce_ball_from_paddle(
     mut commands: Commands,
-    paddleState: Res<PaddleState>,
+    paddle_state: Res<PaddleState>,
+    mut game_state: ResMut<GameState>,
     paddle: Query<(Entity, &BlockHitState), With<(Paddle)>>,
     mut balls: Query<&mut ExternalImpulse, With<ActiveBall>>,
     asset_server: Res<AssetServer>,
@@ -165,10 +166,11 @@ fn sys_bounce_ball_from_paddle(
     for (paddle, _) in &paddle {
         commands.entity(paddle).remove::<BlockHitState>();
         for mut impulse in &mut balls {
-            impulse.impulse = determine_launch_impulse(paddleState.paddle_rotation, 1500.0);
+            impulse.impulse = determine_launch_impulse(paddle_state.paddle_rotation, 1500.0);
 
             let thump = asset_server.load("impactMetal_002.ogg");
             audio.play(thump);
+            game_state.addPaddleBounce();
         }
     }
 }

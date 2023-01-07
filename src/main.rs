@@ -48,7 +48,9 @@ fn main() {
         .insert_resource(GameState {
             running: false,
             blocks: 0,
+            paddle_bounces: 0,
             points: 0,
+            
         })
 
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))

@@ -12,6 +12,7 @@ pub struct PaddleState {
 pub struct GameState {
     pub running: bool,
     pub blocks: usize,
+    pub paddle_bounces: usize,
     pub points: u32
 }
 
@@ -27,6 +28,10 @@ impl GameState {
             self.blocks = 0;
             println!("Block count underflow!");
         }
+    }
+
+    pub fn addPaddleBounce(&mut self) {
+        self.paddle_bounces += 1;
     }
 }
 
