@@ -4,7 +4,7 @@ use bevy_rapier2d::prelude::{ActiveEvents, Collider, ContactForceEvent, Friction
 use bevy_rapier2d::rapier::prelude::{CollisionEvent, CollisionEventFlags};
 use crate::config::{BLOCK_HEIGHT_H, BLOCK_WIDTH_H, BLOCK_WIDTH, BLOCK_HEIGHT, MAX_RESTITUTION, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL};
 use crate::paddle::Paddle;
-use crate::states::GameState;
+use crate::states::MatchState;
 
 
 #[derive(Component, Debug)]
@@ -53,7 +53,7 @@ pub fn spawn_block_row(commands: &mut Commands, asset_server: &Res<AssetServer>,
 }
 
 pub fn sys_handle_block_hit(
-    mut gameState: ResMut<GameState>,
+    mut match_state: ResMut<MatchState>,
     mut commands: Commands,
     mut query: Query<(Entity, &mut Block), With<BlockHitState>>,
     asset_server: Res<AssetServer>,
@@ -67,7 +67,7 @@ pub fn sys_handle_block_hit(
             commands.entity(entity).remove::<BlockHitState>();
         } else {
             commands.entity(entity).despawn();
-            gameState.subBlocks(1);
+            match_state.subBlocks(1);
             let boom = asset_server.load("explosionCrunch_000.ogg");
             audio.play(boom);
         }

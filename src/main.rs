@@ -35,7 +35,7 @@ use states::PaddleState;
 use crate::ball::{BallPlugin, sys_launch_inactive_ball};
 use crate::block::{Block, BlockHitState, sys_handle_block_hit};
 use crate::paddle::{Paddle, PaddlePlugin};
-use crate::states::GameState;
+use crate::states::MatchState;
 use crate::ui::UIStatsPlugin;
 
 fn main() {
@@ -45,7 +45,7 @@ fn main() {
             paddle_position: Default::default(),
         })
 
-        .insert_resource(GameState {
+        .insert_resource(MatchState {
             running: false,
             blocks: 0,
             paddle_bounces: 0,
@@ -110,12 +110,12 @@ fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn system_spawn_blocks(mut gameState: ResMut<GameState>, mut commands: Commands, asset_server: Res<AssetServer>) {
+fn system_spawn_blocks(mut match_state: ResMut<MatchState>, mut commands: Commands, asset_server: Res<AssetServer>) {
     for i in 0..5 {
         spawn_block_row(&mut commands, &asset_server,  1, 0.0, i as Real * (BLOCK_HEIGHT + BLOCK_GAP) + BLOCK_HEIGHT, BLOCK_GAP, 7);
     }
 
-    gameState.addBlocks(5 * 7);
+    match_state.addBlocks(5 * 7);
 }
 
 fn sys_gamepad_info(

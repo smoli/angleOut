@@ -9,14 +9,14 @@ pub struct PaddleState {
 }
 
 #[derive(Resource)]
-pub struct GameState {
+pub struct MatchState {
     pub running: bool,
     pub blocks: usize,
     pub paddle_bounces: usize,
     pub points: u32
 }
 
-impl GameState {
+impl MatchState {
     pub fn addBlocks(&mut self, count: usize) {
         self.blocks += count;
     }

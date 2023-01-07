@@ -5,7 +5,7 @@ use bevy::prelude::Keyframes::Translation;
 use bevy::text::{Text, TextSection, TextStyle};
 use bevy::ui::{PositionType, Style, Val};
 use bevy::utils::default;
-use crate::states::GameState;
+use crate::states::MatchState;
 
 #[derive(Component)]
 pub struct UIStatsBlocks;
@@ -80,14 +80,14 @@ fn setup_stats_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 }
 
-fn update_stats_ui_blocks(gameState: Res<GameState>, mut texts: Query<&mut Text, With<UIStatsBlocks>>) {
+fn update_stats_ui_blocks(match_state: Res<MatchState>, mut texts: Query<&mut Text, With<UIStatsBlocks>>) {
     for mut text in &mut texts {
-        text.sections[1].value = format!("{}", gameState.blocks);
+        text.sections[1].value = format!("{}", match_state.blocks);
     }
 }
 
-fn update_stats_ui_bounces(gameState: Res<GameState>, mut texts: Query<&mut Text, With<UIStatsBounces>>) {
+fn update_stats_ui_bounces(match_state: Res<MatchState>, mut texts: Query<&mut Text, With<UIStatsBounces>>) {
     for mut text in &mut texts {
-        text.sections[1].value = format!("{}", gameState.paddle_bounces);
+        text.sections[1].value = format!("{}", match_state.paddle_bounces);
     }
 }
