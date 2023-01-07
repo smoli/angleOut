@@ -1,5 +1,5 @@
 use bevy::app::App;
-use bevy::prelude::{AssetServer, Commands, Component, default, Entity, GamepadButtonType, KeyCode, Plugin, Query, Res, SpriteBundle, Transform, TransformBundle, Vec3, With, Without};
+use bevy::prelude::{AssetServer, Commands, Component, default, Entity, GamepadButtonType, KeyCode, Plugin, Query, Res, SpriteBundle, SystemSet, Transform, TransformBundle, Vec3, With, Without};
 use bevy_rapier2d::dynamics::{ExternalImpulse, GravityScale, MassProperties, RigidBody, Velocity};
 use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution, Group};
 use bevy::math::{Quat, Vec2};
@@ -10,7 +10,7 @@ use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::Action;
 use crate::config::{BALL_SIZE, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_THICKNESS, SCREEN_HEIGHT_H};
-use crate::states::PaddleState;
+use crate::states::{GameState, PaddleState};
 
 
 #[derive(Component)]
@@ -28,13 +28,17 @@ pub struct BallPlugin;
 impl Plugin for BallPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_startup_system(spawn_ball)
-
-            .add_system(sys_update_ball_collision_group_active)
-            .add_system(sys_update_inactive_ball)
-
-            .add_system(sys_launch_inactive_ball)
-            .add_system(sys_limit_ball_velocity)
+            .add_system_set(
+                SystemSet::on_enter(GameState::InGame)
+                    .with_system(spawn_ball)
+            )
+            .add_system_set(
+                SystemSet::on_update(GameState::InGame)
+                    .with_system(sys_update_ball_collision_group_active)
+                    .with_system(sys_update_inactive_ball)
+                    .with_system(sys_launch_inactive_ball)
+                    .with_system(sys_limit_ball_velocity)
+            )
         ;
     }
     

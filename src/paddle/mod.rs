@@ -1,6 +1,6 @@
 use bevy::app::{App, Plugin};
 use bevy::audio::Audio;
-use bevy::prelude::{AssetServer, Commands, Component, Entity, Query, Res, ResMut, SpriteBundle, Time, Transform, TransformBundle, With};
+use bevy::prelude::{AssetServer, Commands, Component, Entity, Query, Res, ResMut, SpriteBundle, SystemSet, Time, Transform, TransformBundle, With};
 use bevy_rapier2d::dynamics::{MassProperties, RigidBody};
 use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution};
 use leafwing_input_manager::InputManagerBundle;
@@ -15,7 +15,7 @@ use crate::actions::Action;
 use crate::ball::{ActiveBall, determine_launch_impulse};
 use crate::block::BlockHitState;
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_PADDLE, MAX_RESTITUTION, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H, SCREEN_HEIGHT_H, SCREEN_WIDTH_H};
-use crate::states::{MatchState, PaddleState};
+use crate::states::{GameState, MatchState, PaddleState};
 
 
 #[derive(Component)]
@@ -30,11 +30,17 @@ pub struct PaddlePlugin;
 impl Plugin for PaddlePlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_startup_system(spawn_paddle)
-            .add_system(sys_articulate_paddle)
-            .add_system(sys_articulate_paddle)
-            .add_system(sys_update_paddle_position)
-            .add_system(sys_bounce_ball_from_paddle)
+            .add_system_set(
+                SystemSet::on_enter(GameState::InGame)
+                    .with_system(spawn_paddle)
+            )
+            .add_system_set(
+                SystemSet::on_update(GameState::InGame)
+                // .with_system(sys_articulate_paddle)
+                .with_system(sys_articulate_paddle)
+                .with_system(sys_update_paddle_position)
+                .with_system(sys_bounce_ball_from_paddle)
+            )
         ;
     }
 }

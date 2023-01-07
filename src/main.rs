@@ -14,7 +14,7 @@ use bevy::ecs::system::WorldState;
 use bevy::prelude::*;
 use bevy::prelude::KeyCode::{Ax, B, V};
 use bevy::utils::tracing::event;
-use bevy::window::WindowResizeConstraints;
+use bevy::window::{close_on_esc, WindowResizeConstraints};
 use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_inspector_egui_rapier::InspectableRapierPlugin;
 use bevy_prototype_lyon::plugin::ShapePlugin;
@@ -35,7 +35,7 @@ use states::PaddleState;
 use crate::ball::{BallPlugin, sys_launch_inactive_ball};
 use crate::block::{Block, BlockHitState, sys_handle_block_hit};
 use crate::paddle::{Paddle, PaddlePlugin};
-use crate::states::MatchState;
+use crate::states::{GameState, MatchState};
 use crate::ui::UIStatsPlugin;
 
 fn main() {
@@ -73,18 +73,27 @@ fn main() {
         }))
 
 
+        // add the app state type
+        .add_state(GameState::InGame)
+
+
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(PIXELS_PER_METER))
 
         .add_plugin(InputManagerPlugin::<Action>::default())
 
+
+        // In Game
         .add_plugin(BallPlugin)
         .add_plugin(PaddlePlugin)
+        .add_system_set(
+            SystemSet::on_enter(GameState::InGame)
+                .with_system(arena::spawn_arena)
+                .with_system(system_spawn_blocks)
+        )
 
         .add_startup_system(spawn_camera)
 
-        .add_startup_system(arena::spawn_arena)
 
-        .add_startup_system(system_spawn_blocks)
 
 
         .add_system(handle_collision_events)
@@ -102,6 +111,8 @@ fn main() {
         // .add_plugin(ShapePlugin)
         // .add_startup_system(spawn_paddle_normal)
         // .add_system(system_adjust_paddle_normal)
+
+        .add_system(close_on_esc)
 
         .run();
 }

@@ -2,6 +2,12 @@ use bevy::math::Vec3;
 use bevy::prelude::Resource;
 use bevy_rapier2d::prelude::Real;
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum GameState {
+    InGame,
+    Lost,
+}
+
 #[derive(Resource)]
 pub struct PaddleState {
     pub paddle_rotation: Real,
