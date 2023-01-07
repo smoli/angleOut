@@ -1,4 +1,4 @@
-use bevy::prelude::{AssetServer, Audio, Commands, Component, Entity, EventReader, KeyCode, Query, Res, ResMut, Transform, TransformBundle, With};
+use bevy::prelude::{AssetServer, Audio, Commands, Component, default, Entity, EventReader, KeyCode, Query, Res, ResMut, SpriteBundle, Transform, TransformBundle, With};
 use bevy_rapier2d::geometry::CollisionGroups;
 use bevy_rapier2d::prelude::{ActiveEvents, Collider, ContactForceEvent, Friction, Real, Restitution, RigidBody, Sensor};
 use bevy_rapier2d::rapier::prelude::{CollisionEvent, CollisionEventFlags};
@@ -15,7 +15,7 @@ pub struct Block {
     hit_points: usize,
 }
 
-pub fn spawn_block(commands: &mut Commands, hit_points: usize, x: Real, y: Real) {
+pub fn spawn_block(commands: &mut Commands, asset_server: &Res<AssetServer>, hit_points: usize, x: Real, y: Real) {
     commands
         .spawn(Block {
             hit_points,
@@ -23,15 +23,19 @@ pub fn spawn_block(commands: &mut Commands, hit_points: usize, x: Real, y: Real)
         .insert(RigidBody::Fixed)
         .insert(Collider::cuboid(BLOCK_WIDTH_H, BLOCK_HEIGHT_H))
         .insert(Restitution::coefficient(MAX_RESTITUTION))
-        .insert(TransformBundle::from(Transform::from_xyz(x, y, 0.0)))
         .insert(Restitution::coefficient(MAX_RESTITUTION))
         .insert(Friction::coefficient(0.0))
         .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL))
         .insert(ActiveEvents::COLLISION_EVENTS)
+        .insert(SpriteBundle {
+            texture: asset_server.load("block_orange.png"),
+            ..default()
+        })
+        .insert(TransformBundle::from(Transform::from_xyz(x, y, 0.0)))
     ;
 }
 
-pub fn spawn_block_row(commands: &mut Commands, hit_points: usize, cx: Real, y: Real, gap: Real, count: usize) {
+pub fn spawn_block_row(commands: &mut Commands, asset_server: &Res<AssetServer>, hit_points: usize, cx: Real, y: Real, gap: Real, count: usize) {
     let ct = (count / 2) as Real;
 
     let mut x: Real = cx - ct * (BLOCK_WIDTH + gap) - gap + BLOCK_WIDTH_H;
@@ -43,7 +47,7 @@ pub fn spawn_block_row(commands: &mut Commands, hit_points: usize, cx: Real, y: 
     }
 
     for i in 0..count {
-        spawn_block(commands, hit_points, x, y);
+        spawn_block(commands, asset_server, hit_points, x, y);
         x += BLOCK_WIDTH + gap;
     }
 }

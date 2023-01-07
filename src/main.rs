@@ -94,8 +94,8 @@ fn main() {
         /* Debug Stuff */
         // .add_plugin(LogDiagnosticsPlugin::default())
         // .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(RapierDebugRenderPlugin::default())
-        // .add_plugin(WorldInspectorPlugin::default())
+        // .add_plugin(RapierDebugRenderPlugin::default())
+        // .add_plugin(WorldInKspectorPlugin::default())
         // .add_plugin(InspectableRapierPlugin)
         // .add_plugin(ShapePlugin)
         // .add_startup_system(spawn_paddle_normal)
@@ -108,9 +108,9 @@ fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn system_spawn_blocks(mut gameState: ResMut<GameState>, mut commands: Commands) {
+fn system_spawn_blocks(mut gameState: ResMut<GameState>, mut commands: Commands, asset_server: Res<AssetServer>) {
     for i in 0..5 {
-        spawn_block_row(&mut commands, 1, 0.0, i as Real * (BLOCK_HEIGHT + BLOCK_GAP) + BLOCK_HEIGHT, BLOCK_GAP, 7);
+        spawn_block_row(&mut commands, &asset_server,  1, 0.0, i as Real * (BLOCK_HEIGHT + BLOCK_GAP) + BLOCK_HEIGHT, BLOCK_GAP, 7);
     }
 
     gameState.addBlocks(5 * 7);

@@ -50,7 +50,7 @@ fn spawn_paddle(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
 
         .insert(SpriteBundle {
-            texture: asset_server.load("shiprender.png"),
+            texture: asset_server.load("ship2.png"),
             ..default()
         })
 
@@ -112,7 +112,7 @@ fn sys_articulate_paddle(mut query: Query<(&mut Transform, &ActionState<Action>,
         let tx = if comp.length() < 0.2 {
             PADDLE_RESTING_X
         } else {
-            comp.x * (ARENA_WIDTH - PADDLE_WIDTH_H - PADDLE_THICKNESS)
+            comp.x * (ARENA_WIDTH_H * 1.5 - PADDLE_WIDTH_H - PADDLE_THICKNESS)
         };
 
         let ty = comp.y * PADDLE_LIFT - ARENA_HEIGHT_H + PADDLE_LIFT;

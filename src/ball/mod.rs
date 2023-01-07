@@ -1,5 +1,5 @@
 use bevy::app::App;
-use bevy::prelude::{Commands, Component, Entity, GamepadButtonType, KeyCode, Plugin, Query, Res, Transform, TransformBundle, Vec3, With, Without};
+use bevy::prelude::{AssetServer, Commands, Component, default, Entity, GamepadButtonType, KeyCode, Plugin, Query, Res, SpriteBundle, Transform, TransformBundle, Vec3, With, Without};
 use bevy_rapier2d::dynamics::{ExternalImpulse, GravityScale, MassProperties, RigidBody, Velocity};
 use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution, Group};
 use bevy::math::{Quat, Vec2};
@@ -40,11 +40,11 @@ impl Plugin for BallPlugin {
     
 }
 
-pub fn spawn_ball(mut commands: Commands) {
+pub fn spawn_ball(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(Ball {})
         .insert(RigidBody::Dynamic)
-        .insert(GravityScale(0.01))
+        .insert(GravityScale(0.0))
         .insert(Collider::ball(BALL_SIZE))
         .insert(Restitution::coefficient(MAX_RESTITUTION))
         .insert(Friction::coefficient(0.0))
@@ -55,7 +55,6 @@ pub fn spawn_ball(mut commands: Commands) {
             principal_inertia: 0.0,
 
         }))
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, SCREEN_HEIGHT_H, 0.0)))
         .insert(Velocity {
             linvel: Default::default(),
             angvel: 0.0,
@@ -72,6 +71,12 @@ pub fn spawn_ball(mut commands: Commands) {
                 .build(),
         })
         .insert(LockedAxes::ROTATION_LOCKED)
+        .insert(SpriteBundle {
+            texture: asset_server.load("ball.png"),
+            ..default()
+        })
+        .insert(TransformBundle::from(Transform::from_xyz(0.0, SCREEN_HEIGHT_H, 0.0)))
+
         .insert(CollisionGroups::new(COLLIDER_GROUP_BALL, COLLIDER_GROUP_ARENA))
     ;
 }
