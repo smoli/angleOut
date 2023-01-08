@@ -9,9 +9,10 @@ use leafwing_input_manager::input_map::InputMap;
 use leafwing_input_manager::axislike::{DualAxis, DualAxisData};
 use bevy::math::{Quat, Vec2, Vec3};
 use bevy::utils::default;
+use bevy::utils::tracing::event;
 use bevy_rapier2d::math::Real;
 use bevy_rapier2d::prelude::{ActiveEvents, CollisionGroups, ExternalImpulse};
-use crate::actions::Action;
+use crate::actions_events::Action;
 use crate::ball::{ActiveBall, determine_launch_impulse};
 use crate::block::BlockHitState;
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_PADDLE, MAX_RESTITUTION, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H, SCREEN_HEIGHT_H, SCREEN_WIDTH_H};
@@ -41,10 +42,19 @@ impl Plugin for PaddlePlugin {
                 .with_system(sys_update_paddle_position)
                 .with_system(sys_bounce_ball_from_paddle)
             )
+            .add_system_set(
+                SystemSet::on_exit(GameState::InGame)
+                    .with_system(despawn_paddle)
+            )
         ;
     }
 }
 
+fn despawn_paddle(mut commands: Commands, paddles: Query<Entity, With<Paddle>>) {
+    for p in &paddles {
+        commands.entity(p).despawn();
+    }
+}
 
 fn spawn_paddle(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
@@ -176,7 +186,9 @@ fn sys_bounce_ball_from_paddle(
 
             let thump = asset_server.load("impactMetal_002.ogg");
             audio.play(thump);
-            match_state.addPaddleBounce();
+            if match_state.blocks > 0 {
+                match_state.addPaddleBounce();
+            }
         }
     }
 }

@@ -2,7 +2,7 @@ mod paddle;
 mod ball;
 mod arena;
 mod config;
-mod actions;
+mod actions_events;
 mod block;
 mod states;
 mod ui;
@@ -10,6 +10,7 @@ mod ui;
 #[allow(unused_imports)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::ecs::query::{QueryEntityError, ReadOnlyWorldQuery, WorldQuery};
+use bevy::ecs::schedule::StateError;
 use bevy::ecs::system::WorldState;
 use bevy::prelude::*;
 use bevy::prelude::KeyCode::{Ax, B, V};
@@ -27,13 +28,15 @@ use bevy_rapier2d::rapier::prelude::RigidBodyType;
 use leafwing_input_manager::axislike::DualAxisData;
 use leafwing_input_manager::prelude::*;
 use leafwing_input_manager::prelude::DualAxis;
-use actions::Action;
+use actions_events::Action;
 use config::{BLOCK_GAP, BLOCK_HEIGHT, BLOCK_WIDTH, PIXELS_PER_METER, SCREEN_HEIGHT, SCREEN_HEIGHT_H, SCREEN_WIDTH, SCREEN_WIDTH_H};
 use block::{spawn_block, spawn_block_row};
 use ball::{sys_update_ball_collision_group_active, sys_update_inactive_ball};
 use states::PaddleState;
+use crate::actions_events::GameEvent;
+use crate::arena::LooseTrigger;
 use crate::ball::{BallPlugin, sys_launch_inactive_ball};
-use crate::block::{Block, BlockHitState, sys_handle_block_hit};
+use crate::block::{Block, BlockHitState, blocks_despawn_all, sys_handle_block_hit};
 use crate::paddle::{Paddle, PaddlePlugin};
 use crate::states::{GameState, MatchState};
 use crate::ui::UIStatsPlugin;
@@ -50,7 +53,7 @@ fn main() {
             blocks: 0,
             paddle_bounces: 0,
             points: 0,
-            
+
         })
 
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
@@ -73,6 +76,8 @@ fn main() {
         }))
 
 
+        .add_event::<GameEvent>()
+
         // add the app state type
         .add_state(GameState::InGame)
 
@@ -90,10 +95,22 @@ fn main() {
                 .with_system(arena::spawn_arena)
                 .with_system(system_spawn_blocks)
         )
+        .add_system_set(
+            SystemSet::on_update(GameState::InGame)
+                .with_system(handle_game_events)
+        )
+
+
+        .add_system_set(
+            SystemSet::on_update(GameState::Lost)
+                .with_system(app_wait_for_button_to_play)
+        )
+        .add_system_set(
+            SystemSet::on_exit(GameState::Lost)
+                .with_system(blocks_despawn_all)
+        )
 
         .add_startup_system(spawn_camera)
-
-
 
 
         .add_system(handle_collision_events)
@@ -123,7 +140,7 @@ fn spawn_camera(mut commands: Commands) {
 
 fn system_spawn_blocks(mut match_state: ResMut<MatchState>, mut commands: Commands, asset_server: Res<AssetServer>) {
     for i in 0..5 {
-        spawn_block_row(&mut commands, &asset_server,  1, 0.0, i as Real * (BLOCK_HEIGHT + BLOCK_GAP) + BLOCK_HEIGHT, BLOCK_GAP, 7);
+        spawn_block_row(&mut commands, &asset_server, 1, 0.0, i as Real * (BLOCK_HEIGHT + BLOCK_GAP) + BLOCK_HEIGHT, BLOCK_GAP, 7);
     }
 
     match_state.addBlocks(5 * 7);
@@ -196,6 +213,8 @@ fn handle_collision_events(
     mut collision_events: EventReader<CollisionEvent>,
     block: Query<Entity, With<Block>>,
     paddle: Query<Entity, With<Paddle>>,
+    loose_trigger: Query<Entity, With<LooseTrigger>>,
+    mut game_events: EventWriter<GameEvent>,
 ) {
     for collision_event in collision_events.iter() {
         // println!("Received collision event: {:?}", collision_event);
@@ -205,9 +224,26 @@ fn handle_collision_events(
             println!("Tagged Block");
         } else if tag_collision_both::<With<Paddle>>(&mut commands, collision_event, &paddle, BlockHitState {}) {
             println!("Tagged Paddle");
+        } else if tag_collision_both::<With<LooseTrigger>>(&mut commands, collision_event, &loose_trigger, BlockHitState {}) {
+            game_events.send(GameEvent::Loose);
         }
     }
 }
+
+fn handle_game_events(
+    mut app_state: ResMut<State<GameState>>,
+    mut game_events: EventReader<GameEvent>,
+) {
+    for ev in game_events.iter() {
+        match ev {
+            GameEvent::Loose => {
+                println!("Loose!");
+                let _ = app_state.set(GameState::Lost);
+            }
+        }
+    }
+}
+
 
 fn spawn_paddle_normal(mut commands: Commands) {
     let mut path = PathBuilder::new();
@@ -224,5 +260,19 @@ fn spawn_paddle_normal(mut commands: Commands) {
 fn system_adjust_paddle_normal(paddleState: Res<PaddleState>, mut paths: Query<&mut Transform, With<Path>>) {
     for mut p in &mut paths {
         p.rotation = Quat::from_rotation_z(-paddleState.paddle_rotation);
+    }
+}
+
+fn app_wait_for_button_to_play(
+    mut match_state: ResMut<MatchState>,
+    gamepads: Res<Gamepads>,
+    button_inputs: Res<Input<GamepadButton>>,
+    mut app_state: ResMut<State<GameState>>
+) {
+    for gamepad in gamepads.iter() {
+        if button_inputs.just_pressed(GamepadButton::new(gamepad, GamepadButtonType::South)) {
+            let _ = app_state.set(GameState::InGame);
+            match_state.reset();
+        }
     }
 }

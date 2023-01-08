@@ -15,6 +15,12 @@ pub struct Block {
     hit_points: usize,
 }
 
+pub fn blocks_despawn_all(mut command: Commands, blocks: Query<Entity, With<Block>> ) {
+    for block in &blocks {
+        command.entity(block).despawn();
+    }
+}
+
 pub fn spawn_block(commands: &mut Commands, asset_server: &Res<AssetServer>, hit_points: usize, x: Real, y: Real) {
     commands
         .spawn(Block {

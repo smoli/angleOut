@@ -7,3 +7,8 @@ pub enum Action {
     ArticulateRight,
     LaunchBall
 }
+
+
+pub enum GameEvent {
+    Loose
+}

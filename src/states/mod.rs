@@ -11,7 +11,7 @@ pub enum GameState {
 #[derive(Resource)]
 pub struct PaddleState {
     pub paddle_rotation: Real,
-    pub paddle_position: Vec3
+    pub paddle_position: Vec3,
 }
 
 #[derive(Resource)]
@@ -19,7 +19,7 @@ pub struct MatchState {
     pub running: bool,
     pub blocks: usize,
     pub paddle_bounces: usize,
-    pub points: u32
+    pub points: u32,
 }
 
 impl MatchState {
@@ -38,6 +38,12 @@ impl MatchState {
 
     pub fn addPaddleBounce(&mut self) {
         self.paddle_bounces += 1;
+    }
+
+    pub fn reset(&mut self) {
+        self.blocks = 0;
+        self.points = 0;
+        self.paddle_bounces = 0;
     }
 }
 

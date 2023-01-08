@@ -8,7 +8,7 @@ use bevy_rapier2d::math::Real;
 use bevy_rapier2d::prelude::{CollisionGroups, LockedAxes};
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
-use crate::actions::Action;
+use crate::actions_events::Action;
 use crate::config::{BALL_SIZE, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_THICKNESS, SCREEN_HEIGHT_H};
 use crate::states::{GameState, PaddleState};
 
@@ -39,9 +39,18 @@ impl Plugin for BallPlugin {
                     .with_system(sys_launch_inactive_ball)
                     .with_system(sys_limit_ball_velocity)
             )
+            .add_system_set(
+                SystemSet::on_exit(GameState::InGame)
+                    .with_system(ball_despawn)
+            )
         ;
     }
-    
+}
+
+fn ball_despawn(mut commands: Commands, balls: Query<Entity, With<Ball>>) {
+    for ball in &balls {
+        commands.entity(ball).despawn();
+    }
 }
 
 pub fn spawn_ball(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -114,6 +123,7 @@ pub fn sys_launch_inactive_ball(paddleState: Res<PaddleState>, mut commands: Com
     for (ball, action, mut impluse) in &mut query {
         if !action.pressed(Action::LaunchBall) { continue; }
 
+        println!("Launch");
 
         impluse.impulse = determine_launch_impulse(paddleState.paddle_rotation, 1000.0);
 
