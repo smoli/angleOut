@@ -66,7 +66,7 @@ fn spawn_paddle(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
 
         .insert(SpriteBundle {
-            texture: asset_server.load("ship2.png"),
+            texture: asset_server.load("ship3.png"),
             ..default()
         })
 
