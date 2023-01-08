@@ -3,7 +3,7 @@ use bevy::prelude::Keyframes::Translation;
 use bevy_rapier2d::geometry::{Collider, Friction, Restitution};
 use bevy_rapier2d::math::Real;
 use bevy_rapier2d::prelude::ActiveEvents;
-use crate::config::{ARENA_HEIGHT, ARENA_HEIGHT_H, ARENA_WIDTH, ARENA_WIDTH_H, MAX_RESTITUTION, SCREEN_HEIGHT, SCREEN_HEIGHT_H, SCREEN_WIDTH, SCREEN_WIDTH_H};
+use crate::config::{ARENA_HEIGHT, ARENA_HEIGHT_H, ARENA_WIDTH, ARENA_WIDTH_H, BALL_SIZE, MAX_RESTITUTION, SCREEN_HEIGHT, SCREEN_HEIGHT_H, SCREEN_WIDTH, SCREEN_WIDTH_H};
 
 #[derive(Component)]
 pub struct LooseTrigger;
@@ -11,11 +11,11 @@ pub struct LooseTrigger;
 pub fn spawn_arena(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(Collider::cuboid(10.0, 10.0))
-        .insert(SpriteBundle {
-            texture: asset_server.load("wall.png"),
-            ..default()
-        })
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, -ARENA_HEIGHT_H, 0.0)))
+        // .insert(SpriteBundle {
+        //     texture: asset_server.load("wall.png"),
+        //     ..default()
+        // })
+        .insert(TransformBundle::from(Transform::from_xyz(0.0, -ARENA_HEIGHT_H - BALL_SIZE * 3.0, 0.0)))
         .insert(Transform {
             translation: Vec3::new(0.0, -ARENA_HEIGHT_H, 0.0),
             rotation: Default::default(),
