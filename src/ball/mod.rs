@@ -7,7 +7,7 @@ use bevy::log::info;
 use bevy_rapier3d::prelude::{ActiveEvents, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Velocity};
 use bevy_rapier3d::dynamics::RigidBody;
 use rand::random;
-use crate::config::{BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_THICKNESS};
+use crate::config::{BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_BOUNCE_IMPULSE, PADDLE_LAUNCH_IMPULSE, PADDLE_THICKNESS};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::physics::{Collidable, CollidableKind, CollisionTag};
@@ -118,7 +118,7 @@ fn ball_inactive_handle_events(
             match ev {
                 MatchEvent::SpawnBall => {}
                 MatchEvent::LaunchBall => {
-                    ext_imp.impulse = compute_launch_impulse(ship_state.ship_rotation, 100.0);
+                    ext_imp.impulse = compute_launch_impulse(ship_state.ship_rotation, PADDLE_LAUNCH_IMPULSE);
                     commands.entity(ball)
                         .insert(ActiveBall);
                     col.filters = col.filters | COLLIDER_GROUP_PADDLE | COLLIDER_GROUP_BLOCK;
@@ -156,7 +156,7 @@ fn ball_handle_collisions(
             CollidableKind::Ship => {
 
                 ext_imp.impulse = compute_launch_impulse(
-                    ship_state.ship_rotation, 10.0
+                    ship_state.ship_rotation, PADDLE_BOUNCE_IMPULSE
                 );
 
                 commands.entity(ball)
