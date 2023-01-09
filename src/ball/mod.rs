@@ -1,27 +1,23 @@
-use bevy::app::App;
-use bevy::prelude::{AssetServer, Commands, Component, default, Entity, GamepadButtonType, KeyCode, Plugin, Query, Res, SpriteBundle, SystemSet, Transform, TransformBundle, Vec3, With, Without};
-use bevy_rapier2d::dynamics::{ExternalImpulse, GravityScale, MassProperties, RigidBody, Velocity};
-use bevy_rapier2d::geometry::{Collider, ColliderMassProperties, Friction, Restitution, Group};
-use bevy::math::{Quat, Vec2};
-use bevy::input::Input;
-use bevy_rapier2d::math::Real;
-use bevy_rapier2d::prelude::{CollisionGroups, LockedAxes};
-use leafwing_input_manager::InputManagerBundle;
-use leafwing_input_manager::prelude::{ActionState, InputMap};
-use crate::actions_events::Action;
-use crate::config::{BALL_SIZE, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_THICKNESS, SCREEN_HEIGHT_H};
-use crate::states::{GameState, PaddleState};
-
+use bevy::prelude::{App, AssetServer, Commands, Component, Entity, EventReader, IntoSystemDescriptor, Plugin, Quat, Query, Res, SystemSet, Time, Transform, TransformBundle, Vec3, Visibility, With, Without};
+use bevy::scene::SceneBundle;
+use bevy::utils::default;
+use crate::state::GameState;
+use std::f32::consts::TAU;
+use bevy::log::info;
+use bevy_rapier3d::prelude::{ActiveEvents, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Velocity};
+use bevy_rapier3d::dynamics::RigidBody;
+use rand::random;
+use crate::config::{BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_THICKNESS};
+use crate::events::MatchEvent;
+use crate::labels::SystemLabels;
+use crate::physics::{Collidable, CollidableKind, CollisionTag};
+use crate::ship::ShipState;
 
 #[derive(Component)]
-pub struct Ball {}
+pub struct Ball;
 
 #[derive(Component)]
 pub struct ActiveBall;
-
-#[derive(Component)]
-pub struct InactiveBall;
-
 
 pub struct BallPlugin;
 
@@ -30,110 +26,114 @@ impl Plugin for BallPlugin {
         app
             .add_system_set(
                 SystemSet::on_enter(GameState::InGame)
-                    .with_system(spawn_ball)
+                    .with_system(ball_spawn)
             )
             .add_system_set(
                 SystemSet::on_update(GameState::InGame)
-                    .with_system(sys_update_ball_collision_group_active)
-                    .with_system(sys_update_inactive_ball)
-                    .with_system(sys_launch_inactive_ball)
-                    .with_system(sys_limit_ball_velocity)
-            )
-            .add_system_set(
-                SystemSet::on_exit(GameState::InGame)
-                    .with_system(ball_despawn)
+                    .with_system(ball_spin.label(SystemLabels::UpdateWorld))
+                    .with_system(ball_update_inactive.label(SystemLabels::UpdateWorld))
+                    .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
+                    .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
+                    .with_system(ball_clamp_velocity.label(SystemLabels::UpdateWorld))
+                    .with_system(ball_handle_collisions.label(SystemLabels::UpdateWorld))
             )
         ;
     }
 }
 
-fn ball_despawn(mut commands: Commands, balls: Query<Entity, With<Ball>>) {
-    for ball in &balls {
-        commands.entity(ball).despawn();
-    }
-}
-
-pub fn spawn_ball(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn ball_spawn(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>)
+{
     commands
-        .spawn(Ball {})
+        .spawn(SceneBundle {
+            scene: asset_server.load("ship3_003.gltf#Scene0"),
+            visibility: Visibility {
+                is_visible: true
+            },
+            ..default()
+        })
+        .insert(TransformBundle::default())
+        .insert(Ball)
         .insert(RigidBody::Dynamic)
         .insert(GravityScale(0.0))
-        .insert(Collider::ball(BALL_SIZE))
+        .insert(Collider::ball(BALL_RADIUS))
         .insert(Restitution::coefficient(MAX_RESTITUTION))
+        .insert(Damping {
+            linear_damping: 0.0,
+            angular_damping: 0.0,
+        })
         .insert(Friction::coefficient(0.0))
         .insert(ColliderMassProperties::Density(20.0))
         .insert(ColliderMassProperties::MassProperties(MassProperties {
-            local_center_of_mass: Default::default(),
             mass: 1.0,
-            principal_inertia: 0.0,
+            ..default()
 
         }))
-        .insert(Velocity {
-            linvel: Default::default(),
-            angvel: 0.0,
-        })
-        .insert(ExternalImpulse {
-            impulse: Vec2::new(0.0, 0.0),
-            torque_impulse: 0.0,
+        .insert(Velocity::default())
+        .insert(ExternalImpulse::default())
+        .insert(LockedAxes::TRANSLATION_LOCKED_Y)
+        .insert(CollisionGroups::new(COLLIDER_GROUP_BALL, COLLIDER_GROUP_NONE))
+        .insert(ActiveEvents::COLLISION_EVENTS)
+        .insert(Collidable {
+            kind: CollidableKind::Ball
         })
 
-        .insert(InputManagerBundle::<Action> {
-            action_state: ActionState::default(),
-            input_map: InputMap::default()
-                .insert(GamepadButtonType::RightTrigger2, Action::LaunchBall)
-                .build(),
-        })
-        .insert(LockedAxes::ROTATION_LOCKED)
-        .insert(SpriteBundle {
-            texture: asset_server.load("ball.png"),
-            ..default()
-        })
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, SCREEN_HEIGHT_H, 0.0)))
-
-        .insert(CollisionGroups::new(COLLIDER_GROUP_BALL, COLLIDER_GROUP_ARENA))
     ;
 }
 
-pub fn sys_update_ball_collision_group_active(mut query: Query<&mut CollisionGroups, With<ActiveBall>>) {
-    for mut col in &mut query {
-        col.filters = col.filters | COLLIDER_GROUP_PADDLE | COLLIDER_GROUP_BLOCK;
+fn ball_spin(
+    timer: Res<Time>,
+    mut ball: Query<&mut Transform, With<Ball>>) {
+    for mut trans in &mut ball {
+        trans.rotate_y(1.0 * TAU * timer.delta_seconds());
     }
 }
 
-pub fn sys_update_inactive_ball(paddleState: Res<PaddleState>, mut query: Query<(&mut Transform, &mut CollisionGroups), (Without<ActiveBall>, With<Ball>)>) {
-    for (mut trans, mut col) in &mut query {
-        col.filters = col.filters & !COLLIDER_GROUP_PADDLE;
-        col.filters = col.filters & !COLLIDER_GROUP_BLOCK;
-        trans.translation = paddleState.paddle_position.clone() + Vec3::new(0.0, PADDLE_THICKNESS + 1.5 * BALL_SIZE, 0.0);
-    }
-}
-
-
-pub fn determine_launch_impulse(angle: Real, value: Real) -> Vec2 {
-    let mut imp = Vec3::new(0.0, value, 0.0);
-
-    println!("Launch for {angle} {:?}", imp);
-
-    let r = Quat::from_rotation_z(-angle) * imp;
-
-    Vec2::new(r.x, r.y)
-}
-
-pub fn sys_launch_inactive_ball(paddleState: Res<PaddleState>, mut commands: Commands, mut query: Query<(Entity, &ActionState<Action>, &mut ExternalImpulse), (Without<ActiveBall>, With<Ball>)>) {
-    for (ball, action, mut impluse) in &mut query {
-        if !action.pressed(Action::LaunchBall) { continue; }
-
-        println!("Launch");
-
-        impluse.impulse = determine_launch_impulse(paddleState.paddle_rotation, 1000.0);
-
-        commands.entity(ball)
-            .insert(ActiveBall {});
+fn ball_update_inactive(
+    ship_state: Res<ShipState>,
+    mut query: Query<(&mut Transform), (Without<ActiveBall>, With<Ball>)>)
+{
+    for mut trans in &mut query {
+        trans.translation = ship_state.ship_position.clone() + Vec3::new(0.0, 0.0, -PADDLE_THICKNESS * 0.5 - BALL_RADIUS);
     }
 }
 
 
-pub fn sys_limit_ball_velocity(mut query: Query<&mut Velocity, With<ActiveBall>>) {
+pub fn compute_launch_impulse(angle: f32, value: f32) -> Vec3 {
+    //                                       Z-Axis: negative is up
+    let mut imp = Vec3::new(0.0, 0.0, -value);
+    Quat::from_rotation_y(-angle).mul_vec3(imp)
+}
+
+
+fn ball_inactive_handle_events(
+    mut commands: Commands,
+    mut events: EventReader<MatchEvent>,
+    ship_state: Res<ShipState>,
+    mut balls: Query<(Entity, &mut ExternalImpulse, &mut CollisionGroups), (Without<ActiveBall>, With<Ball>)>)
+{
+    for (ball, mut ext_imp, mut col) in &mut balls {
+        for ev in events.iter() {
+            match ev {
+                MatchEvent::SpawnBall => {}
+                MatchEvent::LaunchBall => {
+                    ext_imp.impulse = compute_launch_impulse(ship_state.ship_rotation, 100.0);
+                    commands.entity(ball)
+                        .insert(ActiveBall);
+                    col.filters = col.filters | COLLIDER_GROUP_PADDLE | COLLIDER_GROUP_BLOCK;
+                }
+                MatchEvent::LooseBall => {}
+                MatchEvent::BounceOfPaddle => {}
+                MatchEvent::DestroyFoe => {}
+
+                _ => {}
+            }
+        }
+    }
+}
+
+fn ball_clamp_velocity(mut query: Query<&mut Velocity, With<ActiveBall>>) {
     for (mut velo) in &mut query {
         let v = velo.linvel.length();
 
@@ -141,6 +141,31 @@ pub fn sys_limit_ball_velocity(mut query: Query<&mut Velocity, With<ActiveBall>>
             velo.linvel = velo.linvel / v * MAX_BALL_SPEED;
         } else if v < MIN_BALL_SPEED {
             velo.linvel = velo.linvel / v * MIN_BALL_SPEED;
+        }
+    }
+}
+
+
+fn ball_handle_collisions(
+    mut commands: Commands,
+    ship_state: Res<ShipState>,
+    mut balls: Query<(Entity, &mut ExternalImpulse, &CollisionTag), With<Ball>>
+) {
+    for (ball, mut ext_imp, collision) in &mut balls {
+        match collision.other {
+            CollidableKind::Ship => {
+
+                ext_imp.impulse = compute_launch_impulse(
+                    ship_state.ship_rotation, 10.0
+                );
+
+                commands.entity(ball)
+                    .remove::<CollisionTag>();
+
+                info!("Applied bounce impulse");
+            }
+
+            _ => {}
         }
     }
 }

@@ -1,278 +1,194 @@
-mod paddle;
-mod ball;
-mod arena;
 mod config;
-mod actions_events;
-mod block;
-mod states;
+mod r#match;
+mod state;
+mod events;
+mod labels;
 mod ui;
+mod actions;
+mod ship;
+mod arena;
+mod ball;
+mod physics;
 
-#[allow(unused_imports)]
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy::ecs::query::{QueryEntityError, ReadOnlyWorldQuery, WorldQuery};
-use bevy::ecs::schedule::StateError;
-use bevy::ecs::system::WorldState;
-use bevy::prelude::*;
-use bevy::prelude::KeyCode::{Ax, B, V};
-use bevy::utils::tracing::event;
-use bevy::window::{close_on_esc, WindowResizeConstraints};
-use bevy_inspector_egui::WorldInspectorPlugin;
-use bevy_inspector_egui_rapier::InspectableRapierPlugin;
-use bevy_prototype_lyon::plugin::ShapePlugin;
-use bevy_prototype_lyon::prelude::{DrawMode, GeometryBuilder, Path, PathBuilder, StrokeMode};
-use bevy_rapier2d::na::point;
-use bevy_rapier2d::parry::math::AngularInertia;
-use bevy_rapier2d::prelude::*;
-use bevy_rapier2d::rapier::dynamics::RigidBodyBuilder;
-use bevy_rapier2d::rapier::prelude::RigidBodyType;
-use leafwing_input_manager::axislike::DualAxisData;
-use leafwing_input_manager::prelude::*;
-use leafwing_input_manager::prelude::DualAxis;
-use actions_events::Action;
-use config::{BLOCK_GAP, BLOCK_HEIGHT, BLOCK_WIDTH, PIXELS_PER_METER, SCREEN_HEIGHT, SCREEN_HEIGHT_H, SCREEN_WIDTH, SCREEN_WIDTH_H};
-use block::{spawn_block, spawn_block_row};
-use ball::{sys_update_ball_collision_group_active, sys_update_inactive_ball};
-use states::PaddleState;
-use crate::actions_events::GameEvent;
-use crate::arena::LooseTrigger;
-use crate::ball::{BallPlugin, sys_launch_inactive_ball};
-use crate::block::{Block, BlockHitState, blocks_despawn_all, sys_handle_block_hit};
-use crate::paddle::{Paddle, PaddlePlugin};
-use crate::states::{GameState, MatchState};
-use crate::ui::UIStatsPlugin;
+use std::f32::consts::PI;
+use bevy::app::App;
+use bevy::DefaultPlugins;
+use bevy::math::Quat;
+use bevy::pbr::{AmbientLight, DirectionalLight, DirectionalLightBundle};
+use bevy::prelude::{AssetServer, Camera, Camera2dBundle, Camera3dBundle, ClearColor, Color, Commands, GamepadButtonType, OrthographicProjection, PluginGroup, Query, Res, SceneBundle, Transform, Vec3, WindowDescriptor, With};
+use bevy::utils::default;
+use bevy::window::{close_on_esc, MonitorSelection, WindowPlugin, WindowPosition};
+use bevy_rapier3d::plugin::{NoUserData, RapierPhysicsPlugin};
+use bevy_rapier3d::prelude::RapierDebugRenderPlugin;
+use leafwing_input_manager::InputManagerBundle;
+use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
+use crate::actions::{CameraActions, GameFlowActions, MatchActions};
+use crate::arena::ArenaPlugin;
+use crate::ball::BallPlugin;
+use crate::config::{PIXELS_PER_METER, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::events::{EventsPlugin, GameFlowEvent, MatchEvent};
+use crate::physics::PhysicsPlugin;
+use crate::ship::ShipPlugin;
+use crate::state::GameState;
+use crate::ui::UI;
 
 fn main() {
-    App::new()
-        .insert_resource(PaddleState {
-            paddle_rotation: 0.0,
-            paddle_position: Default::default(),
-        })
+    let mut app = App::new();
 
-        .insert_resource(MatchState {
-            running: false,
-            blocks: 0,
-            paddle_bounces: 0,
-            points: 0,
+    setup_screen(&mut app);
+    setup_ui(&mut app);
+    app.add_plugin(EventsPlugin);
 
-        })
+    app.add_state(GameState::InGame);
 
-        .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
+    app.add_startup_system(setup_3d_environment);
+    app.add_system(camera_update_position);
 
-        .insert_resource(RapierConfiguration {
-            gravity: Vec2::new(0.0, -100.0),
-            ..default()
-        })
+    app.add_plugin(PhysicsPlugin);
 
+    app.add_plugin(ShipPlugin);
+    app.add_plugin(ArenaPlugin);
+    app.add_plugin(BallPlugin);
+
+    app.add_plugin(InputManagerPlugin::<GameFlowActions>::default());
+    app.add_plugin(InputManagerPlugin::<MatchActions>::default());
+    app.add_plugin(InputManagerPlugin::<CameraActions>::default());
+
+    app.add_system(close_on_esc);
+    app.run();
+}
+
+fn setup_screen(app: &mut App) {
+    // app.insert_resource(ClearColor(Color::BLACK))
+    app.insert_resource(ClearColor(Color::ALICE_BLUE))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                width: SCREEN_WIDTH,
-                height: SCREEN_HEIGHT,
-                position: WindowPosition::Centered,
-                monitor: MonitorSelection::Current,
-                title: "Angle Out".to_string(),
+        window: WindowDescriptor {
+            width: SCREEN_WIDTH,
+            height: SCREEN_HEIGHT,
+            position: WindowPosition::Centered,
+            monitor: MonitorSelection::Current,
+            title: "Angle Out".to_string(),
+            ..default()
+        },
+        ..default()
+    }));
+}
+
+fn camera_update_position(mut query: Query<(&mut Transform, &mut ActionState<CameraActions>), With<Camera>>) {
+    for (mut trans, mut action) in &mut query {
+
+        let mut rotation:Option<Quat> = None;
+
+        if action.pressed(CameraActions::Down) {
+            rotation = Some(Quat::from_rotation_x(PI / 20.0));
+            // action.consume(CameraActions::Down);
+        }
+        if action.pressed(CameraActions::Up) {
+            rotation = Some(Quat::from_rotation_x(-PI / 20.0));
+            // action.consume(CameraActions::Up);
+        }
+        if action.pressed(CameraActions::Left) {
+            rotation = Some(Quat::from_rotation_y(-PI / 20.0));
+            // action.consume(CameraActions::Left);
+        }
+
+        if action.pressed(CameraActions::Right) {
+            rotation = Some(Quat::from_rotation_y(PI / 20.0));
+            // action.consume(CameraActions::Right);
+        }
+
+
+        if let Some(r) = rotation {
+            let v = trans.translation.clone();
+            let v2 = r.mul_vec3(v);
+            let nt = Transform::from_xyz(v2.x, v2.y, v2.z).looking_at(Vec3::ZERO, Vec3::Y);
+
+            trans.translation = nt.translation;
+            trans.rotation = nt.rotation;
+        }
+
+        if action.pressed(CameraActions::Reset) {
+            let nt = Transform::from_xyz(0.0, 20.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y);
+
+            trans.translation = nt.translation;
+            trans.rotation = nt.rotation;
+        }
+
+    }
+}
+
+fn setup_3d_environment(
+    mut commands: Commands,
+) {
+    // commands.spawn(Camera2dBundle::default());
+    // camera
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(0.0, 20.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y),
+        // transform: Transform::from_xyz(0.0, 0.0, -100.00001).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    })
+        .insert(InputManagerBundle::<CameraActions> {
+            action_state: ActionState::default(),
+            input_map: InputMap::default()
+                .insert(GamepadButtonType::North, CameraActions::Reset)
+                .insert(GamepadButtonType::DPadDown, CameraActions::Down)
+                .insert(GamepadButtonType::DPadUp, CameraActions::Up)
+                .insert(GamepadButtonType::DPadLeft, CameraActions::Left)
+                .insert(GamepadButtonType::DPadRight, CameraActions::Right)
+
+                .build(),
+        })
+    ;
+
+    // Directional Light
+    const HALF_SIZE: f32 = 30.0;
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            color: Color::rgb(0.7, 0.7, 1.0),
+            shadow_projection: OrthographicProjection {
+                left: -HALF_SIZE,
+                right: HALF_SIZE,
+                bottom: -HALF_SIZE,
+                top: HALF_SIZE,
+                near: -10.0 * HALF_SIZE,
+                far: 10.0 * HALF_SIZE,
                 ..default()
             },
+            shadow_depth_bias: 0.0,
+            shadows_enabled: true,
+            illuminance: 75_000.0,
             ..default()
-        }))
+
+        },
+        transform: Transform::from_xyz(200.0, 200.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y),
+
+        ..default()
+    });
+
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            color: Color::rgb(0.7, 0.7, 1.0),
+            shadow_depth_bias: 0.0,
+            shadows_enabled: false,
+            illuminance: 5_000.0,
+            ..default()
+        },
+        transform: Transform::from_xyz(-200.0, 200.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y),
+
+        ..default()
+    });
+
+    // ambient light
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 0.4,
+    });
 
 
-        .add_event::<GameEvent>()
 
-        // add the app state type
-        .add_state(GameState::InGame)
-
-
-        .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(PIXELS_PER_METER))
-
-        .add_plugin(InputManagerPlugin::<Action>::default())
-
-
-        // In Game
-        .add_plugin(BallPlugin)
-        .add_plugin(PaddlePlugin)
-        .add_system_set(
-            SystemSet::on_enter(GameState::InGame)
-                .with_system(arena::spawn_arena)
-                .with_system(system_spawn_blocks)
-        )
-        .add_system_set(
-            SystemSet::on_update(GameState::InGame)
-                .with_system(handle_game_events)
-        )
-
-
-        .add_system_set(
-            SystemSet::on_update(GameState::Lost)
-                .with_system(app_wait_for_button_to_play)
-        )
-        .add_system_set(
-            SystemSet::on_exit(GameState::Lost)
-                .with_system(blocks_despawn_all)
-        )
-
-        .add_startup_system(spawn_camera)
-
-
-        .add_system(handle_collision_events)
-        .add_system(sys_handle_block_hit)
-
-        /* UI */
-        .add_plugin(UIStatsPlugin)
-
-        /* Debug Stuff */
-        // .add_plugin(LogDiagnosticsPlugin::default())
-        // .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        // .add_plugin(RapierDebugRenderPlugin::default())
-        // .add_plugin(WorldInKspectorPlugin::default())
-        // .add_plugin(InspectableRapierPlugin)
-        // .add_plugin(ShapePlugin)
-        // .add_startup_system(spawn_paddle_normal)
-        // .add_system(system_adjust_paddle_normal)
-
-        .add_system(close_on_esc)
-
-        .run();
 }
 
-fn spawn_camera(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+fn setup_ui(app: &mut App) {
+    app.add_plugin(UI);
 }
 
-fn system_spawn_blocks(mut match_state: ResMut<MatchState>, mut commands: Commands, asset_server: Res<AssetServer>) {
-    for i in 0..5 {
-        spawn_block_row(&mut commands, &asset_server, 1, 0.0, i as Real * (BLOCK_HEIGHT + BLOCK_GAP) + BLOCK_HEIGHT, BLOCK_GAP, 7);
-    }
-
-    match_state.addBlocks(5 * 7);
-}
-
-fn sys_gamepad_info(
-    gamepads: Res<Gamepads>,
-    button_inputs: Res<Input<GamepadButton>>,
-    button_axes: Res<Axis<GamepadButton>>,
-    axes: Res<Axis<GamepadAxis>>,
-) {
-    for gamepad in gamepads.iter() {
-        if button_inputs.just_pressed(GamepadButton::new(gamepad, GamepadButtonType::South)) {
-            info!("{:?} just pressed South", gamepad);
-        } else if button_inputs.just_released(GamepadButton::new(gamepad, GamepadButtonType::South))
-        {
-            info!("{:?} just released South", gamepad);
-        }
-
-        let right_trigger = button_axes
-            .get(GamepadButton::new(
-                gamepad,
-                GamepadButtonType::RightTrigger2,
-            ))
-            .unwrap();
-        if right_trigger.abs() > 0.01 {
-            info!("{:?} RightTrigger2 value is {}", gamepad, right_trigger);
-        }
-
-        let left_stick_x = axes
-            .get(GamepadAxis::new(gamepad, GamepadAxisType::LeftStickX))
-            .unwrap();
-        if left_stick_x.abs() > 0.01 {
-            info!("{:?} LeftStickX value is {}", gamepad, left_stick_x);
-        }
-    }
-}
-
-
-fn tag_collision_both<F: ReadOnlyWorldQuery>(
-    commands: &mut Commands,
-    event: &CollisionEvent,
-    query: &Query<Entity, F>,
-    tag: impl Component) -> bool
-{
-    match event {
-        CollisionEvent::Started(a, b, _) => {
-            match query.get(*a) {
-                Ok(e) => {
-                    commands.entity(e)
-                        .insert(tag);
-                    true
-                }
-                Err(_) => match query.get(*b) {
-                    Ok(e) => {
-                        commands.entity(e)
-                            .insert(tag);
-                        true
-                    }
-                    Err(_) => false
-                }
-            }
-        }
-        _ => false
-    }
-}
-
-fn handle_collision_events(
-    mut commands: Commands,
-    mut collision_events: EventReader<CollisionEvent>,
-    block: Query<Entity, With<Block>>,
-    paddle: Query<Entity, With<Paddle>>,
-    loose_trigger: Query<Entity, With<LooseTrigger>>,
-    mut game_events: EventWriter<GameEvent>,
-) {
-    for collision_event in collision_events.iter() {
-        // println!("Received collision event: {:?}", collision_event);
-        // println!("{:?}", collision_event);
-
-        if tag_collision_both::<With<Block>>(&mut commands, collision_event, &block, BlockHitState {}) {
-            println!("Tagged Block");
-        } else if tag_collision_both::<With<Paddle>>(&mut commands, collision_event, &paddle, BlockHitState {}) {
-            println!("Tagged Paddle");
-        } else if tag_collision_both::<With<LooseTrigger>>(&mut commands, collision_event, &loose_trigger, BlockHitState {}) {
-            game_events.send(GameEvent::Loose);
-        }
-    }
-}
-
-fn handle_game_events(
-    mut app_state: ResMut<State<GameState>>,
-    mut game_events: EventReader<GameEvent>,
-) {
-    for ev in game_events.iter() {
-        match ev {
-            GameEvent::Loose => {
-                println!("Loose!");
-                let _ = app_state.set(GameState::Lost);
-            }
-        }
-    }
-}
-
-
-fn spawn_paddle_normal(mut commands: Commands) {
-    let mut path = PathBuilder::new();
-    path.move_to(Vec2::ZERO);
-    path.line_to(Vec2::new(0.0, 100.0));
-    let line = path.build();
-    commands.spawn(GeometryBuilder::build_as(
-        &line,
-        DrawMode::Stroke(StrokeMode::new(Color::LIME_GREEN, 10.0)),
-        Transform::default(),
-    ));
-}
-
-fn system_adjust_paddle_normal(paddleState: Res<PaddleState>, mut paths: Query<&mut Transform, With<Path>>) {
-    for mut p in &mut paths {
-        p.rotation = Quat::from_rotation_z(-paddleState.paddle_rotation);
-    }
-}
-
-fn app_wait_for_button_to_play(
-    mut match_state: ResMut<MatchState>,
-    gamepads: Res<Gamepads>,
-    button_inputs: Res<Input<GamepadButton>>,
-    mut app_state: ResMut<State<GameState>>
-) {
-    for gamepad in gamepads.iter() {
-        if button_inputs.just_pressed(GamepadButton::new(gamepad, GamepadButtonType::South)) {
-            let _ = app_state.set(GameState::InGame);
-            match_state.reset();
-        }
-    }
-}
