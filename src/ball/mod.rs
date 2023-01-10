@@ -6,7 +6,6 @@ use std::f32::consts::TAU;
 use bevy::log::info;
 use bevy_rapier3d::prelude::{ActiveEvents, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Velocity};
 use bevy_rapier3d::dynamics::RigidBody;
-use rand::random;
 use crate::config::{BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_BOUNCE_IMPULSE, PADDLE_LAUNCH_IMPULSE, PADDLE_THICKNESS};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
@@ -92,7 +91,7 @@ fn ball_spin(
 
 fn ball_update_inactive(
     ship_state: Res<ShipState>,
-    mut query: Query<(&mut Transform), (Without<ActiveBall>, With<Ball>)>)
+    mut query: Query<&mut Transform, (Without<ActiveBall>, With<Ball>)>)
 {
     for mut trans in &mut query {
         trans.translation = ship_state.ship_position.clone() + Vec3::new(0.0, 0.0, -PADDLE_THICKNESS * 0.5 - BALL_RADIUS);
@@ -102,7 +101,7 @@ fn ball_update_inactive(
 
 pub fn compute_launch_impulse(angle: f32, value: f32) -> Vec3 {
     //                                       Z-Axis: negative is up
-    let mut imp = Vec3::new(0.0, 0.0, -value);
+    let imp = Vec3::new(0.0, 0.0, -value);
     Quat::from_rotation_y(-angle).mul_vec3(imp)
 }
 
@@ -134,7 +133,7 @@ fn ball_inactive_handle_events(
 }
 
 fn ball_clamp_velocity(mut query: Query<&mut Velocity, With<ActiveBall>>) {
-    for (mut velo) in &mut query {
+    for mut velo in &mut query {
         let v = velo.linvel.length();
 
         if v > MAX_BALL_SPEED {

@@ -1,12 +1,8 @@
-use bevy::asset::Handle;
 use bevy::log::info;
-use bevy::prelude::{AlignSelf, App, Color, Component, Commands, Entity, Plugin, PositionType, Query, SystemSet, TextBundle, TextSection, TextStyle, With, AssetServer, Res, Font, UiRect, Val, Text, GamepadButtonType, EventReader, EventWriter};
-use bevy::ui::Style;
-use bevy::utils::default;
+use bevy::prelude::{App, Color, Component, Commands, Entity, Plugin, Query, SystemSet, TextBundle, TextSection, TextStyle, With, AssetServer, Res, GamepadButtonType, EventWriter};
 use leafwing_input_manager::input_map::InputMap;
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::ActionState;
-use leafwing_input_manager::user_input::InputKind::GamepadButton;
 use crate::actions::GameFlowActions;
 use crate::events::GameFlowEvent;
 use crate::state::GameState;

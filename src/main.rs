@@ -16,19 +16,17 @@ use bevy::app::App;
 use bevy::DefaultPlugins;
 use bevy::math::Quat;
 use bevy::pbr::{AmbientLight, DirectionalLight, DirectionalLightBundle};
-use bevy::prelude::{AssetServer, Camera, Camera2dBundle, Camera3dBundle, ClearColor, Color, Commands, GamepadButtonType, OrthographicProjection, PluginGroup, Query, Res, SceneBundle, Transform, Vec3, WindowDescriptor, With};
+use bevy::prelude::{Camera, Camera3dBundle, ClearColor, Color, Commands, GamepadButtonType, OrthographicProjection, PluginGroup, Query, Transform, Vec3, WindowDescriptor, With};
 use bevy::utils::default;
 use bevy::window::{close_on_esc, MonitorSelection, WindowPlugin, WindowPosition};
-use bevy_rapier3d::plugin::{NoUserData, RapierPhysicsPlugin};
-use bevy_rapier3d::prelude::RapierDebugRenderPlugin;
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 use crate::actions::{CameraActions, GameFlowActions, MatchActions};
 use crate::arena::ArenaPlugin;
 use crate::ball::BallPlugin;
 use crate::block::BlockPlugin;
-use crate::config::{PIXELS_PER_METER, SCREEN_HEIGHT, SCREEN_WIDTH};
-use crate::events::{EventsPlugin, GameFlowEvent, MatchEvent};
+use crate::config::{SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::events::{EventsPlugin};
 use crate::physics::PhysicsPlugin;
 use crate::ship::ShipPlugin;
 use crate::state::GameState;
@@ -84,20 +82,20 @@ fn camera_update_position(mut query: Query<(&mut Transform, &mut ActionState<Cam
 
         if action.pressed(CameraActions::Down) {
             rotation = Some(Quat::from_rotation_x(PI / 20.0));
-            // action.consume(CameraActions::Down);
+            action.consume(CameraActions::Down);
         }
         if action.pressed(CameraActions::Up) {
             rotation = Some(Quat::from_rotation_x(-PI / 20.0));
-            // action.consume(CameraActions::Up);
+            action.consume(CameraActions::Up);
         }
         if action.pressed(CameraActions::Left) {
             rotation = Some(Quat::from_rotation_y(-PI / 20.0));
-            // action.consume(CameraActions::Left);
+            action.consume(CameraActions::Left);
         }
 
         if action.pressed(CameraActions::Right) {
             rotation = Some(Quat::from_rotation_y(PI / 20.0));
-            // action.consume(CameraActions::Right);
+            action.consume(CameraActions::Right);
         }
 
 
@@ -159,7 +157,7 @@ fn setup_3d_environment(
             },
             shadow_depth_bias: 0.0,
             shadows_enabled: true,
-            illuminance: 75_000.0 / 2.0K,
+            illuminance: 75_000.0 / 2.0,
             ..default()
 
         },

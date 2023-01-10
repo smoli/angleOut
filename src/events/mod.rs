@@ -1,5 +1,4 @@
 use bevy::app::{App, Plugin};
-use bevy::log::info;
 use bevy::prelude::{EventReader, ResMut, State};
 use crate::state::GameState;
 

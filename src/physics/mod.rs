@@ -1,7 +1,6 @@
 use bevy::app::App;
-use bevy::ecs::query::ReadOnlyWorldQuery;
-use bevy::log::{info, warn};
-use bevy::prelude::{Plugin, Component, Commands, EventReader, Query, Entity, With, EventWriter, SystemSet, IntoSystemDescriptor};
+use bevy::log::{info};
+use bevy::prelude::{Plugin, Component, Commands, EventReader, Query, Entity, With, SystemSet, IntoSystemDescriptor};
 use bevy_rapier3d::plugin::{RapierPhysicsPlugin, NoUserData};
 use bevy_rapier3d::prelude::CollisionEvent;
 use crate::labels::SystemLabels;
@@ -52,11 +51,6 @@ fn handle_collision_events(
     collidables: Query<&Collidable>
 ) {
     for collision_event in collision_events.iter() {
-        // println!("Received collision event: {:?}", collision_event);
-        // println!("{:?}", collision_event);
-
-        let mut combo: Option<(CollidableKind, CollidableKind)> = None;
-
         match collision_event {
             CollisionEvent::Started(a, b, _) => {
                 if let Ok(col_a) = collidables.get(*a) {

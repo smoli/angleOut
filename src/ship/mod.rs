@@ -98,7 +98,7 @@ fn ship_articulate(mut query: Query<(&ActionState<MatchActions>, &mut Ship)>) {
         let axis_pair_r: DualAxisData = action_state.clamped_axis_pair(MatchActions::ArticulateRight).unwrap();
 
         // Rotation
-        let mut d = Vec2::new(-1.0, axis_pair_l.y()) - Vec2::new(1.0, axis_pair_r.y());
+        let d = Vec2::new(-1.0, axis_pair_l.y()) - Vec2::new(1.0, axis_pair_r.y());
 
         let mut a = d.perp().angle_between(Vec2::new(0.0, -1.0));
         if a.abs() < 0.1 { a = PADDLE_RESTING_ROTATION }
@@ -121,7 +121,7 @@ fn ship_articulate(mut query: Query<(&ActionState<MatchActions>, &mut Ship)>) {
     }
 }
 
-fn ship_update_position(time: Res<Time>, mut shipState: ResMut<ShipState>, mut query: Query<(&mut Transform, &mut Ship)>) {
+fn ship_update_position(time: Res<Time>, mut ship_state: ResMut<ShipState>, mut query: Query<(&mut Transform, &mut Ship)>) {
     for (mut trans, mut ship) in &mut query {
         let dp = ship.target_position - trans.translation;
 
@@ -143,8 +143,8 @@ fn ship_update_position(time: Res<Time>, mut shipState: ResMut<ShipState>, mut q
         ship.current_rotation = a;
         trans.rotation = Quat::from_rotation_y(-a);
 
-        shipState.ship_position = trans.translation.clone();
-        shipState.ship_rotation = ship.current_rotation;
+        ship_state.ship_position = trans.translation.clone();
+        ship_state.ship_rotation = ship.current_rotation;
     }
 }
 

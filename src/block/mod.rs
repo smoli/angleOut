@@ -1,9 +1,9 @@
 use bevy::utils::default;
 use bevy::app::App;
-use bevy::log::{info, warn};
-use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, IntoSystemDescriptor, Plugin, Query, Res, SceneBundle, SystemSet, Transform, TransformBundle, Vec2, Visibility, With};
+use bevy::log::{info};
+use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, IntoSystemDescriptor, Plugin, Query, Res, SceneBundle, SystemSet, Transform, TransformBundle, With};
 use bevy_rapier3d::prelude::{ActiveEvents, Collider, CollisionGroups, Friction, Restitution, RigidBody};
-use crate::config::{ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
+use crate::config::{COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
 use crate::labels::SystemLabels;
 use crate::physics::{Collidable, CollidableKind, CollisionTag};
 use crate::state::GameState;
@@ -37,7 +37,7 @@ const BLOCK_ROUNDNESS: f32 = 0.02;
 
 
 fn int_spawn_one_block(
-    mut commands: &mut Commands,
+    commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     x: f32,
     y: f32,
@@ -83,9 +83,9 @@ fn blocks_spawn(
 
     let mut y = -3.0;
 
-    for j in 0..row_count {
+    for _ in 0..row_count {
         let mut x = -step * count_h + gap;
-        for i in 0..count {
+        for _ in 0..count {
             info!("{x}");
             int_spawn_one_block(&mut commands, &asset_server, x, y);
             x += step;

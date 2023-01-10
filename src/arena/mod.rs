@@ -1,7 +1,7 @@
-use bevy::prelude::{Component, App, AssetServer, Commands, default, info, Plugin, Res, SystemSet, Vec3, TransformBundle, Transform};
+use bevy::prelude::{Component, App, AssetServer, Commands, default, info, Plugin, Res, SystemSet, TransformBundle, Transform};
 use bevy::scene::SceneBundle;
 use bevy_rapier3d::prelude::{Collider, Friction, Restitution, RigidBody};
-use crate::config::{ARENA_HEIGHT, ARENA_HEIGHT_H, ARENA_WIDTH_H, MAX_RESTITUTION};
+use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, MAX_RESTITUTION};
 use crate::state::GameState;
 
 #[derive(Component)]
