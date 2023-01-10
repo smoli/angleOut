@@ -4,7 +4,8 @@ use bevy::utils::default;
 use crate::state::GameState;
 use std::f32::consts::TAU;
 use bevy::log::info;
-use bevy_rapier3d::prelude::{ActiveEvents, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Velocity};
+use bevy::utils::tracing::enabled;
+use bevy_rapier3d::prelude::{ActiveEvents, Ccd, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Velocity};
 use bevy_rapier3d::dynamics::RigidBody;
 use crate::config::{BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_BOUNCE_IMPULSE, PADDLE_LAUNCH_IMPULSE, PADDLE_THICKNESS};
 use crate::events::MatchEvent;
@@ -29,7 +30,7 @@ impl Plugin for BallPlugin {
             )
             .add_system_set(
                 SystemSet::on_update(GameState::InGame)
-                    .with_system(ball_spin.label(SystemLabels::UpdateWorld))
+                    // .with_system(ball_spin.label(SystemLabels::UpdateWorld))
                     .with_system(ball_update_inactive.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
@@ -74,6 +75,7 @@ fn ball_spawn(
         .insert(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED)
         .insert(CollisionGroups::new(COLLIDER_GROUP_BALL, COLLIDER_GROUP_NONE))
         .insert(ActiveEvents::COLLISION_EVENTS)
+        .insert(Ccd::enabled())
         .insert(Collidable {
             kind: CollidableKind::Ball
         })
@@ -137,9 +139,9 @@ fn ball_clamp_velocity(mut query: Query<(&mut Velocity, &mut Transform), With<Ac
         let v = velo.linvel.length();
 
         if v > MAX_BALL_SPEED {
-            velo.linvel = velo.linvel / v * MAX_BALL_SPEED;
+            velo.linvel = velo.linvel * MAX_BALL_SPEED / v;
         } else if v < MIN_BALL_SPEED {
-            velo.linvel = velo.linvel / v * MIN_BALL_SPEED;
+            velo.linvel = velo.linvel * MIN_BALL_SPEED / v;
         }
 
         if trans.translation.y != 0.0 {
