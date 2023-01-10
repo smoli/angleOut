@@ -9,7 +9,7 @@
         "KHR_materials_ior",
         "KHR_materials_emissive_strength"
     ],
-    "scene" : 3,
+    "scene" : 0,
     "scenes" : [
         {
             "name" : "000_Ball",
@@ -855,12 +855,6 @@
             },
             "name" : "BallMain",
             "pbrMetallicRoughness" : {
-                "baseColorFactor" : [
-                    0.6418268084526062,
-                    0.5395298600196838,
-                    0.8000000715255737,
-                    1
-                ],
                 "metallicFactor" : 0.6813725233078003,
                 "roughnessFactor" : 0.3235294222831726
             }
@@ -929,6 +923,18 @@
         },
         {
             "doubleSided" : true,
+            "extensions" : {
+                "KHR_materials_specular" : {
+                    "specularColorFactor" : [
+                        2.173744385675329,
+                        2.173744385675329,
+                        2.173744385675329
+                    ]
+                },
+                "KHR_materials_ior" : {
+                    "ior" : 1.4500000476837158
+                }
+            },
             "name" : "ShipWindow",
             "pbrMetallicRoughness" : {
                 "baseColorFactor" : [
@@ -938,7 +944,7 @@
                     1
                 ],
                 "metallicFactor" : 0,
-                "roughnessFactor" : 0.5
+                "roughnessFactor" : 0.0833333358168602
             }
         },
         {
