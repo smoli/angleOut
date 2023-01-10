@@ -9,6 +9,7 @@ mod ship;
 mod arena;
 mod ball;
 mod physics;
+mod block;
 
 use std::f32::consts::PI;
 use bevy::app::App;
@@ -25,6 +26,7 @@ use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap}
 use crate::actions::{CameraActions, GameFlowActions, MatchActions};
 use crate::arena::ArenaPlugin;
 use crate::ball::BallPlugin;
+use crate::block::BlockPlugin;
 use crate::config::{PIXELS_PER_METER, SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::events::{EventsPlugin, GameFlowEvent, MatchEvent};
 use crate::physics::PhysicsPlugin;
@@ -49,6 +51,7 @@ fn main() {
     app.add_plugin(ShipPlugin);
     app.add_plugin(ArenaPlugin);
     app.add_plugin(BallPlugin);
+    app.add_plugin(BlockPlugin);
 
     app.add_plugin(InputManagerPlugin::<GameFlowActions>::default());
     app.add_plugin(InputManagerPlugin::<MatchActions>::default());

@@ -1,12 +1,17 @@
 use bevy::app::App;
 use bevy::ecs::query::ReadOnlyWorldQuery;
+use bevy::log::{info, warn};
 use bevy::prelude::{Plugin, Component, Commands, EventReader, Query, Entity, With, EventWriter, SystemSet, IntoSystemDescriptor};
 use bevy_rapier3d::plugin::{RapierPhysicsPlugin, NoUserData};
 use bevy_rapier3d::prelude::CollisionEvent;
 use crate::labels::SystemLabels;
 use crate::state::GameState;
 
-#[derive(Clone)]
+#[allow(unused_imports)]
+use bevy_rapier3d::render::RapierDebugRenderPlugin;
+
+
+#[derive(Clone, Debug)]
 pub enum CollidableKind {
     Ball,
     Wall,
@@ -67,7 +72,8 @@ fn handle_collision_events(
                                 other: col_a.kind.clone()
                             });
 
-                        combo = Some((col_a.kind.clone(), col_b.kind.clone()));
+
+                        info!("{:?}-{:?}", col_a.kind, col_b.kind);
                     }
                 }
             }
