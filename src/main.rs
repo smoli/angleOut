@@ -159,7 +159,22 @@ fn setup_3d_environment(
             },
             shadow_depth_bias: 0.0,
             shadows_enabled: true,
-            illuminance: 75_000.0,
+            illuminance: 75_000.0 / 2.0K,
+            ..default()
+
+        },
+        transform: Transform::from_xyz(200.0, 200.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y),
+
+        ..default()
+    });
+
+    // Directional Light
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            color: Color::rgb(0.7, 0.7, 1.0),
+            shadow_depth_bias: 0.0,
+            shadows_enabled: false,
+            illuminance: 75_000.0 / 2.0,
             ..default()
 
         },
