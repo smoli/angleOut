@@ -30,7 +30,7 @@ impl Plugin for BallPlugin {
             )
             .add_system_set(
                 SystemSet::on_update(GameState::InGame)
-                    // .with_system(ball_spin.label(SystemLabels::UpdateWorld))
+                    .with_system(ball_spin.label(SystemLabels::UpdateWorld))
                     .with_system(ball_update_inactive.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
