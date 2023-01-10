@@ -32,9 +32,14 @@ impl Plugin for BlockPlugin {
 }
 
 const BLOCK_WIDTH: f32 = 1.5;
+const BLOCK_WIDTH_H: f32 = BLOCK_WIDTH / 2.0;
 const BLOCK_HEIGHT: f32 = 0.375;
 const BLOCK_DEPTH: f32 = 0.751;
 const BLOCK_ROUNDNESS: f32 = 0.02;
+
+
+
+
 
 
 fn int_spawn_one_block(
@@ -69,26 +74,54 @@ fn int_spawn_one_block(
 }
 
 
+
+/*
+    let ct = (count / 2) as Real;
+
+    let mut x: Real = cx - ct * (BLOCK_WIDTH + gap) - gap + BLOCK_WIDTH_H;
+
+    if count % 2 == 1 {
+        x -= BLOCK_WIDTH_H - gap;
+    } else {
+        x += gap * 1.5;
+    }
+
+    for i in 0..count {
+        spawn_block(commands, asset_server, hit_points, x, y);
+        x += BLOCK_WIDTH + gap;
+    }
+ */
+
+
 fn blocks_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    let row_count = 5;
-    let count = 9;
+    let rows = 5;
+    let cols = 10;
     let gap: f32 = 0.3;
 
-    let count_h = count as f32 / 2.0;
-
-    let step = BLOCK_WIDTH + gap;
 
     let mut y = -3.0;
 
-    for _ in 0..row_count {
-        let mut x = -step * count_h + gap;
-        for _ in 0..count {
+    let x_step = BLOCK_WIDTH + gap;
+    let cols_h = (cols / 2) as f32;
+
+    for _ in 0..rows {
+
+        let mut x = 0.0;
+        if cols % 2 == 1 {
+            x -= cols_h * x_step;
+        } else {
+            x -= cols_h * x_step - gap / 2.0 - BLOCK_WIDTH_H;
+        }
+
+
+
+        for _ in 0..cols {
             info!("{x}");
             int_spawn_one_block(&mut commands, &asset_server, x, y);
-            x += step;
+            x += x_step;
         }
 
         y -= BLOCK_DEPTH * 2.0 - gap;
