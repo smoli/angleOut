@@ -23,6 +23,7 @@ pub const ARENA_WIDTH:f32 = 20.0;
 pub const ARENA_WIDTH_H:f32 = ARENA_WIDTH / 2.0;
 pub const ARENA_HEIGHT:f32 = 14.0;
 pub const ARENA_HEIGHT_H:f32 = ARENA_HEIGHT / 2.0;
+pub const BACKGROUND_SPEED: f32 = 2.0;
 
 pub const PADDLE_BOUNCE_IMPULSE: f32 = 5.0;
 pub const PADDLE_LAUNCH_IMPULSE: f32 = 10.0;
