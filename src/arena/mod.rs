@@ -63,14 +63,14 @@ fn arena_spawn(
 
     let wall_thickness = 10.0;
     // Left
-    commands.spawn(Collider::cuboid(wall_thickness, 6.0, 10.0))
+    commands.spawn(Collider::cuboid(wall_thickness, 6.0, 20.0))
         .insert(TransformBundle::from(Transform::from_xyz(-ARENA_WIDTH_H - wall_thickness, 0.0, 0.0)))
         .insert(Restitution::coefficient(MAX_RESTITUTION))
         .insert(Friction::coefficient(0.0))
 
     ;
     // Right
-    commands.spawn(Collider::cuboid(wall_thickness, 6.0, 10.0))
+    commands.spawn(Collider::cuboid(wall_thickness, 6.0, 20.0))
         .insert(TransformBundle::from(Transform::from_xyz(ARENA_WIDTH_H + wall_thickness, 0.0, 0.0)))
         .insert(Restitution::coefficient(MAX_RESTITUTION))
         .insert(Friction::coefficient(0.0))
@@ -80,7 +80,7 @@ fn arena_spawn(
     commands
         .spawn(RigidBody::Fixed)
         .insert(Collider::cuboid(ARENA_WIDTH_H, 6.0, wall_thickness))
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - wall_thickness)))
+        .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - 1.3 - wall_thickness)))
         .insert(Restitution::coefficient(MAX_RESTITUTION))
         .insert(Friction::coefficient(0.0))
 
@@ -88,7 +88,7 @@ fn arena_spawn(
     ;
     // Bottom
     commands.spawn(Collider::cuboid(ARENA_WIDTH_H, 6.0, wall_thickness))
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, ARENA_HEIGHT_H + wall_thickness)))
+        .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, ARENA_HEIGHT_H + 5.0 + wall_thickness)))
         .insert(Restitution::coefficient(MAX_RESTITUTION))
         .insert(Friction::coefficient(0.0))
 

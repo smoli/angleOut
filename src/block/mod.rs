@@ -31,9 +31,9 @@ impl Plugin for BlockPlugin {
     }
 }
 
-const BLOCK_WIDTH: f32 = 0.75;
-const BLOCK_HEIGHT: f32 = 0.187;
-const BLOCK_DEPTH: f32 = 0.375;
+const BLOCK_WIDTH: f32 = 1.5;
+const BLOCK_HEIGHT: f32 = 0.375;
+const BLOCK_DEPTH: f32 = 0.751;
 const BLOCK_ROUNDNESS: f32 = 0.02;
 
 
@@ -51,7 +51,7 @@ fn int_spawn_one_block(
         })
         .insert(Collider::round_cuboid(
             BLOCK_WIDTH / 2.0 - BLOCK_ROUNDNESS,
-            BLOCK_HEIGHT / 2.0 - BLOCK_ROUNDNESS,
+            BLOCK_HEIGHT * 2.0 - BLOCK_ROUNDNESS,
             BLOCK_DEPTH / 2.0 - BLOCK_ROUNDNESS,
             BLOCK_ROUNDNESS,
         ))
@@ -73,8 +73,8 @@ fn blocks_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    let row_count = 10;
-    let count = 17;
+    let row_count = 5;
+    let count = 9;
     let gap: f32 = 0.3;
 
     let count_h = count as f32 / 2.0;
