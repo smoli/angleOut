@@ -1,4 +1,4 @@
-use bevy::prelude::{App, AssetServer, Commands, Component, Entity, EventReader, IntoSystemDescriptor, Plugin, Quat, Query, Res, SystemSet, Time, Transform, TransformBundle, Vec3, Visibility, With, Without};
+use bevy::prelude::{App, AssetServer, Commands, Component, Entity, EventReader, IntoSystemDescriptor, Plugin, Quat, Query, Res, SystemSet, Time, Transform, TransformBundle, Vec3, Visibility, warn, With, Without};
 use bevy::scene::SceneBundle;
 use bevy::utils::default;
 use crate::state::GameState;
@@ -71,7 +71,7 @@ fn ball_spawn(
         }))
         .insert(Velocity::default())
         .insert(ExternalImpulse::default())
-        .insert(LockedAxes::TRANSLATION_LOCKED_Y)
+        .insert(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED)
         .insert(CollisionGroups::new(COLLIDER_GROUP_BALL, COLLIDER_GROUP_NONE))
         .insert(ActiveEvents::COLLISION_EVENTS)
         .insert(Collidable {
@@ -132,14 +132,19 @@ fn ball_inactive_handle_events(
     }
 }
 
-fn ball_clamp_velocity(mut query: Query<&mut Velocity, With<ActiveBall>>) {
-    for mut velo in &mut query {
+fn ball_clamp_velocity(mut query: Query<(&mut Velocity, &mut Transform), With<ActiveBall>>) {
+    for (mut velo, mut trans) in &mut query {
         let v = velo.linvel.length();
 
         if v > MAX_BALL_SPEED {
             velo.linvel = velo.linvel / v * MAX_BALL_SPEED;
         } else if v < MIN_BALL_SPEED {
             velo.linvel = velo.linvel / v * MIN_BALL_SPEED;
+        }
+
+        if trans.translation.y != 0.0 {
+            trans.translation.y = 0.0;
+            warn!("Correcting ball height! We're loosing that ball")
         }
     }
 }

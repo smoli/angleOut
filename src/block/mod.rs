@@ -1,6 +1,7 @@
 use bevy::utils::default;
 use bevy::app::App;
 use bevy::log::{info};
+use bevy::pbr::NotShadowCaster;
 use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, IntoSystemDescriptor, Plugin, Query, Res, SceneBundle, SystemSet, Transform, TransformBundle, With};
 use bevy_rapier3d::prelude::{ActiveEvents, Collider, CollisionGroups, Friction, Restitution, RigidBody};
 use crate::config::{COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
@@ -64,7 +65,6 @@ fn int_spawn_one_block(
             kind: CollidableKind::Block
         })
         .insert(Block)
-
     ;
 }
 

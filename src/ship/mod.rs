@@ -1,5 +1,5 @@
 use bevy::app::App;
-use bevy::prelude::{AssetServer, Commands, Component, EventWriter, GamepadButtonType, info, IntoSystemDescriptor, Plugin, Quat, Query, Res, ResMut, Resource, SystemSet, Time, Transform, TransformBundle, Vec2, Vec3, With};
+use bevy::prelude::{AssetServer, Commands, Component, EventWriter, GamepadButtonType, info, IntoSystemDescriptor, KeyCode, Plugin, Quat, Query, Res, ResMut, Resource, SystemSet, Time, Transform, TransformBundle, Vec2, Vec3, With};
 use bevy::scene::SceneBundle;
 use bevy::utils::default;
 use bevy_rapier3d::geometry::CollisionGroups;
@@ -73,6 +73,8 @@ fn ship_spawn(
                 .insert(DualAxis::right_stick(), MatchActions::ArticulateRight)
                 .insert(GamepadButtonType::RightTrigger, MatchActions::LaunchBall)
                 .insert(GamepadButtonType::RightTrigger2, MatchActions::LaunchBall)
+                .insert(GamepadButtonType::RightTrigger2, MatchActions::LaunchBall)
+                .insert(KeyCode::Space, MatchActions::LaunchBall)
                 .build(),
         })
         .insert(TransformBundle::from(Transform::from_xyz(PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z)))
