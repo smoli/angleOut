@@ -113,7 +113,7 @@ fn camera_update_position(mut query: Query<(&mut Transform, &mut ActionState<Cam
         }
 
         if action.pressed(CameraActions::Reset) {
-            let nt = Transform::from_xyz(0.0, 20.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y);
+            let nt = Transform::from_xyz(0.0, 200.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y);
 
             trans.translation = nt.translation;
             trans.rotation = nt.rotation;
@@ -128,7 +128,7 @@ fn setup_3d_environment(
     // commands.spawn(Camera2dBundle::default());
     // camera
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 20.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(0.0, 200.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y),
         // transform: Transform::from_xyz(0.0, 0.0, -100.00001).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     })
@@ -146,7 +146,7 @@ fn setup_3d_environment(
     ;
 
     // Directional Light
-    const HALF_SIZE: f32 = 30.0;
+    const HALF_SIZE: f32 = 300.0;
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             color: Color::rgb(0.7, 0.7, 1.0),

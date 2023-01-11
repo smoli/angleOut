@@ -59,13 +59,13 @@ fn block_spawn(
                 scene: asset_server.load(block.asset_name.as_str()),
                 ..default()
             })
+            .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)))
             .insert(Collider::round_cuboid(
                 BLOCK_WIDTH / 2.0 - BLOCK_ROUNDNESS,
                 BLOCK_HEIGHT * 2.0 - BLOCK_ROUNDNESS,
                 BLOCK_DEPTH / 2.0 - BLOCK_ROUNDNESS,
                 BLOCK_ROUNDNESS,
             ))
-            .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)))
 
             .insert(Restitution::coefficient(MAX_RESTITUTION))
             .insert(Friction::coefficient(0.0))

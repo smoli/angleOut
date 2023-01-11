@@ -54,7 +54,7 @@ fn generate_block_grid(
 )   -> Vec<Vec2>
 
 {
-    let mut y = -3.0;
+    let mut y = -30.0;
 
     let x_step = BLOCK_WIDTH + gap;
     let cols_h = (cols / 2) as f32;
@@ -92,7 +92,7 @@ fn level_spawn(mut commands: Commands) {
         .insert(RequestTag);
 
 
-    let positions = generate_block_grid(5, 10, 0.3);
+    let positions = generate_block_grid(5, 10, 3.0);
 
     for i in 0..positions.len() {
         let pos = positions.get(i).unwrap();

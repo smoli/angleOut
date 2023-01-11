@@ -109,7 +109,7 @@ fn ball_update_inactive(
     mut query: Query<&mut Transform, (Without<ActiveBall>, With<Ball>)>)
 {
     for mut trans in &mut query {
-        trans.translation = ship_state.ship_position.clone() + Vec3::new(0.0, 0.0, -PADDLE_THICKNESS * 0.5 - BALL_RADIUS);
+        trans.translation = ship_state.ship_position.clone() + Vec3::new(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS);
     }
 }
 
