@@ -10,6 +10,7 @@ mod arena;
 mod ball;
 mod physics;
 mod block;
+mod level;
 
 use std::f32::consts::PI;
 use bevy::app::App;
@@ -27,6 +28,7 @@ use crate::ball::BallPlugin;
 use crate::block::BlockPlugin;
 use crate::config::{SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::events::{EventsPlugin};
+use crate::level::LevelPlugin;
 use crate::physics::PhysicsPlugin;
 use crate::ship::ShipPlugin;
 use crate::state::GameState;
@@ -50,6 +52,8 @@ fn main() {
     app.add_plugin(ArenaPlugin);
     app.add_plugin(BallPlugin);
     app.add_plugin(BlockPlugin);
+
+    app.add_plugin(LevelPlugin);
 
     app.add_plugin(InputManagerPlugin::<GameFlowActions>::default());
     app.add_plugin(InputManagerPlugin::<MatchActions>::default());

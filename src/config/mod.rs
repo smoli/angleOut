@@ -34,3 +34,10 @@ pub const COLLIDER_GROUP_PADDLE:Group = Group::GROUP_2;
 pub const COLLIDER_GROUP_BLOCK:Group  = Group::GROUP_3;
 pub const COLLIDER_GROUP_ARENA:Group  = Group::GROUP_4;
 pub const COLLIDER_GROUP_DEATH:Group  = Group::GROUP_5;
+
+pub const BLOCK_WIDTH: f32 = 1.5;
+pub const BLOCK_WIDTH_H: f32 = BLOCK_WIDTH / 2.0;
+pub const BLOCK_HEIGHT: f32 = 0.375;
+pub const BLOCK_DEPTH: f32 = 0.751;
+pub const BLOCK_ROUNDNESS: f32 = 0.02;
+

@@ -10,11 +10,22 @@ use bevy_rapier3d::dynamics::RigidBody;
 use crate::config::{BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_BOUNCE_IMPULSE, PADDLE_LAUNCH_IMPULSE, PADDLE_THICKNESS};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
+use crate::level::RequestTag;
 use crate::physics::{Collidable, CollidableKind, CollisionTag};
 use crate::ship::ShipState;
 
 #[derive(Component)]
-pub struct Ball;
+pub struct Ball {
+    pub asset_name: String
+}
+
+impl Default for Ball {
+    fn default() -> Self {
+        Ball { asset_name: "ship3_003.gltf#Scene0".to_string() }
+    }
+}
+
+
 
 #[derive(Component)]
 pub struct ActiveBall;
@@ -24,12 +35,10 @@ pub struct BallPlugin;
 impl Plugin for BallPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_system_set(
-                SystemSet::on_enter(GameState::InGame)
-                    .with_system(ball_spawn)
-            )
+
             .add_system_set(
                 SystemSet::on_update(GameState::InGame)
+                    .with_system(ball_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(ball_spin.label(SystemLabels::UpdateWorld))
                     .with_system(ball_update_inactive.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
@@ -41,47 +50,51 @@ impl Plugin for BallPlugin {
     }
 }
 
-fn ball_spawn(
+pub fn ball_spawn(
     mut commands: Commands,
-    asset_server: Res<AssetServer>)
+    asset_server: Res<AssetServer>,
+    empties: Query<(Entity, &Ball), With<RequestTag>>)
 {
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server.load("ship3_003.gltf#Scene0"),
-            visibility: Visibility {
-                is_visible: true
-            },
-            ..default()
-        })
-        .insert(TransformBundle::default())
-        .insert(Ball)
-        .insert(RigidBody::Dynamic)
-        .insert(GravityScale(0.0))
-        .insert(Collider::ball(BALL_RADIUS))
-        .insert(Restitution::coefficient(MAX_RESTITUTION))
-        .insert(Damping {
-            linear_damping: 0.0,
-            angular_damping: 0.0,
-        })
-        .insert(Friction::coefficient(0.0))
-        .insert(ColliderMassProperties::Density(20.0))
-        .insert(ColliderMassProperties::MassProperties(MassProperties {
-            mass: 1.0,
-            ..default()
+    for (entity, ball) in &empties {
+        commands.entity(entity)
+            .remove::<RequestTag>()
+            .insert(SceneBundle {
+                scene: asset_server.load(ball.asset_name.as_str()),
+                visibility: Visibility {
+                    is_visible: true
+                },
+                ..default()
+            })
+            .insert(TransformBundle::default())
+            .insert(RigidBody::Dynamic)
+            .insert(GravityScale(0.0))
+            .insert(Collider::ball(BALL_RADIUS))
+            .insert(Restitution::coefficient(MAX_RESTITUTION))
+            .insert(Damping {
+                linear_damping: 0.0,
+                angular_damping: 0.0,
+            })
+            .insert(Friction::coefficient(0.0))
+            .insert(ColliderMassProperties::Density(20.0))
+            .insert(ColliderMassProperties::MassProperties(MassProperties {
+                mass: 1.0,
+                ..default()
 
-        }))
-        .insert(Velocity::default())
-        .insert(ExternalImpulse::default())
-        .insert(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED)
-        .insert(CollisionGroups::new(COLLIDER_GROUP_BALL, COLLIDER_GROUP_NONE))
-        .insert(ActiveEvents::COLLISION_EVENTS)
-        .insert(Ccd::enabled())
-        .insert(Collidable {
-            kind: CollidableKind::Ball
-        })
-
-    ;
+            }))
+            .insert(Velocity::default())
+            .insert(ExternalImpulse::default())
+            .insert(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED)
+            .insert(CollisionGroups::new(COLLIDER_GROUP_BALL, COLLIDER_GROUP_NONE))
+            .insert(ActiveEvents::COLLISION_EVENTS)
+            .insert(Ccd::enabled())
+            .insert(Collidable {
+                kind: CollidableKind::Ball
+            })
+        ;
+    }
 }
+
+
 
 fn ball_spin(
     timer: Res<Time>,

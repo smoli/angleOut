@@ -1,17 +1,32 @@
 use bevy::utils::default;
 use bevy::app::App;
 use bevy::log::{info};
+use bevy::math::Vec2;
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, IntoSystemDescriptor, Plugin, Query, Res, SceneBundle, SystemSet, Transform, TransformBundle, With};
 use bevy_rapier3d::prelude::{ActiveEvents, Collider, CollisionGroups, Friction, Restitution, RigidBody};
-use crate::config::{COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
+use crate::config::{BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
 use crate::labels::SystemLabels;
+use crate::level::RequestTag;
 use crate::physics::{Collidable, CollidableKind, CollisionTag};
 use crate::state::GameState;
 
 
 #[derive(Component)]
-pub struct Block;
+pub struct Block {
+    pub position: Vec2,
+    pub asset_name: String
+}
+
+
+impl Default for Block {
+    fn default() -> Self {
+        Block {
+            position: Default::default(),
+            asset_name: "ship3_003.gltf#Scene3".to_string(),
+        }
+    }
+}
 
 
 pub struct BlockPlugin;
@@ -19,116 +34,54 @@ pub struct BlockPlugin;
 impl Plugin for BlockPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_system_set(
-                SystemSet::on_enter(GameState::InGame)
-                    .with_system(blocks_spawn)
-            )
+            
             .add_system_set(
                 SystemSet::on_update(GameState::InGame)
-                    .with_system(handle_block_collisions.label(SystemLabels::UpdateWorld))
+                    .with_system(block_spawn.label(SystemLabels::UpdateWorld))
+                    .with_system(block_handle_collisions.label(SystemLabels::UpdateWorld))
             )
         ;
     }
 }
 
-const BLOCK_WIDTH: f32 = 1.5;
-const BLOCK_WIDTH_H: f32 = BLOCK_WIDTH / 2.0;
-const BLOCK_HEIGHT: f32 = 0.375;
-const BLOCK_DEPTH: f32 = 0.751;
-const BLOCK_ROUNDNESS: f32 = 0.02;
 
-
-
-
-
-
-fn int_spawn_one_block(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    x: f32,
-    y: f32,
-) {
-    commands
-        .spawn(RigidBody::Fixed)
-        .insert(SceneBundle {
-            scene: asset_server.load("ship3_003.gltf#Scene3"),
-            ..default()
-        })
-        .insert(Collider::round_cuboid(
-            BLOCK_WIDTH / 2.0 - BLOCK_ROUNDNESS,
-            BLOCK_HEIGHT * 2.0 - BLOCK_ROUNDNESS,
-            BLOCK_DEPTH / 2.0 - BLOCK_ROUNDNESS,
-            BLOCK_ROUNDNESS,
-        ))
-        .insert(TransformBundle::from(Transform::from_xyz(x, 0.0, y)))
-
-        .insert(Restitution::coefficient(MAX_RESTITUTION))
-        .insert(Friction::coefficient(0.0))
-        .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL))
-        .insert(ActiveEvents::COLLISION_EVENTS)
-        .insert(Collidable {
-            kind: CollidableKind::Block
-        })
-        .insert(Block)
-    ;
-}
-
-
-
-/*
-    let ct = (count / 2) as Real;
-
-    let mut x: Real = cx - ct * (BLOCK_WIDTH + gap) - gap + BLOCK_WIDTH_H;
-
-    if count % 2 == 1 {
-        x -= BLOCK_WIDTH_H - gap;
-    } else {
-        x += gap * 1.5;
-    }
-
-    for i in 0..count {
-        spawn_block(commands, asset_server, hit_points, x, y);
-        x += BLOCK_WIDTH + gap;
-    }
- */
-
-
-fn blocks_spawn(
+fn block_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    empties: Query<(Entity, &Block), With<RequestTag>>
 ) {
-    let rows = 5;
-    let cols = 10;
-    let gap: f32 = 0.3;
+    for (entity, block) in &empties {
+        commands.entity(entity)
+            .remove::<RequestTag>()
+            .insert(RigidBody::Fixed)
 
+            .insert(SceneBundle {
+                scene: asset_server.load(block.asset_name.as_str()),
+                ..default()
+            })
+            .insert(Collider::round_cuboid(
+                BLOCK_WIDTH / 2.0 - BLOCK_ROUNDNESS,
+                BLOCK_HEIGHT * 2.0 - BLOCK_ROUNDNESS,
+                BLOCK_DEPTH / 2.0 - BLOCK_ROUNDNESS,
+                BLOCK_ROUNDNESS,
+            ))
+            .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)))
 
-    let mut y = -3.0;
-
-    let x_step = BLOCK_WIDTH + gap;
-    let cols_h = (cols / 2) as f32;
-
-    for _ in 0..rows {
-
-        let mut x = 0.0;
-        if cols % 2 == 1 {
-            x -= cols_h * x_step;
-        } else {
-            x -= cols_h * x_step - gap / 2.0 - BLOCK_WIDTH_H;
-        }
-
-
-
-        for _ in 0..cols {
-            info!("{x}");
-            int_spawn_one_block(&mut commands, &asset_server, x, y);
-            x += x_step;
-        }
-
-        y -= BLOCK_DEPTH * 2.0 - gap;
+            .insert(Restitution::coefficient(MAX_RESTITUTION))
+            .insert(Friction::coefficient(0.0))
+            .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL))
+            .insert(ActiveEvents::COLLISION_EVENTS)
+            .insert(Collidable {
+                kind: CollidableKind::Block
+            })
+        ;
     }
+
+
+
 }
 
-fn handle_block_collisions(
+fn block_handle_collisions(
     mut commands: Commands,
     mut blocks: Query<(Entity, &CollisionTag), With<Block>>) {
     for (block, collision) in &mut blocks {

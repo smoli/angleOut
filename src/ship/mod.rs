@@ -1,6 +1,7 @@
 use bevy::app::App;
-use bevy::prelude::{AssetServer, Commands, Component, EventWriter, GamepadButtonType, info, IntoSystemDescriptor, KeyCode, Plugin, Quat, Query, Res, ResMut, Resource, SystemSet, Time, Transform, TransformBundle, Vec2, Vec3, With};
-use bevy::scene::SceneBundle;
+use bevy::asset::Handle;
+use bevy::prelude::{AssetServer, Commands, Component, Entity, EventWriter, GamepadButtonType, info, IntoSystemDescriptor, KeyCode, Plugin, Quat, Query, Res, ResMut, Resource, SystemSet, Time, Transform, TransformBundle, Vec2, Vec3, With};
+use bevy::scene::{Scene, SceneBundle};
 use bevy::utils::default;
 use bevy_rapier3d::geometry::CollisionGroups;
 use bevy_rapier3d::prelude::{ActiveEvents, Collider};
@@ -8,23 +9,37 @@ use leafwing_input_manager::axislike::DualAxisData;
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, DualAxis, InputMap};
 use crate::actions::MatchActions;
+use crate::ball::Ball;
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_PADDLE, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
+use crate::level::RequestTag;
 use crate::physics::{Collidable, CollidableKind};
 use crate::state::GameState;
 
 #[derive(Resource)]
 pub struct ShipState {
     pub ship_position: Vec3,
-    pub ship_rotation: f32
+    pub ship_rotation: f32,
 }
 
 #[derive(Component)]
 pub struct Ship {
-    target_position: Vec3,
-    target_rotation: f32,
-    current_rotation: f32,
+    pub asset_name: String,
+    pub target_position: Vec3,
+    pub target_rotation: f32,
+    pub current_rotation: f32,
+}
+
+impl Default for Ship {
+    fn default() -> Self {
+        Ship {
+            asset_name: "ship3_003.gltf#Scene1".to_string(),
+            target_position: Default::default(),
+            target_rotation: 0.0,
+            current_rotation: 0.0,
+        }
+    }
 }
 
 pub struct ShipPlugin;
@@ -36,12 +51,10 @@ impl Plugin for ShipPlugin {
                 ship_position: Default::default(),
                 ship_rotation: 0.0,
             })
-            .add_system_set(
-                SystemSet::on_enter(GameState::InGame)
-                    .with_system(ship_spawn)
-            )
+
             .add_system_set(
                 SystemSet::on_update(GameState::InGame)
+                    .with_system(ship_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(ship_articulate.label(SystemLabels::UpdateWorld))
                     .with_system(ship_update_position.label(SystemLabels::UpdateWorld))
                     .with_system(ship_launch_ball.label(SystemLabels::UpdateWorld))
@@ -50,42 +63,37 @@ impl Plugin for ShipPlugin {
     }
 }
 
-fn ship_spawn(
+pub fn ship_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    empties: Query<(Entity, &Ship), With<RequestTag>>,
 ) {
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server.load("ship3_003.gltf#Scene1"),
-            ..default()
-        })
-        .insert(
-            Ship {
-                target_position: Default::default(),
-                target_rotation: 0.0,
-                current_rotation: 0.0,
-            }
-        )
-        .insert(InputManagerBundle::<MatchActions> {
-            action_state: ActionState::default(),
-            input_map: InputMap::default()
-                .insert(DualAxis::left_stick(), MatchActions::ArticulateLeft)
-                .insert(DualAxis::right_stick(), MatchActions::ArticulateRight)
-                .insert(GamepadButtonType::RightTrigger, MatchActions::LaunchBall)
-                .insert(GamepadButtonType::RightTrigger2, MatchActions::LaunchBall)
-                .insert(GamepadButtonType::RightTrigger2, MatchActions::LaunchBall)
-                .insert(KeyCode::Space, MatchActions::LaunchBall)
-                .build(),
-        })
-        .insert(TransformBundle::from(Transform::from_xyz(PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z)))
-        .insert(Collider::round_cuboid(PADDLE_WIDTH_H - PADDLE_THICKNESS * 0.15, PADDLE_THICKNESS, PADDLE_THICKNESS * 0.35, PADDLE_THICKNESS * 0.15))
-        .insert(CollisionGroups::new(COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_BALL))
-        .insert(ActiveEvents::COLLISION_EVENTS)
-        .insert(Collidable {
-            kind: CollidableKind::Ship
-        })
-
-    ;
+    for (entity, ship) in &empties {
+        commands.entity(entity)
+            .remove::<RequestTag>()
+            .insert(SceneBundle {
+                scene: asset_server.load(ship.asset_name.as_str()),
+                ..default()
+            })
+            .insert(InputManagerBundle::<MatchActions> {
+                action_state: ActionState::default(),
+                input_map: InputMap::default()
+                    .insert(DualAxis::left_stick(), MatchActions::ArticulateLeft)
+                    .insert(DualAxis::right_stick(), MatchActions::ArticulateRight)
+                    .insert(GamepadButtonType::RightTrigger, MatchActions::LaunchBall)
+                    .insert(GamepadButtonType::RightTrigger2, MatchActions::LaunchBall)
+                    .insert(GamepadButtonType::RightTrigger2, MatchActions::LaunchBall)
+                    .insert(KeyCode::Space, MatchActions::LaunchBall)
+                    .build(),
+            })
+            .insert(TransformBundle::from(Transform::from_xyz(PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z)))
+            .insert(Collider::round_cuboid(PADDLE_WIDTH_H - PADDLE_THICKNESS * 0.15, PADDLE_THICKNESS, PADDLE_THICKNESS * 0.35, PADDLE_THICKNESS * 0.15))
+            .insert(CollisionGroups::new(COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_BALL))
+            .insert(ActiveEvents::COLLISION_EVENTS)
+            .insert(Collidable {
+                kind: CollidableKind::Ship
+            });
+    }
 }
 
 fn ship_articulate(mut query: Query<(&ActionState<MatchActions>, &mut Ship)>) {
@@ -127,7 +135,7 @@ fn ship_update_position(time: Res<Time>, mut ship_state: ResMut<ShipState>, mut 
     for (mut trans, mut ship) in &mut query {
         let dp = ship.target_position - trans.translation;
 
-        let mut tp:Vec3 = ship.target_position;
+        let mut tp: Vec3 = ship.target_position;
         if dp.length() > 0.01 {
             tp = trans.translation + dp * time.delta_seconds() * PADDLE_POSITION_ACCEL;
         }
@@ -152,7 +160,7 @@ fn ship_update_position(time: Res<Time>, mut ship_state: ResMut<ShipState>, mut 
 
 fn ship_launch_ball(
     mut query: Query<&mut ActionState<MatchActions>, With<Ship>>,
-    mut events: EventWriter<MatchEvent>
+    mut events: EventWriter<MatchEvent>,
 ) {
     for mut action in &mut query {
         if action.pressed(MatchActions::LaunchBall) {
