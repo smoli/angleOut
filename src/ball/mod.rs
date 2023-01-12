@@ -5,7 +5,7 @@ use crate::state::GameState;
 use std::f32::consts::TAU;
 use bevy::log::info;
 use bevy::utils::tracing::enabled;
-use bevy_rapier3d::prelude::{ActiveEvents, Ccd, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Velocity};
+use bevy_rapier3d::prelude::{ActiveEvents, Ccd, CoefficientCombineRule, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Velocity};
 use bevy_rapier3d::dynamics::RigidBody;
 use crate::config::{BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_BOUNCE_IMPULSE, PADDLE_LAUNCH_IMPULSE, PADDLE_THICKNESS};
 use crate::events::MatchEvent;
@@ -69,12 +69,18 @@ pub fn ball_spawn(
             .insert(RigidBody::Dynamic)
             .insert(GravityScale(0.0))
             .insert(Collider::ball(BALL_RADIUS))
-            .insert(Restitution::coefficient(MAX_RESTITUTION))
+            .insert(Restitution {
+                coefficient: MAX_RESTITUTION,
+                combine_rule: CoefficientCombineRule::Max,
+            })
             .insert(Damping {
                 linear_damping: 0.0,
                 angular_damping: 0.0,
             })
-            .insert(Friction::coefficient(0.0))
+            .insert(Friction {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            })
             .insert(ColliderMassProperties::Density(20.0))
             .insert(ColliderMassProperties::MassProperties(MassProperties {
                 mass: 1.0,

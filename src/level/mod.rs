@@ -6,9 +6,10 @@ use bevy::app::App;
 use bevy::prelude::{AssetServer, Commands, Component, Plugin, Res, Resource, SystemSet, Vec2};
 use bevy::utils::default;
 use crate::ball::{Ball, ball_spawn};
-use crate::block::{Block, BlockBehaviour};
-use crate::config::{BLOCK_DEPTH, BLOCK_WIDTH, BLOCK_WIDTH_H};
+use crate::block::{Block, BlockBehaviour, BlockType};
+use crate::config::{BLOCK_DEPTH, BLOCK_GAP, BLOCK_WIDTH, BLOCK_WIDTH_H};
 use crate::level::layout::{generate_block_grid, interpret_grid};
+use crate::level::TargetLayout::FilledGrid;
 use crate::ship::{Ship, ship_spawn};
 use crate::state::GameState;
 
@@ -16,10 +17,17 @@ use crate::state::GameState;
 #[derive(Component)]
 pub struct RequestTag;
 
+
+pub enum TargetLayout {
+    FilledGrid(usize, usize, BlockType, BlockBehaviour, f32),
+    SparseGrid(String, usize, f32),
+}
+
+
 #[derive(Resource)]
 pub struct LevelLayout {
     pub simultaneous_balls: usize,
-    pub targets: String,
+    pub targets: TargetLayout,
     pub time_limit: Option<Duration>,
 }
 
@@ -27,7 +35,7 @@ pub struct LevelLayout {
 impl Default for LevelLayout {
     fn default() -> Self {
         LevelLayout {
-            targets: "".to_string(),
+            targets: FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
             simultaneous_balls: 1,
             time_limit: None,
         }
@@ -49,7 +57,46 @@ impl Plugin for LevelPlugin {
     }
 }
 
-fn level_spawn(mut commands: Commands) {
+
+fn make_filled_grid(
+    mut commands: &mut Commands,
+    cols: usize, rows: usize, block_type: &BlockType, behaviour: &BlockBehaviour, gap: f32)
+{
+    let positions = generate_block_grid(rows, cols, gap);
+
+    for i in 0..positions.len() {
+        let pos = positions.get(i).unwrap();
+
+        commands.
+            spawn(Block {
+                position: pos.clone(),
+                behaviour: behaviour.clone(),
+                block_type: block_type.clone(),
+                ..default()
+            })
+            .insert(RequestTag);
+    }
+}
+
+fn make_grid_from_string_layout(
+    mut commands: &mut Commands,
+    layout: &String,
+    cols: usize,
+    gap: f32,
+) {
+    if let Some(res) = interpret_grid(layout, cols, gap) {
+        for b in res {
+            println!("{:?}", b);
+            commands
+                .spawn(b)
+                .insert(RequestTag);
+        }
+    }
+}
+
+fn level_spawn(
+    layout: Res<LevelLayout>,
+    mut commands: Commands) {
     commands
         .spawn(Ball::default())
         .insert(RequestTag)
@@ -60,36 +107,14 @@ fn level_spawn(mut commands: Commands) {
         .insert(RequestTag);
 
 
-   /* let positions =  generate_block_grid(5, 10, 3.0);
-
-    for i in 0..positions.len() {
-        let pos = positions.get(i).unwrap();
-
-        commands.
-        spawn(Block {
-            position: pos.clone(),
-            behaviour: BlockBehaviour::EvadeUp,
-            ..Block::hardling()
-        })
-            .insert(RequestTag);
-    }*/
-    let a_level = "AA .. .. .. .. .. .. .. AA
- .. .. .. .. .. .. .. .. ..
- .. .. .. .. CB .. .. .. ..
- .. .. .. .. .. .. .. .. ..
- AA .. .. .. .. .. .. .. AA".to_string();
-
-
-
-    if let Some(res) = interpret_grid(a_level, 9, 3.0) {
-        for b in res {
-        println!("{:?}", b);
-            commands
-                .spawn(b)
-                .insert(RequestTag);
+    match &layout.targets {
+        FilledGrid(cols, rows, block_type, behaviour, gap) => {
+            make_filled_grid(&mut commands, *cols, *rows, block_type, behaviour, *gap)
+        }
+        TargetLayout::SparseGrid(layout, cols, gap) => {
+            make_grid_from_string_layout(&mut commands, layout, *cols, *gap);
         }
     }
-
 }
 
 

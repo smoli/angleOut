@@ -5,13 +5,14 @@ use crate::config::{BLOCK_DEPTH, BLOCK_WIDTH, BLOCK_WIDTH_H};
 
 
 pub fn generate_block_grid(
-    rows: u32,
-    cols: u32,
+    rows: usize,
+    cols: usize,
     gap: f32,
 )   -> Vec<Vec2>
 
 {
-    let mut y = -30.0;
+    let mut y = -30.0 - 4.0 * (BLOCK_DEPTH + gap);
+    let y_step = BLOCK_DEPTH + gap;
 
     let x_step = BLOCK_WIDTH + gap;
     let cols_h = (cols / 2) as f32;
@@ -31,7 +32,7 @@ pub fn generate_block_grid(
             x += x_step;
         }
 
-        y -= BLOCK_DEPTH * 2.0 - gap;
+        y += y_step;
     };
 
     res
@@ -68,7 +69,7 @@ pub fn make_block(b_type: char, b_beh: char, pos: Vec2) -> Option<Block> {
 }
 
 
-pub fn interpret_grid(layout: String, cols: usize, gap: f32) -> Option<Vec<Block>> {
+pub fn interpret_grid(layout: &String, cols: usize, gap: f32) -> Option<Vec<Block>> {
 
     let mut res = vec![];
 
@@ -78,7 +79,8 @@ pub fn interpret_grid(layout: String, cols: usize, gap: f32) -> Option<Vec<Block
     let x_step = BLOCK_WIDTH + gap;
     let cols_h = (cols / 2) as f32;
 
-    let mut y = -30.0 - 10.0 * (BLOCK_DEPTH + gap) + (line_count as f32 + 1.0) * (2.0 * BLOCK_DEPTH + gap);
+    let mut y = -30.0 - 4.0 * (BLOCK_DEPTH + gap);
+    let y_step = BLOCK_DEPTH + gap;
 
     for line in lines {
         line_count += 1;
@@ -111,7 +113,7 @@ pub fn interpret_grid(layout: String, cols: usize, gap: f32) -> Option<Vec<Block
             }
 
         }
-        y -= BLOCK_DEPTH * 2.0 - gap;
+        y += y_step;
     }
 
 
@@ -147,7 +149,7 @@ mod tests {
  .. .. .. .. .. .. .. .. .. ..
  AA .. .. .. .. .. .. .. .. AA".to_string();
 
-        if let Some(res) = interpret_grid(a_level, 10, 3.0) {
+        if let Some(res) = interpret_grid(&a_level, 10, 3.0) {
             assert_eq!(res.len(), 5);
 
             for b in res {

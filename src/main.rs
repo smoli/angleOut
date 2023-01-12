@@ -25,10 +25,10 @@ use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap}
 use crate::actions::{CameraActions, GameFlowActions, MatchActions};
 use crate::arena::ArenaPlugin;
 use crate::ball::BallPlugin;
-use crate::block::BlockPlugin;
-use crate::config::{SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::block::{BlockBehaviour, BlockPlugin, BlockType};
+use crate::config::{BLOCK_DEPTH, BLOCK_GAP, SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::events::{EventsPlugin};
-use crate::level::LevelPlugin;
+use crate::level::{LevelLayout, LevelPlugin, TargetLayout};
 use crate::physics::PhysicsPlugin;
 use crate::ship::ShipPlugin;
 use crate::state::GameState;
@@ -41,7 +41,7 @@ fn main() {
     setup_ui(&mut app);
     app.add_plugin(EventsPlugin);
 
-    app.add_state(GameState::InGame);
+    app.add_state(GameState::Start);
 
     app.add_startup_system(setup_3d_environment);
     app.add_system(camera_update_position);
@@ -60,6 +60,20 @@ fn main() {
     app.add_plugin(InputManagerPlugin::<CameraActions>::default());
 
     app.add_system(close_on_esc);
+
+    app.insert_resource(LevelLayout {
+        simultaneous_balls: 1,
+        targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
+/*        targets: TargetLayout::SparseGrid(
+"AA .. .. .. AA
+ AA .. BB .. AA
+ AA .. .. .. AA
+ AA AA AA AA AA".to_string(), 5, BLOCK_GAP
+        ),*/
+        time_limit: None,
+    }
+    );
+
     app.run();
 }
 

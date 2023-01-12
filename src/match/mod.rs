@@ -14,14 +14,7 @@ pub struct MatchPlugin;
 impl Plugin for MatchPlugin {
     fn build(&self, app: &mut App) {
         app
-            .insert_resource(state::MatchState {
-                running: false,
-                blocks: 0,
-                paddle_bounces: 0,
-                points: 0,
-                balls_available: 0,
-                balls_active: 0,
-            })
+            .insert_resource(state::MatchState::default())
 
             .add_system_set(
                 SystemSet::on_enter(GameState::InGame)
@@ -68,19 +61,19 @@ fn match_update_state(
                 }
 
                 MatchEvent::SpawnBall => {
-                    match_state.balls_active += 1;
-                    match_state.balls_available -= 1;
+                    // match_state.balls_active += 1;
+                    // match_state.balls_available -= 1;
                 }
                 MatchEvent::LaunchBall => {}
                 MatchEvent::LooseBall => {
-                    match_state.balls_active -= 1;
+                    // match_state.balls_active -= 1;
                 }
 
                 MatchEvent::BounceOfPaddle => {
                     match_state.paddle_bounces += 1;
                 }
                 MatchEvent::DestroyFoe => {
-                    match_state.blocks -= 1;
+                    // match_state.blocks -= 1;
                 }
 
                 MatchEvent::End => {}

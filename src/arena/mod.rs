@@ -1,8 +1,10 @@
 use bevy::prelude::{Component, App, AssetServer, Commands, default, info, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor};
 use bevy::scene::SceneBundle;
+use bevy_rapier3d::dynamics::CoefficientCombineRule;
 use bevy_rapier3d::prelude::{Collider, Friction, Restitution, RigidBody};
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, BACKGROUND_LENGTH, BACKGROUND_SPEED, MAX_RESTITUTION};
 use crate::labels::SystemLabels;
+use crate::physics::{Collidable, CollidableKind};
 use crate::state::GameState;
 
 #[derive(Component)]
@@ -58,46 +60,65 @@ fn arena_spawn(
         .insert(TransformBundle::from(Transform::from_xyz(0.0, -4.0, -BACKGROUND_LENGTH)))
         .insert(Scrollable {
             speed: BACKGROUND_SPEED,
-        });
+        })
+    ;
 
 
     let wall_thickness = 10.0;
     // Left
     commands.spawn(Collider::cuboid(wall_thickness, 60.0, 200.0))
         .insert(TransformBundle::from(Transform::from_xyz(-ARENA_WIDTH_H - wall_thickness, 0.0, 0.0)))
-        .insert(Restitution::coefficient(MAX_RESTITUTION))
+        .insert(Restitution {
+            coefficient: MAX_RESTITUTION,
+            combine_rule: CoefficientCombineRule::Max,
+        })
         .insert(Friction::coefficient(0.0))
-
+        .insert(Collidable {
+            kind: CollidableKind::Wall,
+        })
     ;
+
     // Right
     commands.spawn(Collider::cuboid(wall_thickness, 60.0, 200.0))
         .insert(TransformBundle::from(Transform::from_xyz(ARENA_WIDTH_H + wall_thickness, 0.0, 0.0)))
-        .insert(Restitution::coefficient(MAX_RESTITUTION))
+        .insert(Restitution {
+            coefficient: MAX_RESTITUTION,
+            combine_rule: CoefficientCombineRule::Max,
+        })
         .insert(Friction::coefficient(0.0))
-
+        .insert(Collidable {
+            kind: CollidableKind::Wall,
+        })
     ;
+
     // Top
     commands
         .spawn(RigidBody::Fixed)
         .insert(Collider::cuboid(ARENA_WIDTH_H, 60.0, wall_thickness))
         .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - 13.0 - wall_thickness)))
-        .insert(Restitution::coefficient(MAX_RESTITUTION))
+        .insert(Restitution {
+            coefficient: MAX_RESTITUTION,
+            combine_rule: CoefficientCombineRule::Max,
+        })
         .insert(Friction::coefficient(0.0))
-
-
+        .insert(Collidable {
+            kind: CollidableKind::Wall,
+        })
     ;
+
     // Bottom
     commands.spawn(Collider::cuboid(ARENA_WIDTH_H, 60.0, wall_thickness))
         .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, ARENA_HEIGHT_H + 50.0 + wall_thickness)))
-        .insert(Restitution::coefficient(MAX_RESTITUTION))
+        .insert(Restitution {
+            coefficient: MAX_RESTITUTION,
+            combine_rule: CoefficientCombineRule::Max,
+        })
         .insert(Friction::coefficient(0.0))
-
-
+        .insert(Collidable {
+            kind: CollidableKind::Wall,
+        })
     ;
 }
-
-
-
 
 
 fn arena_scroll(

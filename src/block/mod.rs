@@ -6,7 +6,7 @@ use bevy::math::Vec2;
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, IntoSystemDescriptor, Plugin, Query, Res, SceneBundle, SystemSet, Time, Transform, TransformBundle, With};
 use bevy::time::FixedTimestep;
-use bevy_rapier3d::prelude::{ActiveEvents, Collider, CollisionGroups, Friction, Restitution, RigidBody};
+use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, Friction, Restitution, RigidBody};
 use crate::config::{BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH, BLOCK_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
@@ -14,14 +14,14 @@ use crate::physics::{Collidable, CollidableKind, CollisionTag};
 use crate::state::GameState;
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BlockType {
     Simple,
     Hardling,
     Concrete,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BlockBehaviour {
     SittingDuck,
     Spinner,
@@ -109,8 +109,14 @@ fn block_spawn(
                 BLOCK_ROUNDNESS,
             ))
 
-            .insert(Restitution::coefficient(MAX_RESTITUTION))
-            .insert(Friction::coefficient(0.0))
+            .insert(Restitution {
+                coefficient: MAX_RESTITUTION,
+                combine_rule: CoefficientCombineRule::Max,
+            })
+            .insert(Friction {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            })
             .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL))
             .insert(ActiveEvents::COLLISION_EVENTS)
             .insert(Collidable {
