@@ -21,7 +21,7 @@ pub struct Ball {
 
 impl Default for Ball {
     fn default() -> Self {
-        Ball { asset_name: "ship3_003.gltf#Scene0".to_string() }
+        Ball { asset_name: "ship3_003.glb#Scene0".to_string() }
     }
 }
 

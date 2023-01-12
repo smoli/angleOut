@@ -36,7 +36,7 @@ fn arena_spawn(
 ) {
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("ship3_003.gltf#Scene2"),
+            scene: asset_server.load("ship3_003.glb#Scene2"),
             ..default()
         })
         .insert(
@@ -49,7 +49,7 @@ fn arena_spawn(
 
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("ship3_003.gltf#Scene2"),
+            scene: asset_server.load("ship3_003.glb#Scene2"),
             ..default()
         })
         .insert(

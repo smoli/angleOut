@@ -1,11 +1,14 @@
+mod layout;
+
 use std::thread::spawn;
 use std::time::Duration;
 use bevy::app::App;
 use bevy::prelude::{AssetServer, Commands, Component, Plugin, Res, Resource, SystemSet, Vec2};
 use bevy::utils::default;
 use crate::ball::{Ball, ball_spawn};
-use crate::block::Block;
+use crate::block::{Block, BlockBehaviour};
 use crate::config::{BLOCK_DEPTH, BLOCK_WIDTH, BLOCK_WIDTH_H};
+use crate::level::layout::{generate_block_grid, interpret_grid};
 use crate::ship::{Ship, ship_spawn};
 use crate::state::GameState;
 
@@ -46,41 +49,6 @@ impl Plugin for LevelPlugin {
     }
 }
 
-
-fn generate_block_grid(
-    rows: u32,
-    cols: u32,
-    gap: f32,
-)   -> Vec<Vec2>
-
-{
-    let mut y = -30.0;
-
-    let x_step = BLOCK_WIDTH + gap;
-    let cols_h = (cols / 2) as f32;
-
-    let mut res = vec![];
-
-    for _ in 0..rows {
-        let mut x = 0.0;
-        if cols % 2 == 1 {
-            x -= cols_h * x_step;
-        } else {
-            x -= cols_h * x_step - gap / 2.0 - BLOCK_WIDTH_H;
-        }
-
-        for _ in 0..cols {
-            res.push(Vec2::new(x, y));
-            x += x_step;
-        }
-
-        y -= BLOCK_DEPTH * 2.0 - gap;
-    };
-
-    res
-}
-
-
 fn level_spawn(mut commands: Commands) {
     commands
         .spawn(Ball::default())
@@ -92,7 +60,7 @@ fn level_spawn(mut commands: Commands) {
         .insert(RequestTag);
 
 
-    let positions = generate_block_grid(5, 10, 3.0);
+   /* let positions =  generate_block_grid(5, 10, 3.0);
 
     for i in 0..positions.len() {
         let pos = positions.get(i).unwrap();
@@ -100,10 +68,28 @@ fn level_spawn(mut commands: Commands) {
         commands.
         spawn(Block {
             position: pos.clone(),
-            ..default()
+            behaviour: BlockBehaviour::EvadeUp,
+            ..Block::hardling()
         })
             .insert(RequestTag);
+    }*/
+    let a_level = "AA .. .. .. .. .. .. .. AA
+ .. .. .. .. .. .. .. .. ..
+ .. .. .. .. CB .. .. .. ..
+ .. .. .. .. .. .. .. .. ..
+ AA .. .. .. .. .. .. .. AA".to_string();
+
+
+
+    if let Some(res) = interpret_grid(a_level, 9, 3.0) {
+        for b in res {
+        println!("{:?}", b);
+            commands
+                .spawn(b)
+                .insert(RequestTag);
+        }
     }
+
 }
 
 
