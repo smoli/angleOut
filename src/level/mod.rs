@@ -3,13 +3,14 @@ mod layout;
 use std::thread::spawn;
 use std::time::Duration;
 use bevy::app::App;
-use bevy::prelude::{AssetServer, Commands, Component, Plugin, Res, Resource, SystemSet, Vec2};
+use bevy::prelude::{AssetServer, Commands, Component, Plugin, Res, ResMut, Resource, SystemSet, Vec2};
 use bevy::utils::default;
 use crate::ball::{Ball, ball_spawn};
 use crate::block::{Block, BlockBehaviour, BlockType};
 use crate::config::{BLOCK_DEPTH, BLOCK_GAP, BLOCK_WIDTH, BLOCK_WIDTH_H};
 use crate::level::layout::{generate_block_grid, interpret_grid};
 use crate::level::TargetLayout::FilledGrid;
+use crate::r#match::state::MatchState;
 use crate::ship::{Ship, ship_spawn};
 use crate::state::GameState;
 
@@ -60,7 +61,7 @@ impl Plugin for LevelPlugin {
 
 fn make_filled_grid(
     mut commands: &mut Commands,
-    cols: usize, rows: usize, block_type: &BlockType, behaviour: &BlockBehaviour, gap: f32)
+    cols: usize, rows: usize, block_type: &BlockType, behaviour: &BlockBehaviour, gap: f32) -> usize
 {
     let positions = generate_block_grid(rows, cols, gap);
 
@@ -76,6 +77,8 @@ fn make_filled_grid(
             })
             .insert(RequestTag);
     }
+
+    positions.len()
 }
 
 fn make_grid_from_string_layout(
@@ -83,18 +86,26 @@ fn make_grid_from_string_layout(
     layout: &String,
     cols: usize,
     gap: f32,
-) {
+) -> usize {
     if let Some(res) = interpret_grid(layout, cols, gap) {
+        let mut c = 0;
         for b in res {
             println!("{:?}", b);
             commands
                 .spawn(b)
                 .insert(RequestTag);
+
+            c += 1;
         }
+
+        return c;
     }
+
+    0
 }
 
 fn level_spawn(
+    mut stats: ResMut<MatchState>,
     layout: Res<LevelLayout>,
     mut commands: Commands) {
     commands
@@ -107,14 +118,16 @@ fn level_spawn(
         .insert(RequestTag);
 
 
-    match &layout.targets {
+    let count = match &layout.targets {
         FilledGrid(cols, rows, block_type, behaviour, gap) => {
             make_filled_grid(&mut commands, *cols, *rows, block_type, behaviour, *gap)
         }
         TargetLayout::SparseGrid(layout, cols, gap) => {
-            make_grid_from_string_layout(&mut commands, layout, *cols, *gap);
+            make_grid_from_string_layout(&mut commands, layout, *cols, *gap)
         }
-    }
+    };
+
+    stats.set_block_count(count);
 }
 
 

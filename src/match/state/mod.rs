@@ -5,17 +5,17 @@ use bevy::prelude::Resource;
 #[derive(Resource)]
 pub struct MatchState {
 
-    // Blocks present in the level
-    pub blocks: usize,
-
     // Points achieved in the level
     pub points: u32,
+
+    // Blocks present in the level
+    pub blocks: usize,
 
     // Number of times the ball hit the paddle
     pub paddle_bounces: usize,
 
     // Number of times the ball hit a wall
-    pub wall_bounces: usize,
+    pub wall_hits: usize,
 
     // Was the last ball contact a paddle bounce?
     pub direct_hit_possible: bool,
@@ -37,7 +37,7 @@ impl MatchState {
         self.blocks = 0;
         self.paddle_bounces = 0;
         self.points = 0;
-        self.wall_bounces = 0;
+        self.wall_hits = 0;
         self.direct_hit_possible = false;
         self.paddle_bounce_combo = 0;
         self.single_bounce_combo = 0;
@@ -51,7 +51,7 @@ impl Default for MatchState {
             blocks: 0,
             points: 0,
             paddle_bounces: 0,
-            wall_bounces: 0,
+            wall_hits: 0,
             direct_hit_possible: false,
             direct_hits: 0,
             paddle_bounce_combo: 0,
@@ -85,10 +85,13 @@ impl MatchState {
     }
 
     pub fn add_wall_hit(&mut self) {
-        self.wall_bounces += 1;
+        self.wall_hits += 1;
         self.direct_hit_possible = false;
     }
 
+    pub fn set_block_count(&mut self, count: usize) {
+        self.blocks = count;
+    }
 }
 
 #[cfg(test)]
@@ -122,7 +125,7 @@ mod tests {
 
         assert_eq!(s.direct_hits, 2);
         assert_eq!(s.blocks, 97);
-        assert_eq!(s.wall_bounces, 1);
+        assert_eq!(s.wall_hits, 1);
         assert_eq!(s.paddle_bounces, 3);
     }
 

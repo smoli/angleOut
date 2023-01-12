@@ -1,4 +1,4 @@
-use bevy::prelude::{App, AssetServer, Commands, Component, Entity, EventReader, IntoSystemDescriptor, Plugin, Quat, Query, Res, SystemSet, Time, Transform, TransformBundle, Vec3, Visibility, warn, With, Without};
+use bevy::prelude::{App, AssetServer, Commands, Component, Entity, EventReader, EventWriter, IntoSystemDescriptor, Plugin, Quat, Query, Res, SystemSet, Time, Transform, TransformBundle, Vec3, Visibility, warn, With, Without};
 use bevy::scene::SceneBundle;
 use bevy::utils::default;
 use crate::state::GameState;
@@ -143,9 +143,7 @@ fn ball_inactive_handle_events(
                         .insert(ActiveBall);
                     col.filters = col.filters | COLLIDER_GROUP_PADDLE | COLLIDER_GROUP_BLOCK;
                 }
-                MatchEvent::LooseBall => {}
-                MatchEvent::BounceOfPaddle => {}
-                MatchEvent::DestroyFoe => {}
+
 
                 _ => {}
             }
@@ -174,7 +172,8 @@ fn ball_clamp_velocity(mut query: Query<(&mut Velocity, &mut Transform), With<Ac
 fn ball_handle_collisions(
     mut commands: Commands,
     ship_state: Res<ShipState>,
-    mut balls: Query<(Entity, &mut ExternalImpulse, &CollisionTag), With<Ball>>
+    mut balls: Query<(Entity, &mut ExternalImpulse, &CollisionTag), With<Ball>>,
+    mut events: EventWriter<MatchEvent>
 ) {
     for (ball, mut ext_imp, collision) in &mut balls {
         match collision.other {
@@ -188,6 +187,12 @@ fn ball_handle_collisions(
                     .remove::<CollisionTag>();
 
                 info!("Applied bounce impulse");
+
+                events.send(MatchEvent::BounceOffPaddle);
+            }
+
+            CollidableKind::Wall => {
+                events.send(MatchEvent::BounceOffWall);
             }
 
             _ => {}

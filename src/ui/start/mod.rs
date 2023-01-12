@@ -1,5 +1,6 @@
 use bevy::log::info;
-use bevy::prelude::{App, Color, Component, Commands, Entity, Plugin, Query, SystemSet, TextBundle, TextSection, TextStyle, With, AssetServer, Res, GamepadButtonType, EventWriter};
+use bevy::prelude::{App, Color, Component, Commands, Entity, Plugin, Query, SystemSet, TextBundle, TextSection, TextStyle, With, AssetServer, Res, GamepadButtonType, EventWriter, NodeBundle, Style, Size, Val, JustifyContent, default, BuildChildren, FlexDirection, TextAlignment, DespawnRecursiveExt};
+use bevy::ui::{AlignContent, AlignSelf, UiRect};
 use leafwing_input_manager::input_map::InputMap;
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::ActionState;
@@ -40,32 +41,51 @@ fn ui_spawn(
     asset_server: Res<AssetServer>,
 ) {
     info!("Spawning Start Screen");
-    commands.spawn((TextBundle::from_sections([
-        TextSection::new(
-            "Angle Out",
-            TextStyle {
-                font: asset_server.load("BAUHS93.TTF"),
-                font_size: 60.0,
-                color: Color::GOLD,
+
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                align_self: AlignSelf::Center,
+
+                ..default()
 
             },
-        )
-    ]),
-                    UITag
-    ))
+            background_color: Color::rgb(0.65, 0.65, 0.65).into(),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn((TextBundle::from_sections([
+                TextSection::new(
+                    "Angle Out",
+                    TextStyle {
+                        font: asset_server.load("BAUHS93.TTF"),
+                        font_size: 60.0,
+                        color: Color::GOLD,
+
+                    },
+                )
+            ]).with_style(Style {
+                align_self: AlignSelf::Center,
+                ..default()
+            })
+            ))
+                ;
+        })
+        .insert(UITag)
         .insert(InputManagerBundle::<GameFlowActions> {
             action_state: ActionState::default(),
             input_map: InputMap::default()
                 .insert(GamepadButtonType::South, GameFlowActions::StartMatch)
                 .build(),
-        });
+        })
+    ;
 }
-
 
 
 fn ui_handle_action(
     mut actions: Query<&mut ActionState<GameFlowActions>, With<UITag>>,
-    mut game_event: EventWriter<GameFlowEvent>
+    mut game_event: EventWriter<GameFlowEvent>,
 ) {
     for mut action in &mut actions {
         if action.pressed(GameFlowActions::StartMatch) {
@@ -80,6 +100,6 @@ fn ui_handle_action(
 fn ui_despawn(mut commands: Commands, uis: Query<Entity, With<UITag>>) {
     info!("Despawning Start Screen");
     for ui in &uis {
-        commands.entity(ui).despawn();
+        commands.entity(ui).despawn_recursive();
     }
 }

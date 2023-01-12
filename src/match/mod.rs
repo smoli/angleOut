@@ -69,11 +69,16 @@ fn match_update_state(
                     // match_state.balls_active -= 1;
                 }
 
-                MatchEvent::BounceOfPaddle => {
-                    match_state.paddle_bounces += 1;
+                MatchEvent::BounceOffPaddle => {
+                    match_state.add_paddle_bounce();
                 }
                 MatchEvent::DestroyFoe => {
-                    // match_state.blocks -= 1;
+                    match_state.add_block_hit();
+
+                }
+
+                MatchEvent::BounceOffWall => {
+                    match_state.add_wall_hit();
                 }
 
                 MatchEvent::End => {}

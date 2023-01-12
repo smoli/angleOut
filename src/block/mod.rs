@@ -4,10 +4,11 @@ use bevy::app::App;
 use bevy::log::{info};
 use bevy::math::Vec2;
 use bevy::pbr::NotShadowCaster;
-use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, IntoSystemDescriptor, Plugin, Query, Res, SceneBundle, SystemSet, Time, Transform, TransformBundle, With};
+use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, Plugin, Query, Res, SceneBundle, SystemSet, Time, Transform, TransformBundle, With};
 use bevy::time::FixedTimestep;
 use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, Friction, Restitution, RigidBody};
 use crate::config::{BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH, BLOCK_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
+use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
 use crate::physics::{Collidable, CollidableKind, CollisionTag};
@@ -161,7 +162,9 @@ fn block_spawn(
 
 fn block_handle_collisions(
     mut commands: Commands,
-    mut blocks: Query<(Entity, &CollisionTag, &mut Hittable), With<Block>>) {
+    mut blocks: Query<(Entity, &CollisionTag, &mut Hittable), With<Block>>,
+    mut events: EventWriter<MatchEvent>
+) {
     for (entity, collision, mut hittable) in &mut blocks {
         match collision.other {
             CollidableKind::Ball => {
@@ -170,6 +173,7 @@ fn block_handle_collisions(
                 if hittable.hit_points == 0 {
                     commands.entity(entity)
                         .despawn_recursive();
+                    events.send(MatchEvent::DestroyFoe);
                 } else {
                     info!("still alive")
                 }

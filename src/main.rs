@@ -30,6 +30,7 @@ use crate::config::{BLOCK_DEPTH, BLOCK_GAP, SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::events::{EventsPlugin};
 use crate::level::{LevelLayout, LevelPlugin, TargetLayout};
 use crate::physics::PhysicsPlugin;
+use crate::r#match::MatchPlugin;
 use crate::ship::ShipPlugin;
 use crate::state::GameState;
 use crate::ui::UI;
@@ -52,8 +53,8 @@ fn main() {
     app.add_plugin(ArenaPlugin);
     app.add_plugin(BallPlugin);
     app.add_plugin(BlockPlugin);
-
     app.add_plugin(LevelPlugin);
+    app.add_plugin(MatchPlugin);
 
     app.add_plugin(InputManagerPlugin::<GameFlowActions>::default());
     app.add_plugin(InputManagerPlugin::<MatchActions>::default());

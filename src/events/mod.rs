@@ -14,7 +14,8 @@ pub enum MatchEvent {
     SpawnBall,
     LaunchBall,
     LooseBall,
-    BounceOfPaddle,
+    BounceOffPaddle,
+    BounceOffWall,
     DestroyFoe,
     End
 }
