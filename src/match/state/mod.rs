@@ -1,3 +1,4 @@
+use std::time::Duration;
 use bevy::prelude::Resource;
 
 
@@ -6,29 +7,35 @@ use bevy::prelude::Resource;
 pub struct MatchState {
 
     // Points achieved in the level
-    pub points: u32,
+    pub points: i32,
 
     // Blocks present in the level
-    pub blocks: usize,
+    pub blocks: i32,
 
     // Number of times the ball hit the paddle
-    pub paddle_bounces: usize,
+    pub paddle_bounces: i32,
 
     // Number of times the ball hit a wall
-    pub wall_hits: usize,
+    pub wall_hits: i32,
 
     // Was the last ball contact a paddle bounce?
     pub direct_hit_possible: bool,
 
     // Number of times a block was hit without hitting a wall first. Multiple blocks after a
     // paddle bounce give only one direct hit each TODO: Test this out. Maybe only one hit
-    pub direct_hits: usize,
+    pub direct_hits: i32,
 
     // Number of times at least one block hit after a paddle bounce
-    pub paddle_bounce_combo: usize,
+    pub paddle_bounce_combo: i32,
 
     // Number of blocks after one paddle bounce
-    pub single_bounce_combo: usize
+    pub single_bounce_combo: i32,
+
+    pub balls_lost: i32,
+
+    pub balls_used: i32,
+
+    pub time_taken: Duration
 }
 
 
@@ -42,6 +49,9 @@ impl MatchState {
         self.paddle_bounce_combo = 0;
         self.single_bounce_combo = 0;
         self.direct_hits = 0;
+        self.balls_used = 0;
+        self.balls_lost = 0;
+        self.time_taken = Duration::default();
     }
 }
 
@@ -56,6 +66,9 @@ impl Default for MatchState {
             direct_hits: 0,
             paddle_bounce_combo: 0,
             single_bounce_combo: 0,
+            balls_lost: 0,
+            balls_used: 0,
+            time_taken: Default::default(),
         }
     }
 }
@@ -67,6 +80,7 @@ impl MatchState {
         self.paddle_bounces += 1;
         self.direct_hit_possible = true;
         self.single_bounce_combo = 0;
+        self.paddle_bounce_combo = 1;
     }
 
     pub fn ball_launched(&mut self) {
@@ -76,12 +90,19 @@ impl MatchState {
     // Only when ball removed
     pub fn add_block_hit(&mut self) {
         self.blocks -= 1;
+        self.points += 100 * self.paddle_bounce_combo + 10 * self.single_bounce_combo;
+
+
         self.single_bounce_combo += 1;
 
         if self.direct_hit_possible {
             self.direct_hits += 1;
 
+            self.points += 100 * self.paddle_bounce_combo;
+
+            self.direct_hit_possible = false;
         }
+
     }
 
     pub fn add_wall_hit(&mut self) {
@@ -89,7 +110,7 @@ impl MatchState {
         self.direct_hit_possible = false;
     }
 
-    pub fn set_block_count(&mut self, count: usize) {
+    pub fn set_block_count(&mut self, count: i32) {
         self.blocks = count;
     }
 }

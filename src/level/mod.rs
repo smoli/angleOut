@@ -61,7 +61,7 @@ impl Plugin for LevelPlugin {
 
 fn make_filled_grid(
     mut commands: &mut Commands,
-    cols: usize, rows: usize, block_type: &BlockType, behaviour: &BlockBehaviour, gap: f32) -> usize
+    cols: usize, rows: usize, block_type: &BlockType, behaviour: &BlockBehaviour, gap: f32) -> i32
 {
     let positions = generate_block_grid(rows, cols, gap);
 
@@ -78,7 +78,7 @@ fn make_filled_grid(
             .insert(RequestTag);
     }
 
-    positions.len()
+    positions.len() as i32
 }
 
 fn make_grid_from_string_layout(
@@ -86,7 +86,7 @@ fn make_grid_from_string_layout(
     layout: &String,
     cols: usize,
     gap: f32,
-) -> usize {
+) -> i32 {
     if let Some(res) = interpret_grid(layout, cols, gap) {
         let mut c = 0;
         for b in res {

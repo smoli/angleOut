@@ -2,7 +2,7 @@ use bevy::app::App;
 use bevy::ecs::query::QuerySingleError;
 use bevy::prelude::{AssetServer, BuildChildren, Commands, Component, NodeBundle, Plugin, Query, Res, Style, SystemSet, Text, TextBundle, With};
 use bevy::text::{TextSection, TextStyle};
-use bevy::ui::{Display, FlexDirection};
+use bevy::ui::{AlignItems, Display, FlexDirection};
 use bevy::utils::default;
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
@@ -22,6 +22,9 @@ struct UITagBounces;
 #[derive(Component)]
 struct UITagWallHits;
 
+#[derive(Component)]
+struct UITagCombos;
+
 pub struct UIStatsPlugin;
 
 impl Plugin for UIStatsPlugin {
@@ -37,6 +40,7 @@ impl Plugin for UIStatsPlugin {
                     .with_system(ui_update_blocks)
                     .with_system(ui_update_bounces)
                     .with_system(ui_update_wall_hits)
+                    .with_system(ui_update_combos)
             )
 
         ;
@@ -49,8 +53,8 @@ fn ui_spawn(
     asset_server: Res<AssetServer>,
 ) {
     let style = TextStyle {
-        font: asset_server.load("BAUHS93.TTF"),
-        font_size: 20.0,
+        font: asset_server.load("fonts/Orbitron-Regular.ttf"),
+        font_size: 30.0,
         color: Default::default(),
     };
 
@@ -59,6 +63,7 @@ fn ui_spawn(
             style: Style {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexStart,
                 ..default()
             },
             ..default()
@@ -94,6 +99,14 @@ fn ui_spawn(
                     ),
                     TextSection::from_style(style.clone())
                 ])).insert(UITagWallHits);
+
+            parent
+                .spawn(TextBundle::from_sections([
+                    TextSection::new(
+                        "Combos: ", style.clone(),
+                    ),
+                    TextSection::from_style(style.clone())
+                ])).insert(UITagCombos);
         })
         .insert(UITag);
     ;
@@ -143,6 +156,18 @@ fn ui_update_wall_hits(
     match ui.get_single_mut() {
         Ok(mut text) => {
             text.sections[1].value = format!("{}", stats.wall_hits);
+        }
+        _ => {}
+    }
+}
+
+fn ui_update_combos(
+    stats: Res<MatchState>,
+    mut ui: Query<&mut Text, With<UITagCombos>>
+) {
+    match ui.get_single_mut() {
+        Ok(mut text) => {
+            text.sections[1].value = format!("{}x, {}x", stats.paddle_bounce_combo, stats.single_bounce_combo);
         }
         _ => {}
     }
