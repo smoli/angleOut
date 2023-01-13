@@ -27,6 +27,7 @@ pub struct MatchState {
 
     // Number of times at least one block hit after a paddle bounce
     pub paddle_bounce_combo: i32,
+    paddle_bounce_combo_possible: bool,
 
     // Number of blocks after one paddle bounce
     pub single_bounce_combo: i32,
@@ -46,6 +47,7 @@ impl MatchState {
         self.points = 0;
         self.wall_hits = 0;
         self.direct_hit_possible = false;
+        self.paddle_bounce_combo_possible = false;
         self.paddle_bounce_combo = 0;
         self.single_bounce_combo = 0;
         self.direct_hits = 0;
@@ -69,6 +71,7 @@ impl Default for MatchState {
             balls_lost: 0,
             balls_used: 0,
             time_taken: Default::default(),
+            paddle_bounce_combo_possible: false
         }
     }
 }
@@ -79,8 +82,15 @@ impl MatchState {
     pub fn add_paddle_bounce(&mut self) {
         self.paddle_bounces += 1;
         self.direct_hit_possible = true;
+
+        if self.paddle_bounce_combo_possible {
+            self.paddle_bounce_combo = 0;
+            self.paddle_bounce_combo_possible = false;
+        } else {
+            self.paddle_bounce_combo_possible = true;
+        }
+
         self.single_bounce_combo = 0;
-        self.paddle_bounce_combo = 1;
     }
 
     pub fn ball_launched(&mut self) {
@@ -94,6 +104,11 @@ impl MatchState {
 
 
         self.single_bounce_combo += 1;
+
+        if self.paddle_bounce_combo_possible {
+            self.paddle_bounce_combo += 1;
+            self.paddle_bounce_combo_possible = false;
+        }
 
         if self.direct_hit_possible {
             self.direct_hits += 1;
@@ -171,6 +186,39 @@ mod tests {
         assert_eq!(s.single_bounce_combo, 0);
     }
 
+
+    // Number of times at least one block hit after a paddle bounce
+    #[test]
+    fn handles_paddle_bounce_combo() {
+        let mut s = MatchState::default();
+        s.blocks = 100;
+
+        s.add_paddle_bounce();
+        s.add_block_hit();
+        s.add_block_hit();
+        s.add_block_hit();
+
+        assert_eq!(s.paddle_bounce_combo, 1);
+
+        s.add_paddle_bounce();
+        s.add_block_hit();
+
+        assert_eq!(s.paddle_bounce_combo, 2);
+
+        s.add_paddle_bounce();
+        s.add_block_hit();
+
+        assert_eq!(s.paddle_bounce_combo, 3);
+
+        s.add_paddle_bounce();
+        s.add_paddle_bounce();
+
+        assert_eq!(s.paddle_bounce_combo, 0);
+
+        s.add_paddle_bounce();
+        s.add_block_hit();
+        assert_eq!(s.paddle_bounce_combo, 1);
+    }
 
 
 
