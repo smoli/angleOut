@@ -11,6 +11,8 @@ mod ball;
 mod physics;
 mod block;
 mod level;
+mod player;
+mod game;
 
 use std::f32::consts::PI;
 use bevy::app::App;
@@ -28,7 +30,8 @@ use crate::ball::BallPlugin;
 use crate::block::{BlockBehaviour, BlockPlugin, BlockType};
 use crate::config::{BLOCK_DEPTH, BLOCK_GAP, SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::events::{EventsPlugin};
-use crate::level::{LevelLayout, LevelPlugin, TargetLayout};
+use crate::game::GamePlugin;
+use crate::level::{LevelDefinition, LevelPlugin, TargetLayout};
 use crate::physics::PhysicsPlugin;
 use crate::r#match::MatchPlugin;
 use crate::ship::ShipPlugin;
@@ -54,6 +57,7 @@ fn main() {
     app.add_plugin(BallPlugin);
     app.add_plugin(BlockPlugin);
     app.add_plugin(LevelPlugin);
+    app.add_plugin(GamePlugin);
     app.add_plugin(MatchPlugin);
 
     app.add_plugin(InputManagerPlugin::<GameFlowActions>::default());
@@ -62,7 +66,7 @@ fn main() {
 
     app.add_system(close_on_esc);
 
-    app.insert_resource(LevelLayout {
+    app.insert_resource(LevelDefinition {
         simultaneous_balls: 1,
         targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
 /*        targets: TargetLayout::SparseGrid(

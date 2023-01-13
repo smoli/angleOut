@@ -14,6 +14,7 @@ use bevy_rapier3d::render::RapierDebugRenderPlugin;
 pub enum CollidableKind {
     Ball,
     Wall,
+    DeathTrigger,
     Ship,
     Block
 }
@@ -36,7 +37,7 @@ impl Plugin for PhysicsPlugin {
         app
             .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
             .add_system_set(
-                SystemSet::on_update(GameState::InGame)
+                SystemSet::on_update(GameState::InMatch)
                     .with_system(handle_collision_events.before(SystemLabels::UpdateWorld))
                     .with_system(cleanup_collision_tags.after(SystemLabels::UpdateState))
             )

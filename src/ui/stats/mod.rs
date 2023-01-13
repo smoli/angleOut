@@ -4,6 +4,7 @@ use bevy::prelude::{AssetServer, BuildChildren, Commands, Component, NodeBundle,
 use bevy::text::{TextSection, TextStyle};
 use bevy::ui::{AlignItems, Display, FlexDirection};
 use bevy::utils::default;
+use crate::player::Player;
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
 
@@ -25,22 +26,26 @@ struct UITagWallHits;
 #[derive(Component)]
 struct UITagCombos;
 
+#[derive(Component)]
+struct UITagBalls;
+
 pub struct UIStatsPlugin;
 
 impl Plugin for UIStatsPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_system_set(
-                SystemSet::on_enter(GameState::InGame)
+                SystemSet::on_enter(GameState::InMatch)
                     .with_system(ui_spawn)
             )
             .add_system_set(
-                SystemSet::on_update(GameState::InGame)
+                SystemSet::on_update(GameState::InMatch)
                     .with_system(ui_update_points)
                     .with_system(ui_update_blocks)
                     .with_system(ui_update_bounces)
                     .with_system(ui_update_wall_hits)
                     .with_system(ui_update_combos)
+                    .with_system(ui_update_balls)
             )
 
         ;
@@ -107,6 +112,14 @@ fn ui_spawn(
                     ),
                     TextSection::from_style(style.clone())
                 ])).insert(UITagCombos);
+
+            parent
+                .spawn(TextBundle::from_sections([
+                    TextSection::new(
+                        "Balls: ", style.clone(),
+                    ),
+                    TextSection::from_style(style.clone())
+                ])).insert(UITagBalls);
         })
         .insert(UITag);
     ;
@@ -168,6 +181,18 @@ fn ui_update_combos(
     match ui.get_single_mut() {
         Ok(mut text) => {
             text.sections[1].value = format!("{}x, {}x", stats.paddle_bounce_combo, stats.single_bounce_combo);
+        }
+        _ => {}
+    }
+}
+
+fn ui_update_balls(
+    stats: Res<Player>,
+    mut ui: Query<&mut Text, With<UITagBalls>>
+) {
+    match ui.get_single_mut() {
+        Ok(mut text) => {
+            text.sections[1].value = format!("{}", stats.balls_available);
         }
         _ => {}
     }

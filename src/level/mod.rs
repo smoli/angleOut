@@ -3,11 +3,12 @@ mod layout;
 use std::thread::spawn;
 use std::time::Duration;
 use bevy::app::App;
-use bevy::prelude::{AssetServer, Commands, Component, Plugin, Res, ResMut, Resource, SystemSet, Vec2};
+use bevy::prelude::{AssetServer, Commands, Component, IntoSystemDescriptor, Plugin, Res, ResMut, Resource, SystemSet, Vec2};
 use bevy::utils::default;
 use crate::ball::{Ball, ball_spawn};
 use crate::block::{Block, BlockBehaviour, BlockType};
 use crate::config::{BLOCK_DEPTH, BLOCK_GAP, BLOCK_WIDTH, BLOCK_WIDTH_H};
+use crate::labels::SystemLabels;
 use crate::level::layout::{generate_block_grid, interpret_grid};
 use crate::level::TargetLayout::FilledGrid;
 use crate::r#match::state::MatchState;
@@ -26,16 +27,16 @@ pub enum TargetLayout {
 
 
 #[derive(Resource)]
-pub struct LevelLayout {
-    pub simultaneous_balls: usize,
+pub struct LevelDefinition {
+    pub simultaneous_balls: i32,
     pub targets: TargetLayout,
     pub time_limit: Option<Duration>,
 }
 
 
-impl Default for LevelLayout {
+impl Default for LevelDefinition {
     fn default() -> Self {
-        LevelLayout {
+        LevelDefinition {
             targets: FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
             simultaneous_balls: 1,
             time_limit: None,
@@ -50,8 +51,8 @@ impl Plugin for LevelPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_system_set(
-                SystemSet::on_enter(GameState::InGame)
-                    .with_system(level_spawn)
+                SystemSet::on_enter(GameState::InMatch)
+                    .with_system(level_spawn.label(SystemLabels::UpdateWorld))
             )
 
         ;
@@ -106,19 +107,15 @@ fn make_grid_from_string_layout(
 
 fn level_spawn(
     mut stats: ResMut<MatchState>,
-    layout: Res<LevelLayout>,
+    level: Res<LevelDefinition>,
     mut commands: Commands) {
-    commands
-        .spawn(Ball::default())
-        .insert(RequestTag)
-    ;
 
     commands
         .spawn(Ship::default())
         .insert(RequestTag);
 
 
-    let count = match &layout.targets {
+    let count = match &level.targets {
         FilledGrid(cols, rows, block_type, behaviour, gap) => {
             make_filled_grid(&mut commands, *cols, *rows, block_type, behaviour, *gap)
         }

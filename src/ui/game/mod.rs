@@ -12,23 +12,23 @@ use crate::state::GameState;
 #[derive(Component)]
 struct UITag;
 
-pub struct UIStartPlugin;
+pub struct UIGamePlugin;
 
-impl Plugin for UIStartPlugin {
+impl Plugin for UIGamePlugin {
     fn build(&self, app: &mut App) {
         app
             .add_system_set(
-                SystemSet::on_enter(GameState::Start)
+                SystemSet::on_enter(GameState::InGame)
                     .with_system(ui_spawn)
             )
 
             .add_system_set(
-                SystemSet::on_update(GameState::Start)
+                SystemSet::on_update(GameState::InGame)
                     .with_system(ui_handle_action)
             )
 
             .add_system_set(
-                SystemSet::on_exit(GameState::Start)
+                SystemSet::on_exit(GameState::InGame)
                     .with_system(ui_despawn)
             )
         ;
@@ -55,7 +55,7 @@ fn ui_spawn(
         .with_children(|parent| {
             parent.spawn((TextBundle::from_sections([
                 TextSection::new(
-                    "Angle Out - Press A to play",
+                    "Press A to play to play a new Game",
                     TextStyle {
                         font: asset_server.load("BAUHS93.TTF"),
                         font_size: 60.0,
@@ -68,13 +68,13 @@ fn ui_spawn(
                 ..default()
             })
             ))
-                ;
+            ;
         })
         .insert(UITag)
         .insert(InputManagerBundle::<GameFlowActions> {
             action_state: ActionState::default(),
             input_map: InputMap::default()
-                .insert(GamepadButtonType::South, GameFlowActions::StartGame)
+                .insert(GamepadButtonType::South, GameFlowActions::StartMatch)
                 .build(),
         })
     ;
@@ -86,17 +86,16 @@ fn ui_handle_action(
     mut game_event: EventWriter<GameFlowEvent>,
 ) {
     for mut action in &mut actions {
-        if action.just_released(GameFlowActions::StartGame) {
-            info!("Player requested Start!");
-            action.consume(GameFlowActions::StartGame);
-            game_event.send(GameFlowEvent::StartGame);
+        if action.just_released(GameFlowActions::StartMatch) {
+            action.consume(GameFlowActions::StartMatch);
+            game_event.send(GameFlowEvent::StartMatch);
         }
     }
 }
 
 
 fn ui_despawn(mut commands: Commands, uis: Query<Entity, With<UITag>>) {
-    info!("Despawning Start Screen");
+    info!("Despawning game Screen");
     for ui in &uis {
         commands.entity(ui).despawn_recursive();
     }

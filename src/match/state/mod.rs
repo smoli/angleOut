@@ -36,6 +36,8 @@ pub struct MatchState {
 
     pub balls_used: i32,
 
+    pub balls: i32,
+
     pub time_taken: Duration
 }
 
@@ -54,6 +56,7 @@ impl MatchState {
         self.balls_used = 0;
         self.balls_lost = 0;
         self.time_taken = Duration::default();
+        self.balls = 0;
     }
 }
 
@@ -71,7 +74,8 @@ impl Default for MatchState {
             balls_lost: 0,
             balls_used: 0,
             time_taken: Default::default(),
-            paddle_bounce_combo_possible: false
+            paddle_bounce_combo_possible: false,
+            balls: 0
         }
     }
 }
@@ -95,6 +99,8 @@ impl MatchState {
 
     pub fn ball_launched(&mut self) {
         self.direct_hit_possible = false;
+        self.paddle_bounce_combo = 0;
+        self.paddle_bounce_combo_possible = true;
     }
 
     // Only when ball removed
@@ -108,6 +114,7 @@ impl MatchState {
         if self.paddle_bounce_combo_possible {
             self.paddle_bounce_combo += 1;
             self.paddle_bounce_combo_possible = false;
+
         }
 
         if self.direct_hit_possible {
@@ -127,6 +134,10 @@ impl MatchState {
 
     pub fn set_block_count(&mut self, count: i32) {
         self.blocks = count;
+    }
+
+    pub fn set_ball_count(&mut self, count: i32) {
+        self.balls = count;
     }
 }
 
@@ -194,8 +205,9 @@ mod tests {
         s.blocks = 100;
 
         s.add_paddle_bounce();
+        s.add_wall_hit();
         s.add_block_hit();
-        s.add_block_hit();
+        s.add_wall_hit();
         s.add_block_hit();
 
         assert_eq!(s.paddle_bounce_combo, 1);

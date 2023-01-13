@@ -1,6 +1,6 @@
 use bevy::app::App;
 use bevy::asset::Handle;
-use bevy::prelude::{AssetServer, Commands, Component, Entity, EventWriter, GamepadButtonType, info, IntoSystemDescriptor, KeyCode, Plugin, Quat, Query, Res, ResMut, Resource, SystemSet, Time, Transform, TransformBundle, Vec2, Vec3, With};
+use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, GamepadButtonType, info, IntoSystemDescriptor, KeyCode, Plugin, Quat, Query, Res, ResMut, Resource, SystemSet, Time, Transform, TransformBundle, Vec2, Vec3, With};
 use bevy::scene::{Scene, SceneBundle};
 use bevy::utils::default;
 use bevy_rapier3d::geometry::CollisionGroups;
@@ -15,6 +15,7 @@ use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
 use crate::physics::{Collidable, CollidableKind};
+use crate::player::Player;
 use crate::state::GameState;
 
 #[derive(Resource)]
@@ -53,11 +54,16 @@ impl Plugin for ShipPlugin {
             })
 
             .add_system_set(
-                SystemSet::on_update(GameState::InGame)
+                SystemSet::on_update(GameState::InMatch)
                     .with_system(ship_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(ship_articulate.label(SystemLabels::UpdateWorld))
                     .with_system(ship_update_position.label(SystemLabels::UpdateWorld))
                     .with_system(ship_launch_ball.label(SystemLabels::UpdateWorld))
+            )
+
+            .add_system_set(
+                SystemSet::on_exit(GameState::PostMatchLoose)
+                    .with_system(ship_despawn)
             )
         ;
     }
@@ -80,10 +86,9 @@ pub fn ship_spawn(
                 input_map: InputMap::default()
                     .insert(DualAxis::left_stick(), MatchActions::ArticulateLeft)
                     .insert(DualAxis::right_stick(), MatchActions::ArticulateRight)
-                    .insert(GamepadButtonType::RightTrigger, MatchActions::LaunchBall)
-                    .insert(GamepadButtonType::RightTrigger2, MatchActions::LaunchBall)
-                    .insert(GamepadButtonType::RightTrigger2, MatchActions::LaunchBall)
-                    .insert(KeyCode::Space, MatchActions::LaunchBall)
+                    .insert(GamepadButtonType::RightTrigger, MatchActions::SpawnOrLaunchBall)
+                    .insert(GamepadButtonType::RightTrigger2, MatchActions::SpawnOrLaunchBall)
+                    .insert(KeyCode::Space, MatchActions::SpawnOrLaunchBall)
                     .build(),
             })
             .insert(TransformBundle::from(Transform::from_xyz(PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z)))
@@ -93,6 +98,16 @@ pub fn ship_spawn(
             .insert(Collidable {
                 kind: CollidableKind::Ship
             });
+    }
+}
+
+fn ship_despawn(
+    mut commands: Commands,
+    ships: Query<Entity, With<Ship>>
+) {
+    for ship in &ships {
+        commands.entity(ship)
+            .despawn_recursive();
     }
 }
 
@@ -159,14 +174,22 @@ fn ship_update_position(time: Res<Time>, mut ship_state: ResMut<ShipState>, mut 
 }
 
 fn ship_launch_ball(
+    player: Res<Player>,
     mut query: Query<&mut ActionState<MatchActions>, With<Ship>>,
     mut events: EventWriter<MatchEvent>,
 ) {
     for mut action in &mut query {
-        if action.pressed(MatchActions::LaunchBall) {
-            action.consume(MatchActions::LaunchBall);
-            info!("Ball launch requested by operator");
-            events.send(MatchEvent::LaunchBall);
+        if action.pressed(MatchActions::SpawnOrLaunchBall) {
+            action.consume(MatchActions::SpawnOrLaunchBall);
+
+            if player.balls_spawned > 0 {
+                info!("Ball launch requested by operator");
+                events.send(MatchEvent::BallLaunched);
+            } else {
+                info!("Ball spawn requested by operator");
+                events.send(MatchEvent::BallSpawned);
+            }
+
         }
     }
 }

@@ -2,5 +2,8 @@
 pub enum GameState {
     Start,
     InGame,
-    Lost
+    InMatch,
+    PostMatchWin,
+    PostMatchLoose,
+    MatchResult
 }

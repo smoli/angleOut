@@ -70,16 +70,21 @@ impl Plugin for BlockPlugin {
         app
 
             .add_system_set(
-                SystemSet::on_update(GameState::InGame)
+                SystemSet::on_update(GameState::InMatch)
                     .with_system(block_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(block_handle_collisions.label(SystemLabels::UpdateWorld))
             )
             .add_system_set(
-                SystemSet::on_update(GameState::InGame)
+                SystemSet::on_update(GameState::InMatch)
                     .with_system(block_spin)
                     .with_system(block_evade_up)
                         .with_run_criteria(FixedTimestep::step(1.0))
                         .label(SystemLabels::UpdateWorld)
+            )
+
+            .add_system_set(
+                SystemSet::on_exit(GameState::PostMatchLoose)
+                    .with_system(block_despawn)
             )
         ;
     }
@@ -160,6 +165,16 @@ fn block_spawn(
     }
 }
 
+fn block_despawn(
+    mut commands: Commands,
+    blocks: Query<Entity, With<Block>>
+) {
+    for block in &blocks {
+        commands.entity(block)
+            .despawn_recursive();
+    }
+}
+
 fn block_handle_collisions(
     mut commands: Commands,
     mut blocks: Query<(Entity, &CollisionTag, &mut Hittable), With<Block>>,
@@ -173,7 +188,7 @@ fn block_handle_collisions(
                 if hittable.hit_points == 0 {
                     commands.entity(entity)
                         .despawn_recursive();
-                    events.send(MatchEvent::DestroyFoe);
+                    events.send(MatchEvent::TargetHit);
                 } else {
                     info!("still alive")
                 }

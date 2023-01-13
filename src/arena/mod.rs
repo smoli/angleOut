@@ -1,4 +1,4 @@
-use bevy::prelude::{Component, App, AssetServer, Commands, default, info, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor};
+use bevy::prelude::{Component, App, AssetServer, Commands, default, info, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor, Entity, DespawnRecursiveExt};
 use bevy::scene::SceneBundle;
 use bevy_rapier3d::dynamics::CoefficientCombineRule;
 use bevy_rapier3d::prelude::{Collider, Friction, Restitution, RigidBody};
@@ -21,12 +21,17 @@ impl Plugin for ArenaPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_system_set(
-                SystemSet::on_enter(GameState::InGame)
+                SystemSet::on_enter(GameState::InMatch)
                     .with_system(arena_spawn)
             )
             .add_system_set(
-                SystemSet::on_update(GameState::InGame)
+                SystemSet::on_update(GameState::InMatch)
                     .with_system(arena_scroll.label(SystemLabels::UpdateWorld))
+            )
+
+            .add_system_set(
+                SystemSet::on_exit(GameState::PostMatchLoose)
+                    .with_system(arena_despawn)
             )
         ;
     }
@@ -76,6 +81,9 @@ fn arena_spawn(
         .insert(Collidable {
             kind: CollidableKind::Wall,
         })
+        .insert(
+            Arena
+        )
     ;
 
     // Right
@@ -89,6 +97,9 @@ fn arena_spawn(
         .insert(Collidable {
             kind: CollidableKind::Wall,
         })
+        .insert(
+            Arena
+        )
     ;
 
     // Top
@@ -104,6 +115,9 @@ fn arena_spawn(
         .insert(Collidable {
             kind: CollidableKind::Wall,
         })
+        .insert(
+            Arena
+        )
     ;
 
     // Bottom
@@ -115,11 +129,23 @@ fn arena_spawn(
         })
         .insert(Friction::coefficient(0.0))
         .insert(Collidable {
-            kind: CollidableKind::Wall,
+            kind: CollidableKind::DeathTrigger,
         })
+        .insert(
+            Arena
+        )
     ;
 }
 
+fn arena_despawn(
+    mut commands: Commands,
+    arena_parts: Query<Entity, With<Arena>>
+) {
+    for part in &arena_parts {
+        commands.entity(part)
+            .despawn_recursive();
+    }
+}
 
 fn arena_scroll(
     time: Res<Time>,

@@ -1,4 +1,4 @@
-use bevy::prelude::{App, AssetServer, Commands, Component, Entity, EventReader, EventWriter, IntoSystemDescriptor, Plugin, Quat, Query, Res, SystemSet, Time, Transform, TransformBundle, Vec3, Visibility, warn, With, Without};
+use bevy::prelude::{App, AssetServer, Commands, Component, DespawnRecursiveExt, Entity, EventReader, EventWriter, IntoSystemDescriptor, Plugin, Quat, Query, Res, SystemSet, Time, Transform, TransformBundle, Vec3, Visibility, warn, With, Without};
 use bevy::scene::SceneBundle;
 use bevy::utils::default;
 use crate::state::GameState;
@@ -37,7 +37,7 @@ impl Plugin for BallPlugin {
         app
 
             .add_system_set(
-                SystemSet::on_update(GameState::InGame)
+                SystemSet::on_update(GameState::InMatch)
                     .with_system(ball_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(ball_spin.label(SystemLabels::UpdateWorld))
                     .with_system(ball_update_inactive.label(SystemLabels::UpdateWorld))
@@ -136,8 +136,8 @@ fn ball_inactive_handle_events(
     for (ball, mut ext_imp, mut col) in &mut balls {
         for ev in events.iter() {
             match ev {
-                MatchEvent::SpawnBall => {}
-                MatchEvent::LaunchBall => {
+                MatchEvent::BallSpawned => {}
+                MatchEvent::BallLaunched => {
                     ext_imp.impulse = compute_launch_impulse(ship_state.ship_rotation, PADDLE_LAUNCH_IMPULSE);
                     commands.entity(ball)
                         .insert(ActiveBall);
@@ -193,6 +193,13 @@ fn ball_handle_collisions(
 
             CollidableKind::Wall => {
                 events.send(MatchEvent::BounceOffWall);
+            }
+
+            CollidableKind::DeathTrigger => {
+                events.send(MatchEvent::BallLost);
+
+                commands.entity(ball)
+                    .despawn_recursive();
             }
 
             _ => {}

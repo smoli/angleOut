@@ -3,7 +3,9 @@ use leafwing_input_manager::Actionlike;
 
 #[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug)]
 pub enum GameFlowActions {
-    StartMatch
+    StartGame,
+    StartMatch,
+
 }
 
 #[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug)]
@@ -19,5 +21,5 @@ pub enum CameraActions {
 pub enum MatchActions {
     ArticulateLeft,
     ArticulateRight,
-    LaunchBall
+    SpawnOrLaunchBall
 }
