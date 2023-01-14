@@ -1,0 +1,25 @@
+{
+  "styles": {
+    "Style1": {
+
+    }
+  },
+
+  "ui": {
+    "NodeBundle": {
+      "children": [
+        {
+          "TextBundle": {
+            "sections": [
+              {
+                "text": "New Game",
+                "style": "Style1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+
+}

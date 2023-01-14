@@ -1,0 +1,10 @@
+Styles
+    Style1
+
+UI
+    NodeBundle
+        TextBundle
+            sections
+                text = "New Game", style = "Style1"
+                text = "Settings", style = "Style2"
+

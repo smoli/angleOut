@@ -5,7 +5,6 @@ use leafwing_input_manager::Actionlike;
 pub enum GameFlowActions {
     StartGame,
     StartMatch,
-
 }
 
 #[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug)]
