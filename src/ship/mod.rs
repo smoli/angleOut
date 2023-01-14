@@ -35,7 +35,7 @@ pub struct Ship {
 impl Default for Ship {
     fn default() -> Self {
         Ship {
-            asset_name: "ship3_003.glb#Scene1".to_string(),
+            asset_name: "ship3_003.glb#Scene4".to_string(),
             target_position: Default::default(),
             target_rotation: 0.0,
             current_rotation: 0.0,

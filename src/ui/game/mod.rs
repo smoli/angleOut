@@ -78,7 +78,7 @@ fn ship_spawn(
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn(SceneBundle {
-        scene: asset_server.load("ship3_003.glb#Scene1"),
+        scene: asset_server.load("ship3_003.glb#Scene4"),
         ..default()
     })
         .insert(TransformBundle::from_transform(Transform::from_xyz(-15.0, 5.0, 0.0)))

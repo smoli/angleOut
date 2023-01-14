@@ -36,7 +36,16 @@ impl Plugin for MatchPlugin {
             .add_system_set(
                 SystemSet::on_exit(GameState::InMatch)
                     .with_system(match_despawn)
+            )
+            .add_system_set(
+                SystemSet::on_exit(GameState::PostMatchWin)
                     .with_system(tear_down_3d_environment)
+
+            )
+            .add_system_set(
+                SystemSet::on_exit(GameState::PostMatchLoose)
+                    .with_system(tear_down_3d_environment)
+
             );
     }
 }

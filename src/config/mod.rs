@@ -13,7 +13,7 @@ pub const PADDLE_THICKNESS: f32 = 10.5;
 pub const PADDLE_LIFT: f32 = PADDLE_THICKNESS * 3.0;
 
 pub const PADDLE_ROTATION_ACCEL:f32 = 5.0;
-pub const PADDLE_POSITION_ACCEL:f32 = 2.0;
+pub const PADDLE_POSITION_ACCEL:f32 = 2.5;
 pub const PADDLE_RESTING_Z: f32 = 70.0;
 pub const PADDLE_RESTING_Y: f32 = 0.0;
 pub const PADDLE_RESTING_X: f32 = 0.0;
