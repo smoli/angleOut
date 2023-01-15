@@ -44,6 +44,7 @@ impl Plugin for BallPlugin {
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
                     .with_system(ball_clamp_velocity.label(SystemLabels::UpdateWorld))
+                    .with_system(ball_correct_too_low_z.label(SystemLabels::UpdateWorld))
                     .with_system(ball_handle_collisions.label(SystemLabels::UpdateWorld))
             )
         ;
@@ -164,6 +165,20 @@ fn ball_clamp_velocity(mut query: Query<(&mut Velocity, &mut Transform), With<Ac
         if trans.translation.y != 0.0 {
             trans.translation.y = 0.0;
             warn!("Correcting ball height! We're loosing that ball")
+        }
+    }
+}
+
+fn ball_correct_too_low_z(mut query: Query<&mut Velocity, With<ActiveBall>>) {
+    for mut velo in &mut query {
+        let v = velo.linvel.length();
+
+        if velo.linvel.z.abs() < 1.0 {
+            info!("Correcting Z velocity for more fun!");
+
+            velo.linvel.z = 3.0 * velo.linvel.z.signum();
+
+            velo.linvel = velo.linvel.normalize() * v;
         }
     }
 }
