@@ -10,7 +10,7 @@ use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, DualAxis, InputMap};
 use crate::actions::MatchActions;
 use crate::ball::Ball;
-use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_PADDLE, PADDLE_LIFT, PADDLE_POSITION_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H};
+use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_PADDLE, PADDLE_LIFT, PADDLE_POSITION_ACCEL_ACCEL, PADDLE_POSITION_MAX_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
@@ -30,6 +30,7 @@ pub struct Ship {
     pub target_position: Vec3,
     pub target_rotation: f32,
     pub current_rotation: f32,
+    pub current_accel: f32
 }
 
 impl Default for Ship {
@@ -39,6 +40,7 @@ impl Default for Ship {
             target_position: Default::default(),
             target_rotation: 0.0,
             current_rotation: 0.0,
+            current_accel: 0.0,
         }
     }
 }
@@ -132,17 +134,19 @@ fn ship_articulate(mut query: Query<(&ActionState<MatchActions>, &mut Ship)>) {
 
 
         // Translation
-        let comp = (axis_pair_l.xy() + axis_pair_r.xy()) * 0.5;
+        let comp = (axis_pair_l.xy() + axis_pair_r.xy()) * 0.75;
 
         let tx = if comp.length() < 0.2 {
             PADDLE_RESTING_X
         } else {
-            comp.x * (ARENA_WIDTH_H * 1.5 - PADDLE_WIDTH_H)
+            comp.x * (ARENA_WIDTH_H - PADDLE_WIDTH_H)
         };
 
         let tz = ARENA_HEIGHT_H - comp.y * PADDLE_LIFT;
 
-        ship.target_position = Vec3::new(tx, PADDLE_RESTING_Y, tz);
+        let new_tp = Vec3::new(tx, PADDLE_RESTING_Y, tz);
+
+        ship.target_position = new_tp;
     }
 }
 
@@ -151,9 +155,29 @@ fn ship_update_position(time: Res<Time>, mut ship_state: ResMut<ShipState>, mut 
         let dp = ship.target_position - trans.translation;
 
         let mut tp: Vec3 = ship.target_position;
-        if dp.length() > 0.01 {
-            tp = trans.translation + dp * time.delta_seconds() * PADDLE_POSITION_ACCEL;
+        if dp.length() > 0.1 {
+/*            ship.current_accel += time.delta_seconds() * PADDLE_POSITION_ACCEL_ACCEL;
+            if ship.current_accel > PADDLE_POSITION_MAX_ACCEL {
+                ship.current_accel = PADDLE_POSITION_MAX_ACCEL
+            }
+            tp = trans.translation + dp * time.delta_seconds() * ship.current_accel;
+*/
+            tp = trans.translation + dp * time.delta_seconds() * PADDLE_POSITION_MAX_ACCEL;
         }
+
+/*
+        if dp.length() < 5.0 {
+            ship.current_accel = 0.0;
+            info!("Position reached")
+        }
+
+        let nx = tp.x.clamp(PADDLE_WIDTH_H - ARENA_WIDTH_H, ARENA_WIDTH_H - PADDLE_WIDTH_H);
+
+        if nx != tp.x {
+            ship.current_accel = 0.0;
+            info!("Position reached");
+            tp.x = nx;
+        }*/
 
         tp.x = tp.x.clamp(PADDLE_WIDTH_H - ARENA_WIDTH_H, ARENA_WIDTH_H - PADDLE_WIDTH_H);
 
