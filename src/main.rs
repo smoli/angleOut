@@ -65,13 +65,13 @@ fn main() {
 
     app.insert_resource(LevelDefinition {
         simultaneous_balls: 1,
-        targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::Vanisher, BLOCK_GAP),
-/*        targets: TargetLayout::SparseGrid(
-"AA .. .. .. AA
- AA .. BB .. AA
- AA .. .. .. AA
- AA AA AA AA AA".to_string(), 5, BLOCK_GAP
-        ),*/
+        // targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::Vanisher, BLOCK_GAP),
+        targets: TargetLayout::SparseGrid(
+".. .. .. .. ..
+ .. CD AA CD ..
+ . .. .. .. ..
+ .. .. .. .. ..".to_string(), 5, BLOCK_GAP
+        ),
         time_limit: None,
     }
     );

@@ -6,7 +6,7 @@ use bevy::math::Vec2;
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, Plugin, Query, Res, SceneBundle, SystemSet, Time, Transform, TransformBundle, Vec3, Visibility, With};
 use bevy::time::FixedTimestep;
-use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, Friction, Restitution, RigidBody, Sensor};
+use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, ExternalForce, ExternalImpulse, Friction, Restitution, RigidBody, Sensor};
 use crate::ball::Ball;
 use crate::config::{BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH, BLOCK_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
 use crate::events::MatchEvent;
@@ -28,6 +28,7 @@ pub enum BlockBehaviour {
     SittingDuck,
     Spinner,
     Vanisher,
+    Repuslor,
     EvadeUp,
 }
 
@@ -40,6 +41,9 @@ struct BlockVanisher;
 
 #[derive(Component)]
 struct BlockEvadeUp;
+
+#[derive(Component)]
+struct BlockRepulsor;
 
 #[derive(Component, Debug)]
 pub struct Block {
@@ -77,7 +81,9 @@ impl Plugin for BlockPlugin {
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(block_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(block_handle_collisions.label(SystemLabels::UpdateWorld))
+                    .with_system(block_repluse.label(SystemLabels::UpdateWorld))
             )
+
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(block_vanish)
@@ -143,6 +149,10 @@ fn block_spawn(
 
             BlockBehaviour::Vanisher => {
                 block_commands.insert(BlockVanisher);
+            }
+
+            BlockBehaviour::Repuslor => {
+                block_commands.insert(BlockRepulsor);
             }
 
             BlockBehaviour::EvadeUp => {
@@ -223,6 +233,8 @@ fn block_vanish(
 ) {
     let mut positions: Vec<Vec3> = vec![];
 
+    // Get all ball Positions - We need to check these to not make a block appear in a balls position
+    // TODO: Is this loop/copy really better than iterating over &ball directly below?
     for t in &balls {
         positions.push(t.translation.clone());
     }
@@ -256,6 +268,31 @@ fn block_vanish(
             commands.entity(block)
                 .insert(Sensor);
         }
+    }
+}
+
+fn block_repluse(
+    blocks: Query<(&Transform), With<BlockRepulsor>>,
+    mut balls: Query<(&Transform, &mut ExternalForce), With<Ball>>,
+) {
+    let threshold = 20.0;
+    let max_repulsion = 850.0;
+
+    for (ball_pos, mut ball_force) in &mut balls {
+        let mut bf = Vec3::ZERO;
+
+        for block_trans in &blocks {
+            let mut direction: Vec3 = block_trans.translation - ball_pos.translation;
+            direction = direction.normalize();
+            let dist = direction.length();
+
+            if dist < threshold {
+                let f = max_repulsion / threshold * dist;
+
+                bf += direction * (f * -1.0)
+            }
+        }
+        ball_force.force = bf;
     }
 }
 

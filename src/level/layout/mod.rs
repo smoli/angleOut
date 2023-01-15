@@ -53,7 +53,8 @@ pub fn make_block(b_type: char, b_beh: char, pos: Vec2) -> Option<Block> {
     let b = match b_beh {
         'A' => BlockBehaviour::SittingDuck,
         'B' => BlockBehaviour::Spinner,
-
+        'C' => BlockBehaviour::Vanisher,
+        'D' => BlockBehaviour::Repuslor,
 
         '.' => return None,
 

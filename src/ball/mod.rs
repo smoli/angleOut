@@ -5,7 +5,7 @@ use crate::state::GameState;
 use std::f32::consts::TAU;
 use bevy::log::info;
 use bevy::utils::tracing::enabled;
-use bevy_rapier3d::prelude::{ActiveEvents, Ccd, CoefficientCombineRule, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Velocity};
+use bevy_rapier3d::prelude::{ActiveEvents, Ccd, CoefficientCombineRule, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalForce, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Velocity};
 use bevy_rapier3d::dynamics::RigidBody;
 use crate::config::{BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_BOUNCE_IMPULSE, PADDLE_LAUNCH_IMPULSE, PADDLE_THICKNESS};
 use crate::events::MatchEvent;
@@ -44,7 +44,7 @@ impl Plugin for BallPlugin {
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
                     .with_system(ball_clamp_velocity.label(SystemLabels::UpdateWorld))
-                    .with_system(ball_correct_too_low_z.label(SystemLabels::UpdateWorld))
+                    // .with_system(ball_correct_too_low_z.label(SystemLabels::UpdateWorld))
                     .with_system(ball_handle_collisions.label(SystemLabels::UpdateWorld))
             )
         ;
@@ -90,6 +90,7 @@ pub fn ball_spawn(
             }))
             .insert(Velocity::default())
             .insert(ExternalImpulse::default())
+            .insert(ExternalForce::default())
             .insert(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED)
             .insert(CollisionGroups::new(COLLIDER_GROUP_BALL, COLLIDER_GROUP_NONE))
             .insert(ActiveEvents::COLLISION_EVENTS)
