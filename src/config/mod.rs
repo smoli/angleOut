@@ -40,6 +40,6 @@ pub const BLOCK_WIDTH: f32 = 15.0;
 pub const BLOCK_WIDTH_H: f32 = BLOCK_WIDTH / 2.0;
 pub const BLOCK_HEIGHT: f32 = 3.75;
 pub const BLOCK_DEPTH: f32 = 7.51;
-pub const BLOCK_GAP: f32 = 3.0;
+pub const BLOCK_GAP: f32 = 2.0;
 pub const BLOCK_ROUNDNESS: f32 = 0.2;
 
