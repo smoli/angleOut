@@ -4,10 +4,11 @@ use bevy::app::App;
 use bevy::log::{info};
 use bevy::math::Vec2;
 use bevy::pbr::NotShadowCaster;
-use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, Plugin, Query, Res, SceneBundle, SystemSet, Time, Transform, TransformBundle, With};
+use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, Plugin, Query, Res, SceneBundle, SystemSet, Time, Transform, TransformBundle, Vec3, Visibility, With};
 use bevy::time::FixedTimestep;
-use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, Friction, Restitution, RigidBody};
-use crate::config::{BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH, BLOCK_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
+use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, Friction, Restitution, RigidBody, Sensor};
+use crate::ball::Ball;
+use crate::config::{BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH, BLOCK_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
@@ -26,12 +27,16 @@ pub enum BlockType {
 pub enum BlockBehaviour {
     SittingDuck,
     Spinner,
-    EvadeUp
+    Vanisher,
+    EvadeUp,
 }
 
 
 #[derive(Component)]
 struct BlockSpinner;
+
+#[derive(Component)]
+struct BlockVanisher;
 
 #[derive(Component)]
 struct BlockEvadeUp;
@@ -46,7 +51,7 @@ pub struct Block {
 
 #[derive(Component, Debug)]
 pub struct Hittable {
-    pub hit_points: u8
+    pub hit_points: u8,
 }
 
 
@@ -62,7 +67,6 @@ impl Default for Block {
 }
 
 
-
 pub struct BlockPlugin;
 
 impl Plugin for BlockPlugin {
@@ -76,10 +80,11 @@ impl Plugin for BlockPlugin {
             )
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
+                    .with_system(block_vanish)
                     .with_system(block_spin)
                     .with_system(block_evade_up)
-                        .with_run_criteria(FixedTimestep::step(1.0))
-                        .label(SystemLabels::UpdateWorld)
+                    .with_run_criteria(FixedTimestep::step(1.0))
+                    .label(SystemLabels::UpdateWorld)
             )
 
             .add_system_set(
@@ -136,6 +141,10 @@ fn block_spawn(
                 block_commands.insert(BlockSpinner);
             }
 
+            BlockBehaviour::Vanisher => {
+                block_commands.insert(BlockVanisher);
+            }
+
             BlockBehaviour::EvadeUp => {
                 block_commands.insert(BlockEvadeUp);
             }
@@ -167,7 +176,7 @@ fn block_spawn(
 
 fn block_despawn(
     mut commands: Commands,
-    blocks: Query<Entity, With<Block>>
+    blocks: Query<Entity, With<Block>>,
 ) {
     for block in &blocks {
         commands.entity(block)
@@ -178,7 +187,7 @@ fn block_despawn(
 fn block_handle_collisions(
     mut commands: Commands,
     mut blocks: Query<(Entity, &CollisionTag, &mut Hittable), With<Block>>,
-    mut events: EventWriter<MatchEvent>
+    mut events: EventWriter<MatchEvent>,
 ) {
     for (entity, collision, mut hittable) in &mut blocks {
         match collision.other {
@@ -204,6 +213,49 @@ fn block_spin(
     mut ball: Query<&mut Transform, With<BlockSpinner>>) {
     for mut trans in &mut ball {
         trans.rotate_y(0.25 * TAU);
+    }
+}
+
+fn block_vanish(
+    mut commands: Commands,
+    mut blocks: Query<(Entity, &mut Visibility, &Transform), With<BlockVanisher>>,
+    mut balls: Query<&Transform, With<Ball>>,
+) {
+    let mut positions: Vec<Vec3> = vec![];
+
+    for t in &balls {
+        positions.push(t.translation.clone());
+    }
+
+    let xd = BLOCK_DEPTH / 2.0 + BALL_RADIUS;
+    let zd = BLOCK_WIDTH_H / 2.0 + BALL_RADIUS;
+
+
+    for (block, mut vis, trans) in &mut blocks {
+        let mut can_appear = true;
+
+
+        for i in 0..positions.len() {
+            let p = positions.get(i).unwrap();
+
+
+            if (p.x - trans.translation.x).abs() < xd && (p.z - trans.translation.z).abs() < zd {
+                can_appear = false;
+                break;
+            }
+        }
+
+        if !vis.is_visible {
+            if can_appear {
+                vis.is_visible = !vis.is_visible;
+                commands.entity(block)
+                    .remove::<Sensor>();
+            }
+        } else {
+            vis.is_visible = !vis.is_visible;
+            commands.entity(block)
+                .insert(Sensor);
+        }
     }
 }
 

@@ -1,8 +1,8 @@
 use bevy::app::App;
 use bevy::log::{info};
-use bevy::prelude::{Plugin, Component, Commands, EventReader, Query, Entity, With, SystemSet, IntoSystemDescriptor};
+use bevy::prelude::{Plugin, Component, Commands, EventReader, Query, Entity, With, SystemSet, IntoSystemDescriptor, Without};
 use bevy_rapier3d::plugin::{RapierPhysicsPlugin, NoUserData};
-use bevy_rapier3d::prelude::CollisionEvent;
+use bevy_rapier3d::prelude::{CollisionEvent, Sensor};
 use crate::labels::SystemLabels;
 use crate::state::GameState;
 
@@ -49,7 +49,7 @@ impl Plugin for PhysicsPlugin {
 fn handle_collision_events(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    collidables: Query<&Collidable>
+    collidables: Query<&Collidable, Without<Sensor>>
 ) {
     for collision_event in collision_events.iter() {
         match collision_event {

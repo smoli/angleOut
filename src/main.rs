@@ -65,7 +65,7 @@ fn main() {
 
     app.insert_resource(LevelDefinition {
         simultaneous_balls: 1,
-        targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
+        targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::Vanisher, BLOCK_GAP),
 /*        targets: TargetLayout::SparseGrid(
 "AA .. .. .. AA
  AA .. BB .. AA
