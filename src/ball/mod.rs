@@ -188,10 +188,10 @@ fn ball_correct_too_low_z(mut query: Query<&mut Velocity, With<ActiveBall>>) {
 fn ball_handle_collisions(
     mut commands: Commands,
     ship_state: Res<ShipState>,
-    mut balls: Query<(Entity, &mut ExternalImpulse, &CollisionTag), With<Ball>>,
+    mut balls: Query<(Entity, &mut ExternalImpulse, &CollisionTag, &mut Velocity), With<Ball>>,
     mut events: EventWriter<MatchEvent>
 ) {
-    for (ball, mut ext_imp, collision) in &mut balls {
+    for (ball, mut ext_imp, collision, mut velo) in &mut balls {
         match collision.other {
             CollidableKind::Ship => {
 
@@ -216,6 +216,18 @@ fn ball_handle_collisions(
 
                 commands.entity(ball)
                     .despawn_recursive();
+            }
+
+            CollidableKind::Block => {
+                let v = velo.linvel.length();
+
+                if velo.linvel.z.abs() < 1.0 {
+                    info!("Correcting Z velocity for more fun!");
+
+                    velo.linvel.z = 3.0 * velo.linvel.z.signum();
+
+                    velo.linvel = velo.linvel.normalize() * v;
+                }
             }
 
             _ => {}

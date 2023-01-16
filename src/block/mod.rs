@@ -1,10 +1,15 @@
 use std::f32::consts::TAU;
+use std::time::Duration;
 use bevy::utils::default;
 use bevy::app::App;
+use bevy::asset::{Asset, Assets, Handle};
+use bevy::gltf::{Gltf, GltfMesh};
 use bevy::log::{info};
 use bevy::math::Vec2;
-use bevy::pbr::NotShadowCaster;
-use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, Plugin, Query, Res, SceneBundle, SystemSet, Time, Transform, TransformBundle, Vec3, Visibility, With};
+use bevy::pbr::{AlphaMode, MaterialMeshBundle, NotShadowCaster};
+use bevy::prelude::{AssetServer, Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, Material, MaterialPlugin, Mesh, Name, PbrBundle, Plugin, Query, Res, ResMut, SceneBundle, StandardMaterial, SystemSet, Time, Transform, TransformBundle, Vec3, Visibility, With, Without};
+use bevy::render::mesh::VertexAttributeValues;
+use bevy::scene::Scene;
 use bevy::time::FixedTimestep;
 use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, ExternalForce, ExternalImpulse, Friction, Restitution, RigidBody, Sensor};
 use crate::ball::Ball;
@@ -12,6 +17,8 @@ use crate::config::{BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLO
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
+use crate::materials::{CustomMaterial, CustomMaterialApplied};
+use crate::MyAssetPack;
 use crate::physics::{Collidable, CollidableKind, CollisionTag};
 use crate::state::GameState;
 
@@ -76,12 +83,17 @@ pub struct BlockPlugin;
 impl Plugin for BlockPlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_plugin(
+                MaterialPlugin::<CustomMaterial>::default(),
+            )
 
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(block_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(block_handle_collisions.label(SystemLabels::UpdateWorld))
                     .with_system(block_repluse.label(SystemLabels::UpdateWorld))
+                    .with_system(block_custom_material)
+                    .with_system(block_update_custom_material)
             )
 
             .add_system_set(
@@ -105,81 +117,157 @@ impl Plugin for BlockPlugin {
 fn block_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    my: Res<MyAssetPack>,
     empties: Query<(Entity, &Block), With<RequestTag>>,
+    assets_gltf: Res<Assets<Gltf>>
 ) {
-    for (entity, block) in &empties {
-        let mut block_commands = commands.entity(entity);
+    if let Some(gltf) = assets_gltf.get(&my.0) {
+        for (entity, block) in &empties {
+            let mut block_commands = commands.entity(entity);
 
-        block_commands
-            .remove::<RequestTag>()
-            .insert(RigidBody::Fixed)
+            block_commands
+                .remove::<RequestTag>()
+                .insert(RigidBody::Fixed)
 
-            .insert(SceneBundle {
-                scene: asset_server.load(block.asset_name.as_str()),
-                ..default()
-            })
-            .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)))
-            .insert(Collider::round_cuboid(
-                BLOCK_WIDTH / 2.0 - 2.0 * BLOCK_ROUNDNESS,
-                BLOCK_HEIGHT / 2.0 - 2.0 * BLOCK_ROUNDNESS,
-                BLOCK_DEPTH / 2.0 - 2.0 * BLOCK_ROUNDNESS,
-                BLOCK_ROUNDNESS,
-            ))
+                .insert(SceneBundle {
+                    scene: gltf.named_scenes["003_SimpleBlock"].clone(),
+                    ..default()
+                })
+                /*            .insert(PbrBundle {
+                            mesh: asset_server.load(block.asset_name.as_str()),
+                            ..default()
+                        })*/
+                .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)))
+                .insert(Collider::round_cuboid(
+                    BLOCK_WIDTH / 2.0 - 2.0 * BLOCK_ROUNDNESS,
+                    BLOCK_HEIGHT / 2.0 - 2.0 * BLOCK_ROUNDNESS,
+                    BLOCK_DEPTH / 2.0 - 2.0 * BLOCK_ROUNDNESS,
+                    BLOCK_ROUNDNESS,
+                ))
 
-            .insert(Restitution {
-                coefficient: MAX_RESTITUTION,
-                combine_rule: CoefficientCombineRule::Max,
-            })
-            .insert(Friction {
-                coefficient: 0.0,
-                combine_rule: CoefficientCombineRule::Min,
-            })
-            .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL))
-            .insert(ActiveEvents::COLLISION_EVENTS)
-            .insert(Collidable {
-                kind: CollidableKind::Block
-            })
-        ;
+                .insert(Restitution {
+                    coefficient: MAX_RESTITUTION,
+                    combine_rule: CoefficientCombineRule::Max,
+                })
+                .insert(Friction {
+                    coefficient: 0.0,
+                    combine_rule: CoefficientCombineRule::Min,
+                })
+                .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL))
+                .insert(ActiveEvents::COLLISION_EVENTS)
+                .insert(Collidable {
+                    kind: CollidableKind::Block
+                })
+            ;
 
 
-        match block.behaviour {
-            BlockBehaviour::Spinner => {
-                block_commands.insert(BlockSpinner);
+            match block.behaviour {
+                BlockBehaviour::Spinner => {
+                    block_commands.insert(BlockSpinner);
+                }
+
+                BlockBehaviour::Vanisher => {
+                    block_commands.insert(BlockVanisher);
+                }
+
+                BlockBehaviour::Repuslor => {
+                    block_commands.insert(BlockRepulsor);
+                }
+
+                BlockBehaviour::EvadeUp => {
+                    block_commands.insert(BlockEvadeUp);
+                }
+
+                _ => {}
             }
 
-            BlockBehaviour::Vanisher => {
-                block_commands.insert(BlockVanisher);
-            }
+            match block.block_type {
+                BlockType::Simple => {
+                    block_commands.insert(Hittable {
+                        hit_points: 1,
+                    });
+                }
 
-            BlockBehaviour::Repuslor => {
-                block_commands.insert(BlockRepulsor);
-            }
+                BlockType::Hardling => {
+                    block_commands.insert(Hittable {
+                        hit_points: 2,
+                    });
+                }
 
-            BlockBehaviour::EvadeUp => {
-                block_commands.insert(BlockEvadeUp);
+                BlockType::Concrete => {
+                    block_commands.insert(Hittable {
+                        hit_points: 3,
+                    });
+                }
             }
+        }
+    }
+}
 
-            _ => {}
+
+fn block_update_custom_material(
+    mut materials: ResMut<Assets<CustomMaterial>>,
+    time: Res<Time>
+) {
+    for (handle, mut mat) in materials.iter_mut() {
+        mat.time = time.elapsed_seconds();
+    }
+}
+
+fn block_custom_material(
+    mut commands: Commands,
+    blocks: Query<(Entity, &Handle<Mesh>, &Name), Without<CustomMaterialApplied>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut custom_materials: ResMut<Assets<CustomMaterial>>
+) {
+    for (block, handle, name) in &blocks {
+        commands.entity(block)
+            .insert(CustomMaterialApplied);
+
+        if name.as_ref() != "SimpleBlock" {
+            continue;
         }
 
-        match block.block_type {
-            BlockType::Simple => {
-                block_commands.insert(Hittable {
-                    hit_points: 1,
-                });
+       if let Some(mesh) = meshes.get_mut(handle) {
+            if let Some(VertexAttributeValues::Float32x3(
+                            positions,
+                        )) = mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+            {
+                let colors: Vec<[f32; 4]> = positions
+                    .iter()
+                    .map(|[r, g, b]| {
+                        [
+                            (1. - *r) / 2.,
+                            (1. - *g) / 2.,
+                            (1. - *b) / 2.,
+                            1.,
+                        ]
+                    })
+                    .collect();
+                mesh.insert_attribute(
+                    Mesh::ATTRIBUTE_COLOR,
+                    colors,
+                );
             }
+           let custom_material =
+               custom_materials.add(CustomMaterial {
+                   color1: Color::BLUE,
+                   color2: Color::GOLD,
+                   time: 0.0,
+/*                   color_texture: None,*/
+                   alpha_mode: AlphaMode::Blend,
+               });
 
-            BlockType::Hardling => {
-                block_commands.insert(Hittable {
-                    hit_points: 2,
-                });
-            }
 
-            BlockType::Concrete => {
-                block_commands.insert(Hittable {
-                    hit_points: 3,
-                });
-            }
+           commands
+               .entity(block)
+               .remove::<Handle<StandardMaterial>>();
+           commands.entity(block).insert(custom_material);
+/*            commands
+                .entity(block)
+                .remove::<Handle<StandardMaterial>>();*/
+
+
         }
     }
 }

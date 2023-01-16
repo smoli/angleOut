@@ -13,13 +13,15 @@ mod block;
 mod level;
 mod player;
 mod game;
+mod materials;
 
 use std::f32::consts::PI;
 use bevy::app::App;
 use bevy::DefaultPlugins;
+use bevy::gltf::Gltf;
 use bevy::math::Quat;
 use bevy::pbr::{AmbientLight, DirectionalLight, DirectionalLightBundle};
-use bevy::prelude::{Camera, Camera3dBundle, ClearColor, Color, Commands, GamepadButtonType, OrthographicProjection, PluginGroup, Query, Transform, Vec3, WindowDescriptor, With};
+use bevy::prelude::{AssetServer, Camera, Camera3dBundle, ClearColor, Color, Commands, GamepadButtonType, Handle, OrthographicProjection, PluginGroup, Query, Res, Resource, Transform, Vec3, WindowDescriptor, With};
 use bevy::utils::default;
 use bevy::window::{close_on_esc, MonitorSelection, WindowPlugin, WindowPosition};
 use leafwing_input_manager::InputManagerBundle;
@@ -38,14 +40,21 @@ use crate::ship::ShipPlugin;
 use crate::state::GameState;
 use crate::ui::UI;
 
+/// Helper resource for tracking our asset
+#[derive(Resource)]
+struct MyAssetPack(Handle<Gltf>);
+
 fn main() {
     let mut app = App::new();
+
+
+    app.add_system(load_gltf);
 
     setup_screen(&mut app);
     setup_ui(&mut app);
     app.add_plugin(EventsPlugin);
 
-    app.add_state(GameState::Start);
+    app.add_state(GameState::InMatch);
 
     app.add_plugin(PhysicsPlugin);
 
@@ -68,7 +77,7 @@ fn main() {
         // targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::Vanisher, BLOCK_GAP),
         targets: TargetLayout::SparseGrid(
 ".. .. .. .. ..
- .. CD AA CD ..
+ .. CA AA CA ..
  . .. .. .. ..
  .. .. .. .. ..".to_string(), 5, BLOCK_GAP
         ),
@@ -77,6 +86,15 @@ fn main() {
     );
 
     app.run();
+}
+
+
+fn load_gltf(
+    mut commands: Commands,
+    ass: Res<AssetServer>,
+) {
+    let gltf = ass.load("ship3_003.glb");
+    commands.insert_resource(MyAssetPack(gltf));
 }
 
 fn setup_screen(app: &mut App) {
