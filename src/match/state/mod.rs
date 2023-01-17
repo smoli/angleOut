@@ -3,6 +3,11 @@ use bevy::prelude::Resource;
 
 
 
+pub enum BlockHitType {
+    Regular,
+    DirectHit
+}
+
 #[derive(Resource)]
 pub struct MatchState {
 
@@ -104,7 +109,7 @@ impl MatchState {
     }
 
     // Only when ball removed
-    pub fn add_block_hit(&mut self) {
+    pub fn add_block_hit(&mut self) -> BlockHitType {
         self.blocks -= 1;
         self.points += 100 * self.paddle_bounce_combo + 10 * self.single_bounce_combo;
 
@@ -123,8 +128,16 @@ impl MatchState {
             self.points += 100 * self.paddle_bounce_combo;
 
             self.direct_hit_possible = false;
+
+            return BlockHitType::DirectHit;
         }
 
+        BlockHitType::Regular
+
+    }
+
+    pub fn get_combos(&self) -> (i32, i32) {
+        (self.single_bounce_combo, self.paddle_bounce_combo)
     }
 
     pub fn add_wall_hit(&mut self) {

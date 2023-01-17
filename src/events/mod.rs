@@ -93,7 +93,7 @@ fn match_event_handler(
             }
 
             MatchEvent::TargetHit => {
-                match_state.add_block_hit();
+                let hitType = match_state.add_block_hit();
                 if match_state.blocks == 0 {
                     game_flow.send(GameFlowEvent::PlayerWins);
                 }

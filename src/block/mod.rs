@@ -92,8 +92,8 @@ impl Plugin for BlockPlugin {
                     .with_system(block_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(block_handle_collisions.label(SystemLabels::UpdateWorld))
                     .with_system(block_repluse.label(SystemLabels::UpdateWorld))
-                    .with_system(block_custom_material)
-                    .with_system(block_update_custom_material)
+                    // .with_system(block_custom_material)
+                    // .with_system(block_update_custom_material)
             )
 
             .add_system_set(
