@@ -23,7 +23,7 @@ use bevy::math::Quat;
 use bevy::pbr::{AmbientLight, DirectionalLight, DirectionalLightBundle};
 use bevy::prelude::{AssetServer, Camera, Camera3dBundle, ClearColor, Color, Commands, GamepadButtonType, Handle, OrthographicProjection, PluginGroup, Query, Res, Resource, Transform, Vec3, WindowDescriptor, With};
 use bevy::utils::default;
-use bevy::window::{close_on_esc, MonitorSelection, WindowPlugin, WindowPosition};
+use bevy::window::{close_on_esc, MonitorSelection, WindowMode, WindowPlugin, WindowPosition};
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 use crate::actions::{CameraActions, GameFlowActions, MatchActions};
@@ -74,13 +74,13 @@ fn main() {
 
     app.insert_resource(LevelDefinition {
         simultaneous_balls: 1,
-        // targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::Vanisher, BLOCK_GAP),
-        targets: TargetLayout::SparseGrid(
+        targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
+/*        targets: TargetLayout::SparseGrid(
 ".. .. .. .. ..
  .. CA AA CA ..
  . .. .. .. ..
  .. .. .. .. ..".to_string(), 5, BLOCK_GAP
-        ),
+        ),*/
         time_limit: None,
     }
     );
@@ -98,7 +98,6 @@ fn load_gltf(
 }
 
 fn setup_screen(app: &mut App) {
-    // app.insert_resource(ClearColor(Color::BLACK))
     app.insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
         window: WindowDescriptor {
@@ -106,7 +105,9 @@ fn setup_screen(app: &mut App) {
             height: SCREEN_HEIGHT,
             position: WindowPosition::Centered,
             monitor: MonitorSelection::Current,
+            // mode: WindowMode::SizedFullscreen,
             title: "Angle Out".to_string(),
+            cursor_visible: false,
             ..default()
         },
         ..default()
