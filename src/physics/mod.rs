@@ -1,6 +1,7 @@
 use bevy::app::App;
 use bevy::log::{info};
-use bevy::prelude::{Plugin, Component, Commands, EventReader, Query, Entity, With, SystemSet, IntoSystemDescriptor, Without};
+use bevy::math::Vec3;
+use bevy::prelude::{Plugin, Component, Commands, EventReader, Query, Entity, With, SystemSet, IntoSystemDescriptor, Without, Transform};
 use bevy_rapier3d::plugin::{RapierPhysicsPlugin, NoUserData};
 use bevy_rapier3d::prelude::{CollisionEvent, Sensor};
 use crate::labels::SystemLabels;
@@ -26,7 +27,8 @@ pub struct Collidable {
 
 #[derive(Component)]
 pub struct CollisionTag {
-    pub other: CollidableKind
+    pub other: CollidableKind,
+    pub pos: Vec3
 }
 
 #[derive(Component)]
@@ -49,22 +51,24 @@ impl Plugin for PhysicsPlugin {
 fn handle_collision_events(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    collidables: Query<&Collidable, Without<Sensor>>
+    collidables: Query<(&Collidable, &Transform), Without<Sensor>>
 ) {
     for collision_event in collision_events.iter() {
         match collision_event {
             CollisionEvent::Started(a, b, _) => {
-                if let Ok(col_a) = collidables.get(*a) {
-                    if let Ok(col_b) = collidables.get(*b) {
+                if let Ok((col_a, trans_a)) = collidables.get(*a) {
+                    if let Ok((col_b, trans_b)) = collidables.get(*b) {
                         commands.entity(*a)
                             .remove::<CollisionTag>()
                             .insert(CollisionTag {
-                                other: col_b.kind.clone()
+                                other: col_b.kind.clone(),
+                                pos: trans_a.translation
                             });
                         commands.entity(*b)
                             .remove::<CollisionTag>()
                             .insert(CollisionTag {
-                                other: col_a.kind.clone()
+                                other: col_a.kind.clone(),
+                                pos: trans_b.translation
                             });
 
 

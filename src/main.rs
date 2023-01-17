@@ -14,6 +14,7 @@ mod level;
 mod player;
 mod game;
 mod materials;
+mod points;
 
 use std::f32::consts::PI;
 use bevy::app::App;
@@ -35,6 +36,7 @@ use crate::events::EventsPlugin;
 use crate::game::GamePlugin;
 use crate::level::{LevelDefinition, LevelPlugin, TargetLayout};
 use crate::physics::PhysicsPlugin;
+use crate::points::PointsPlugin;
 use crate::r#match::MatchPlugin;
 use crate::ship::ShipPlugin;
 use crate::state::GameState;
@@ -65,6 +67,7 @@ fn main() {
     app.add_plugin(LevelPlugin);
     app.add_plugin(GamePlugin);
     app.add_plugin(MatchPlugin);
+    app.add_plugin(PointsPlugin);
 
     app.add_plugin(InputManagerPlugin::<GameFlowActions>::default());
     app.add_plugin(InputManagerPlugin::<MatchActions>::default());

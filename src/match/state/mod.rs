@@ -109,10 +109,12 @@ impl MatchState {
     }
 
     // Only when ball removed
-    pub fn add_block_hit(&mut self) -> BlockHitType {
+    pub fn add_block_hit(&mut self) -> (BlockHitType, i32) {
+        let mut awarded = 0;
+        let mut hit_type = BlockHitType::Regular;
         self.blocks -= 1;
-        self.points += 100 * self.paddle_bounce_combo + 10 * self.single_bounce_combo;
 
+        awarded += 100 * self.paddle_bounce_combo + 10 * self.single_bounce_combo;
 
         self.single_bounce_combo += 1;
 
@@ -125,14 +127,16 @@ impl MatchState {
         if self.direct_hit_possible {
             self.direct_hits += 1;
 
-            self.points += 100 * self.paddle_bounce_combo;
+            awarded += 100 * self.paddle_bounce_combo;
 
             self.direct_hit_possible = false;
 
-            return BlockHitType::DirectHit;
+            hit_type = BlockHitType::DirectHit;
         }
 
-        BlockHitType::Regular
+        self.points += awarded;
+
+        (hit_type, awarded)
 
     }
 

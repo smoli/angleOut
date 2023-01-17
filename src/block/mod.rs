@@ -295,7 +295,7 @@ fn block_handle_collisions(
                 if hittable.hit_points == 0 {
                     commands.entity(entity)
                         .despawn_recursive();
-                    events.send(MatchEvent::TargetHit);
+                    events.send(MatchEvent::TargetHit(collision.pos.clone()));
                 } else {
                     info!("still alive")
                 }

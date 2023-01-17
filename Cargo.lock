@@ -119,6 +119,7 @@ dependencies = [
  "bevy-inspector-egui-rapier",
  "bevy_prototype_lyon",
  "bevy_rapier3d",
+ "bevy_sprite3d",
  "leafwing-input-manager",
  "rand",
 ]
@@ -867,6 +868,15 @@ dependencies = [
  "guillotiere",
  "rectangle-pack",
  "thiserror",
+]
+
+[[package]]
+name = "bevy_sprite3d"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68e8c985b5729d03c3b9e21ec9a3ce36b1b60b703eb383d8ffb042c9a74bdf9b"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]

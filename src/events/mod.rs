@@ -1,10 +1,11 @@
 use bevy::app::{App, Plugin};
 use bevy::log::info;
-use bevy::prelude::{Commands, EventReader, EventWriter, IntoSystemDescriptor, ResMut, State, SystemSet};
+use bevy::prelude::{Commands, EventReader, EventWriter, IntoSystemDescriptor, ResMut, State, SystemSet, Vec3};
 use crate::ball::Ball;
 use crate::labels::SystemLabels;
 use crate::level::{LevelDefinition, RequestTag};
 use crate::player::Player;
+use crate::points::{PointsDisplay, PointsDisplayRequest};
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
 
@@ -26,7 +27,7 @@ pub enum MatchEvent {
     BallLost,
     BounceOffPaddle,
     BounceOffWall,
-    TargetHit,
+    TargetHit(Vec3),
 }
 
 
@@ -56,7 +57,7 @@ fn match_event_handler(
     mut match_state: ResMut<MatchState>,
     mut player: ResMut<Player>,
     mut level: ResMut<LevelDefinition>,
-    mut game_flow: EventWriter<GameFlowEvent>
+    mut game_flow: EventWriter<GameFlowEvent>,
 ) {
     for ev in events.iter() {
         match ev {
@@ -92,8 +93,14 @@ fn match_event_handler(
                 match_state.add_wall_hit();
             }
 
-            MatchEvent::TargetHit => {
-                let hitType = match_state.add_block_hit();
+            MatchEvent::TargetHit(p) => {
+                let (_, awarded) = match_state.add_block_hit();
+
+                commands.spawn(PointsDisplay {
+                    text: awarded.to_string(),
+                    position: p.clone(),
+                }).insert(PointsDisplayRequest);
+
                 if match_state.blocks == 0 {
                     game_flow.send(GameFlowEvent::PlayerWins);
                 }
