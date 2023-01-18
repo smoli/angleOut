@@ -136,9 +136,7 @@ fn points_handle_requests(
     for (entity, points) in &requests {
         info!("Points request");
 
-
         let idx = get_sprite_indexes(&points.text);
-
 
         let char_size = 3.5;
 
@@ -147,10 +145,10 @@ fn points_handle_requests(
             .remove::<PointsDisplayRequest>()
             .with_children(|parent| {
                 let mut x: f32 = -1.0 * idx.len() as f32 * char_size / 2.0;
-
+                let mut z: f32 = -0.1;
                 for i in idx {
                     parent.spawn(AtlasSprite3d {
-                        transform: Transform::from_xyz(x, 0.0, 0.0),
+                        transform: Transform::from_xyz(x, 0.0, z),
                         atlas: points_resource.atlas.clone(),
                         index: i,
                         pixels_per_metre: 10.0,
@@ -163,6 +161,7 @@ fn points_handle_requests(
                         .insert(NotShadowCaster);
 
                     x += char_size;
+                    z += -0.1;
                 }
             })
             .insert(SpatialBundle::from_transform(
