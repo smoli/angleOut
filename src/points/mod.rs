@@ -156,7 +156,7 @@ fn points_handle_requests(
                         pixels_per_metre: 10.0,
                         pivot: None,
                         partial_alpha: false,
-                        unlit: false,
+                        unlit: true,
                         double_sided: false,
                         emissive: Default::default(),
                     }.bundle(&mut sprite_params))

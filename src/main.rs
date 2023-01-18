@@ -22,7 +22,7 @@ use bevy::DefaultPlugins;
 use bevy::gltf::Gltf;
 use bevy::math::Quat;
 use bevy::pbr::{AmbientLight, DirectionalLight, DirectionalLightBundle};
-use bevy::prelude::{AssetServer, Camera, Camera3dBundle, ClearColor, Color, Commands, GamepadButtonType, Handle, OrthographicProjection, PluginGroup, Query, Res, Resource, Transform, Vec3, WindowDescriptor, With};
+use bevy::prelude::{AssetServer, Camera, Camera3dBundle, ClearColor, Color, Commands, GamepadButtonType, Handle, Msaa, OrthographicProjection, PluginGroup, Query, Res, Resource, Transform, Vec3, WindowDescriptor, With};
 use bevy::utils::default;
 use bevy::window::{close_on_esc, MonitorSelection, WindowMode, WindowPlugin, WindowPosition};
 use leafwing_input_manager::InputManagerBundle;
@@ -49,6 +49,7 @@ struct MyAssetPack(Handle<Gltf>);
 fn main() {
     let mut app = App::new();
 
+    // app.insert_resource(Msaa { samples: 4 });
 
     app.add_system(load_gltf);
 
