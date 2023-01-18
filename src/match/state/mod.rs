@@ -1,6 +1,6 @@
 use std::time::Duration;
 use bevy::prelude::Resource;
-
+use crate::block::{BlockBehaviour, BlockType};
 
 
 pub enum BlockHitType {
@@ -108,13 +108,35 @@ impl MatchState {
         self.paddle_bounce_combo_possible = true;
     }
 
-    // Only when ball removed
-    pub fn add_block_hit(&mut self) -> (BlockHitType, i32) {
+
+
+    fn get_base_points( block_type: &BlockType, behaviour: &BlockBehaviour) -> i32 {
+        let mut base_points = match block_type {
+            BlockType::Simple => 100,
+            BlockType::Hardling => 150,
+            BlockType::Concrete => 200
+        };
+
+        base_points += match behaviour {
+            BlockBehaviour::SittingDuck => 0,
+            BlockBehaviour::Spinner => 50,
+            BlockBehaviour::Vanisher => 100,
+            BlockBehaviour::Repuslor => 150,
+            BlockBehaviour::EvaderR => 150,
+            BlockBehaviour::EvaderL => 150
+        };
+
+        base_points
+    }
+
+    // Only when block removed
+    pub fn add_block_hit(&mut self, block_type: &BlockType, behaviour: &BlockBehaviour) -> (BlockHitType, i32) {
         let mut awarded = 0;
         let mut hit_type = BlockHitType::Regular;
         self.blocks -= 1;
 
-        awarded += 100 * (1 + self.paddle_bounce_combo) + 10 * self.single_bounce_combo;
+        let base_points = MatchState::get_base_points(block_type, behaviour);
+        awarded += base_points * (1 + self.paddle_bounce_combo) + 10 * self.single_bounce_combo;
 
         self.single_bounce_combo += 1;
 
@@ -127,7 +149,7 @@ impl MatchState {
         if self.direct_hit_possible {
             self.direct_hits += 1;
 
-            awarded += 100 * self.paddle_bounce_combo;
+            awarded += base_points * self.paddle_bounce_combo;
 
             self.direct_hit_possible = false;
 
@@ -147,6 +169,12 @@ impl MatchState {
     pub fn add_wall_hit(&mut self) {
         self.wall_hits += 1;
         self.direct_hit_possible = false;
+    }
+
+    pub fn ball_lost(&mut self) {
+        self.direct_hit_possible = false;
+        self.paddle_bounce_combo = 0;
+        self.single_bounce_combo = 0;
     }
 
     pub fn set_block_count(&mut self, count: i32) {

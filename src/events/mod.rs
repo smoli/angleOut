@@ -2,6 +2,7 @@ use bevy::app::{App, Plugin};
 use bevy::log::info;
 use bevy::prelude::{Commands, EventReader, EventWriter, IntoSystemDescriptor, ResMut, State, SystemSet, Vec3};
 use crate::ball::Ball;
+use crate::block::{BlockBehaviour, BlockType};
 use crate::labels::SystemLabels;
 use crate::level::{LevelDefinition, RequestTag};
 use crate::player::Player;
@@ -27,7 +28,7 @@ pub enum MatchEvent {
     BallLost,
     BounceOffPaddle,
     BounceOffWall,
-    TargetHit(Vec3),
+    TargetHit(Vec3, BlockType, BlockBehaviour),
 }
 
 
@@ -81,6 +82,7 @@ fn match_event_handler(
 
             MatchEvent::BallLost => {
                 player.ball_lost();
+                match_state.ball_lost();
                 if player.balls_available == 0 && match_state.blocks > 0 {
                     game_flow.send(GameFlowEvent::PlayerLooses);
                 }
@@ -93,8 +95,8 @@ fn match_event_handler(
                 match_state.add_wall_hit();
             }
 
-            MatchEvent::TargetHit(p) => {
-                let (_, awarded) = match_state.add_block_hit();
+            MatchEvent::TargetHit(p, block_type, behaviour) => {
+                let (_, awarded) = match_state.add_block_hit(block_type, behaviour);
 
                 commands.spawn(PointsDisplay {
                     text: awarded.to_string(),

@@ -302,10 +302,10 @@ fn block_despawn(
 
 fn block_handle_collisions(
     mut commands: Commands,
-    mut blocks: Query<(Entity, &CollisionTag, &mut Hittable), With<Block>>,
+    mut blocks: Query<(Entity, &CollisionTag, &mut Hittable, &Block)>,
     mut events: EventWriter<MatchEvent>,
 ) {
-    for (entity, collision, mut hittable) in &mut blocks {
+    for (entity, collision, mut hittable, block) in &mut blocks {
         match collision.other {
 
             CollidableKind::Ball => {
@@ -314,7 +314,7 @@ fn block_handle_collisions(
                 if hittable.hit_points == 0 {
                     commands.entity(entity)
                         .despawn_recursive();
-                    events.send(MatchEvent::TargetHit(collision.pos.clone()));
+                    events.send(MatchEvent::TargetHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
                 } else {
                     info!("still alive")
                 }
