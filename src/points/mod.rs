@@ -155,7 +155,7 @@ fn points_handle_requests(
                         index: i,
                         pixels_per_metre: 10.0,
                         pivot: None,
-                        partial_alpha: false,
+                        partial_alpha: true,
                         unlit: true,
                         double_sided: false,
                         emissive: Default::default(),

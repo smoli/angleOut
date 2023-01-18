@@ -28,7 +28,7 @@ pub const BACKGROUND_SPEED: f32 = 20.0;
 pub const BACKGROUND_LENGTH: f32 = 400.0;
 
 pub const PADDLE_BOUNCE_IMPULSE: f32 = 50.0;
-pub const PADDLE_LAUNCH_IMPULSE: f32 = 100.0;
+pub const PADDLE_LAUNCH_IMPULSE: f32 = 200.0;
 
 pub const COLLIDER_GROUP_NONE:Group   = Group::empty();
 pub const COLLIDER_GROUP_BALL:Group   = Group::GROUP_1;
