@@ -55,6 +55,8 @@ pub fn make_block(b_type: char, b_beh: char, pos: Vec2) -> Option<Block> {
         'B' => BlockBehaviour::Spinner,
         'C' => BlockBehaviour::Vanisher,
         'D' => BlockBehaviour::Repuslor,
+        'E' => BlockBehaviour::EvaderR,
+        'F' => BlockBehaviour::EvaderL,
 
         '.' => return None,
 

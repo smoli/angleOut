@@ -11,9 +11,9 @@ use bevy::prelude::{AssetServer, Color, Commands, Component, DespawnRecursiveExt
 use bevy::render::mesh::VertexAttributeValues;
 use bevy::scene::Scene;
 use bevy::time::FixedTimestep;
-use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, ExternalForce, ExternalImpulse, Friction, Restitution, RigidBody, Sensor};
+use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, ExternalForce, ExternalImpulse, Friction, LockedAxes, Restitution, RigidBody, Sensor};
 use crate::ball::Ball;
-use crate::config::{BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH, BLOCK_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
+use crate::config::{ARENA_WIDTH, ARENA_WIDTH_H, BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH, BLOCK_WIDTH_H, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
@@ -36,7 +36,8 @@ pub enum BlockBehaviour {
     Spinner,
     Vanisher,
     Repuslor,
-    EvadeUp,
+    EvaderR,
+    EvaderL,
 }
 
 
@@ -47,7 +48,9 @@ struct BlockSpinner;
 struct BlockVanisher;
 
 #[derive(Component)]
-struct BlockEvadeUp;
+struct BlockEvader {
+    velocity: Vec3
+}
 
 #[derive(Component)]
 struct BlockRepulsor;
@@ -92,6 +95,8 @@ impl Plugin for BlockPlugin {
                     .with_system(block_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(block_handle_collisions.label(SystemLabels::UpdateWorld))
                     .with_system(block_repluse.label(SystemLabels::UpdateWorld))
+                    .with_system(block_update_evader)
+                    .with_system(block_handle_evader_collisions)
                     // .with_system(block_custom_material)
                     // .with_system(block_update_custom_material)
             )
@@ -100,7 +105,6 @@ impl Plugin for BlockPlugin {
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(block_vanish)
                     .with_system(block_spin)
-                    .with_system(block_evade_up)
                     .with_run_criteria(FixedTimestep::step(1.0))
                     .label(SystemLabels::UpdateWorld)
             )
@@ -127,7 +131,6 @@ fn block_spawn(
 
             block_commands
                 .remove::<RequestTag>()
-                .insert(RigidBody::Fixed)
 
                 .insert(SceneBundle {
                     scene: gltf.named_scenes["003_SimpleBlock"].clone(),
@@ -153,7 +156,7 @@ fn block_spawn(
                     coefficient: 0.0,
                     combine_rule: CoefficientCombineRule::Min,
                 })
-                .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL))
+                .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL | COLLIDER_GROUP_BLOCK | COLLIDER_GROUP_ARENA))
                 .insert(ActiveEvents::COLLISION_EVENTS)
                 .insert(Collidable {
                     kind: CollidableKind::Block
@@ -164,18 +167,33 @@ fn block_spawn(
             match block.behaviour {
                 BlockBehaviour::Spinner => {
                     block_commands.insert(BlockSpinner);
+                    block_commands.insert(RigidBody::Fixed);
                 }
 
                 BlockBehaviour::Vanisher => {
                     block_commands.insert(BlockVanisher);
+                    block_commands.insert(RigidBody::Fixed);
                 }
 
                 BlockBehaviour::Repuslor => {
                     block_commands.insert(BlockRepulsor);
+                    block_commands.insert(RigidBody::Fixed);
                 }
 
-                BlockBehaviour::EvadeUp => {
-                    block_commands.insert(BlockEvadeUp);
+                BlockBehaviour::EvaderR => {
+                    block_commands.insert(BlockEvader {
+                        velocity: Vec3::new(50.0, 0.0, 0.0),
+                    });
+                    block_commands.insert(RigidBody::Dynamic);
+                    block_commands.insert(LockedAxes::TRANSLATION_LOCKED_Y);
+                }
+
+                BlockBehaviour::EvaderL => {
+                    block_commands.insert(BlockEvader {
+                        velocity: Vec3::new(-50.0, 0.0, 0.0),
+                    });
+                    block_commands.insert(RigidBody::Dynamic);
+                    block_commands.insert(LockedAxes::TRANSLATION_LOCKED_Y);
                 }
 
                 _ => {}
@@ -289,6 +307,7 @@ fn block_handle_collisions(
 ) {
     for (entity, collision, mut hittable) in &mut blocks {
         match collision.other {
+
             CollidableKind::Ball => {
                 hittable.hit_points -= 1;
 
@@ -299,6 +318,21 @@ fn block_handle_collisions(
                 } else {
                     info!("still alive")
                 }
+            }
+
+            _ => {}
+        }
+    }
+}
+
+fn block_handle_evader_collisions(
+    mut blocks: Query<(&CollisionTag, &mut BlockEvader), With<Block>>,
+) {
+    for (collision, mut evader) in &mut blocks {
+        match collision.other {
+
+            CollidableKind::Block | CollidableKind::Wall => {
+                evader.velocity *= -1.0;
             }
 
             _ => {}
@@ -385,9 +419,11 @@ fn block_repluse(
 }
 
 
-fn block_evade_up(
-    mut ball: Query<&mut Transform, With<BlockEvadeUp>>) {
-    for mut trans in &mut ball {
-        trans.translation.x -= BLOCK_WIDTH_H
+fn block_update_evader(
+    time: Res<Time>,
+    mut ball: Query<(&mut Transform, &mut BlockEvader)>
+) {
+    for (mut trans, mut evader) in &mut ball {
+        trans.translation += evader.velocity * time.delta().as_secs_f32();
     }
 }
