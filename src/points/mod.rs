@@ -146,9 +146,10 @@ fn points_handle_requests(
             .with_children(|parent| {
                 let mut x: f32 = -1.0 * idx.len() as f32 * char_size / 2.0;
                 let mut z: f32 = -0.1;
+                let mut count = 0.0;
                 for i in idx {
                     parent.spawn(AtlasSprite3d {
-                        transform: Transform::from_xyz(x, 0.0, z),
+                        transform: Transform::from_xyz(x, 0.0, z * count),
                         atlas: points_resource.atlas.clone(),
                         index: i,
                         pixels_per_metre: 10.0,
@@ -161,7 +162,7 @@ fn points_handle_requests(
                         .insert(NotShadowCaster);
 
                     x += char_size;
-                    z += -0.1;
+                    count += 1.0;
                 }
             })
             .insert(SpatialBundle::from_transform(
