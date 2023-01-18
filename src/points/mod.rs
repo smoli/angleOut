@@ -107,14 +107,16 @@ fn get_sprite_indexes(text: &String) -> Vec<usize> {
 fn points_update(
     mut commands: Commands,
     time: Res<Time>,
-    mut points: Query<(Entity, &mut FuseTimer)>,
+    mut points: Query<(Entity, &mut FuseTimer, &mut Transform)>,
 ) {
-    for (points, mut fuse) in &mut points {
+    for (points, mut fuse, mut trans) in &mut points {
         fuse.timer.tick(time.delta());
 
         if fuse.timer.finished() {
             commands.entity(points)
                 .despawn_recursive();
+        } else {
+            trans.translation = trans.translation + Vec3::new(0.0, -0.35, 0.0);
         }
     }
 }
@@ -167,7 +169,7 @@ fn points_handle_requests(
                 Transform::from_rotation(Quat::from_rotation_x(-PI * 0.5)).with_translation(points.position.clone())
             ))
             .insert(FuseTimer {
-                timer: Timer::new(Duration::from_secs(1), TimerMode::Once)
+                timer: Timer::new(Duration::from_secs(2), TimerMode::Once)
             })
         ;
     }
