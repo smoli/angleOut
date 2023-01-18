@@ -237,11 +237,12 @@ fn ball_handle_collisions(
 
 
             let v = velo.linvel.length();
-
+            info!("Exit speed {}", v);
             if v > MAX_BALL_SPEED {
                 velo.linvel = velo.linvel * MAX_BALL_SPEED / v;
             } else if v < MIN_BALL_SPEED {
                 velo.linvel = velo.linvel * MIN_BALL_SPEED / v;
+                info!("Prevented too slow of a ball for more fun! New speed {}", velo.linvel.length());
             }
         }
     }
