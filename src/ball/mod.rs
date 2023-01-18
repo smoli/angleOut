@@ -16,7 +16,7 @@ use crate::ship::ShipState;
 
 #[derive(Component)]
 pub struct Ball {
-    pub asset_name: String
+    pub asset_name: String,
 }
 
 impl Default for Ball {
@@ -24,7 +24,6 @@ impl Default for Ball {
         Ball { asset_name: "ship3_003.glb#Scene0".to_string() }
     }
 }
-
 
 
 #[derive(Component)]
@@ -43,7 +42,7 @@ impl Plugin for BallPlugin {
                     .with_system(ball_update_inactive.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
-                    .with_system(ball_clamp_velocity.label(SystemLabels::UpdateWorld))
+                    .with_system(ball_limit_velocity.label(SystemLabels::UpdateWorld))
                     // .with_system(ball_correct_too_low_z.label(SystemLabels::UpdateWorld))
                     .with_system(ball_handle_collisions.label(SystemLabels::UpdateWorld))
             )
@@ -86,7 +85,6 @@ pub fn ball_spawn(
             .insert(ColliderMassProperties::MassProperties(MassProperties {
                 mass: 1.0,
                 ..default()
-
             }))
             .insert(Velocity::default())
             .insert(ExternalImpulse::default())
@@ -101,7 +99,6 @@ pub fn ball_spawn(
         ;
     }
 }
-
 
 
 fn ball_spin(
@@ -146,22 +143,22 @@ fn ball_inactive_handle_events(
                     col.filters = col.filters | COLLIDER_GROUP_PADDLE | COLLIDER_GROUP_BLOCK;
                 }
 
-
                 _ => {}
             }
         }
     }
 }
 
-fn ball_clamp_velocity(mut query: Query<(&mut Velocity, &mut Transform), With<ActiveBall>>) {
+fn ball_limit_velocity(mut query: Query<(&mut Velocity, &mut Transform), With<ActiveBall>>) {
     for (mut velo, mut trans) in &mut query {
         let v = velo.linvel.length();
 
         if v > MAX_BALL_SPEED {
             velo.linvel = velo.linvel * MAX_BALL_SPEED / v;
-        } else if v < MIN_BALL_SPEED {
-            velo.linvel = velo.linvel * MIN_BALL_SPEED / v;
         }
+        // } else if v < MIN_BALL_SPEED {
+        //     velo.linvel = velo.linvel * MIN_BALL_SPEED / v;
+        // }
 
         if trans.translation.y != 0.0 {
             trans.translation.y = 0.0;
@@ -189,14 +186,16 @@ fn ball_handle_collisions(
     mut commands: Commands,
     ship_state: Res<ShipState>,
     mut balls: Query<(Entity, &mut ExternalImpulse, &CollisionTag, &mut Velocity), With<Ball>>,
-    mut events: EventWriter<MatchEvent>
+    mut events: EventWriter<MatchEvent>,
 ) {
     for (ball, mut ext_imp, collision, mut velo) in &mut balls {
+        let mut correct_ball_trans = false;
+
         match collision.other {
             CollidableKind::Ship => {
-
+                correct_ball_trans = true;
                 ext_imp.impulse = compute_launch_impulse(
-                    ship_state.ship_rotation, PADDLE_BOUNCE_IMPULSE
+                    ship_state.ship_rotation, PADDLE_BOUNCE_IMPULSE,
                 );
 
                 commands.entity(ball)
@@ -219,18 +218,31 @@ fn ball_handle_collisions(
             }
 
             CollidableKind::Block => {
-                let v = velo.linvel.length();
-
-                if velo.linvel.z.abs() < 1.0 {
-                    info!("Correcting Z velocity for more fun!");
-
-                    velo.linvel.z = 3.0 * velo.linvel.z.signum();
-
-                    velo.linvel = velo.linvel.normalize() * v;
-                }
+                correct_ball_trans = true;
             }
 
             _ => {}
+        }
+
+        if correct_ball_trans {
+            let v = velo.linvel.length();
+
+            if velo.linvel.z.abs() < 1.0 {
+                info!("Correcting Z velocity for more fun!");
+
+                velo.linvel.z = 3.0 * velo.linvel.z.signum();
+
+                velo.linvel = velo.linvel.normalize() * v;
+            }
+
+
+            let v = velo.linvel.length();
+
+            if v > MAX_BALL_SPEED {
+                velo.linvel = velo.linvel * MAX_BALL_SPEED / v;
+            } else if v < MIN_BALL_SPEED {
+                velo.linvel = velo.linvel * MIN_BALL_SPEED / v;
+            }
         }
     }
 }
