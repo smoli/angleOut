@@ -114,7 +114,7 @@ impl MatchState {
         let mut hit_type = BlockHitType::Regular;
         self.blocks -= 1;
 
-        awarded += 100 * self.paddle_bounce_combo + 10 * self.single_bounce_combo;
+        awarded += 100 * (1 + self.paddle_bounce_combo) + 10 * self.single_bounce_combo;
 
         self.single_bounce_combo += 1;
 
