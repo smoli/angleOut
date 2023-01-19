@@ -42,6 +42,15 @@ use crate::ship::ShipPlugin;
 use crate::state::GameState;
 use crate::ui::UI;
 
+
+const DEMO_MOVING: &str = "AA AA AA AA AA AA AA
+ AA .. .. AE .. .. AA
+ AA AG .. .. .. AH AA
+ AA .. .. AF .. .. AA
+ AA AA AA AA AA AA AA";
+
+
+
 /// Helper resource for tracking our asset
 #[derive(Resource)]
 struct MyAssetPack(Handle<Gltf>);
@@ -80,12 +89,7 @@ fn main() {
         simultaneous_balls: 1,
         // targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
         targets: TargetLayout::SparseGrid(
-"AA AA AA AA AA AA AA
- AA .. .. AE .. .. AA
- AA AG .. .. .. AH AA
- AA .. .. AF .. .. AA
- AA AA AA AA AA AA AA".to_string(), 7, BLOCK_GAP
-        ),
+DEMO_MOVING.to_string(), BLOCK_GAP),
         time_limit: None,
     }
     );

@@ -74,12 +74,19 @@ pub fn make_block(b_type: char, b_beh: char, pos: Vec2) -> Option<Block> {
 }
 
 
-pub fn interpret_grid(layout: &String, cols: usize, gap: f32) -> Option<Vec<Block>> {
+pub fn interpret_grid(layout: &String, gap: f32) -> Option<Vec<Block>> {
 
     let mut res = vec![];
 
     let mut lines:Vec<&str> = layout.split("\n").collect();
     let mut line_count = lines.len();
+
+    let first = lines.get(0).clone().unwrap().split(" ");;
+
+    let cols = first.collect::<Vec<&str>>().len();
+
+
+
 
     let x_step = BLOCK_WIDTH + gap;
     let cols_h = (cols / 2) as f32;

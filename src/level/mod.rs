@@ -22,7 +22,7 @@ pub struct RequestTag;
 
 pub enum TargetLayout {
     FilledGrid(usize, usize, BlockType, BlockBehaviour, f32),
-    SparseGrid(String, usize, f32),
+    SparseGrid(String, f32),
 }
 
 
@@ -85,10 +85,9 @@ fn make_filled_grid(
 fn make_grid_from_string_layout(
     mut commands: &mut Commands,
     layout: &String,
-    cols: usize,
     gap: f32,
 ) -> i32 {
-    if let Some(res) = interpret_grid(layout, cols, gap) {
+    if let Some(res) = interpret_grid(layout, gap) {
         let mut c = 0;
         for b in res {
             println!("{:?}", b);
@@ -119,8 +118,8 @@ fn level_spawn(
         FilledGrid(cols, rows, block_type, behaviour, gap) => {
             make_filled_grid(&mut commands, *cols, *rows, block_type, behaviour, *gap)
         }
-        TargetLayout::SparseGrid(layout, cols, gap) => {
-            make_grid_from_string_layout(&mut commands, layout, *cols, *gap)
+        TargetLayout::SparseGrid(layout, gap) => {
+            make_grid_from_string_layout(&mut commands, layout, *gap)
         }
     };
 
