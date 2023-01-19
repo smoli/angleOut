@@ -44,6 +44,28 @@ impl Plugin for UIStatsPlugin {
 }
 
 
+
+fn ui_update_infos(
+    stats: Res<MatchState>,
+    mut ui: Query<(&mut Text, &UIInfoTag)>
+
+) {
+    for (mut text, tag) in &mut ui {
+        match tag {
+            UIInfoTag::Points => text.sections[1].value = format!("{}", stats.points),
+            UIInfoTag::Blocks => text.sections[1].value = format!("{}", stats.blocks),
+            UIInfoTag::Bounces => text.sections[1].value = format!("{}", stats.paddle_bounces),
+            UIInfoTag::WallHits => text.sections[1].value = format!("{}", stats.wall_hits),
+            UIInfoTag::Combos => text.sections[1].value = format!("{}x, {}x", stats.paddle_bounce_combo, stats.single_bounce_combo),
+            UIInfoTag::Balls => text.sections[1].value = format!("{}", stats.balls),
+            UIInfoTag::BlocksHit => text.sections[1].value = format!("{}", stats.blocks_hit),
+            UIInfoTag::BlocksLost => text.sections[1].value = format!("{}", stats.blocks_lost),
+        }
+    }
+}
+
+
+
 fn ui_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -135,21 +157,3 @@ fn ui_spawn(
 
 
 
-fn ui_update_infos(
-    stats: Res<MatchState>,
-    mut ui: Query<(&mut Text, &UIInfoTag)>
-
-) {
-    for (mut text, tag) in &mut ui {
-        match tag {
-            UIInfoTag::Points => text.sections[1].value = format!("{}", stats.points),
-            UIInfoTag::Blocks => text.sections[1].value = format!("{}", stats.blocks),
-            UIInfoTag::Bounces => text.sections[1].value = format!("{}", stats.paddle_bounces),
-            UIInfoTag::WallHits => text.sections[1].value = format!("{}", stats.wall_hits),
-            UIInfoTag::Combos => text.sections[1].value = format!("{}x, {}x", stats.paddle_bounce_combo, stats.single_bounce_combo),
-            UIInfoTag::Balls => text.sections[1].value = format!("{}", stats.balls),
-            UIInfoTag::BlocksHit => text.sections[1].value = format!("{}", stats.blocks_hit),
-            UIInfoTag::BlocksLost => text.sections[1].value = format!("{}", stats.blocks_lost),
-        }
-    }
-}
