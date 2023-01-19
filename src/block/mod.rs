@@ -344,11 +344,12 @@ fn block_handle_collisions(
 }
 
 fn block_handle_evader_collisions(
-    mut blocks: Query<(&CollisionTag, &mut BlockEvader), With<Block>>,
+    mut commands: Commands,
+    mut blocks: Query<(Entity, &CollisionTag, &mut BlockEvader), With<Block>>,
     mut events: EventWriter<MatchEvent>,
 
 ) {
-    for (collision, mut evader) in &mut blocks {
+    for (block, collision, mut evader) in &mut blocks {
         match collision.other {
 
             CollidableKind::Block | CollidableKind::Wall => {
@@ -356,6 +357,8 @@ fn block_handle_evader_collisions(
             }
 
             CollidableKind::DeathTrigger => {
+                commands.entity(block)
+                    .despawn_recursive();
                 events.send(MatchEvent::BlockLost);
             }
 

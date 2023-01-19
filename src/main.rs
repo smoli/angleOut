@@ -50,6 +50,8 @@ const DEMO_MOVING: &str = "AA AA AA AA AA AA AA
  AA AA AA AA AA AA AA";
 
 
+const DEMO_MINIMAL_WIN_STATE_ERROR: &str = "AA AH AA";
+
 
 /// Helper resource for tracking our asset
 #[derive(Resource)]
@@ -88,8 +90,7 @@ fn main() {
     app.insert_resource(LevelDefinition {
         simultaneous_balls: 1,
         // targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
-        targets: TargetLayout::SparseGrid(
-DEMO_MOVING.to_string(), BLOCK_GAP),
+        targets: TargetLayout::SparseGrid(DEMO_MOVING.to_string(), BLOCK_GAP),
         time_limit: None,
     }
     );
