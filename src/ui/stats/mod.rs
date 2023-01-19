@@ -29,6 +29,12 @@ struct UITagCombos;
 #[derive(Component)]
 struct UITagBalls;
 
+#[derive(Component)]
+struct UITagBlocksHit;
+
+#[derive(Component)]
+struct UITagBlocksLost;
+
 pub struct UIStatsPlugin;
 
 impl Plugin for UIStatsPlugin {
@@ -46,6 +52,8 @@ impl Plugin for UIStatsPlugin {
                     .with_system(ui_update_wall_hits)
                     .with_system(ui_update_combos)
                     .with_system(ui_update_balls)
+                    .with_system(ui_update_blocks_hit)
+                    .with_system(ui_update_blocks_lost)
             )
 
         ;
@@ -120,6 +128,23 @@ fn ui_spawn(
                     ),
                     TextSection::from_style(style.clone())
                 ])).insert(UITagBalls);
+
+            parent
+                .spawn(TextBundle::from_sections([
+                    TextSection::new(
+                        "Blocks hit: ", style.clone(),
+                    ),
+                    TextSection::from_style(style.clone())
+                ])).insert(UITagBlocksHit);
+
+            parent
+                .spawn(TextBundle::from_sections([
+                    TextSection::new(
+                        "Blocks lost: ", style.clone(),
+                    ),
+                    TextSection::from_style(style.clone())
+                ])).insert(UITagBlocksLost);
+
         })
         .insert(UITag);
     ;
@@ -193,6 +218,31 @@ fn ui_update_balls(
     match ui.get_single_mut() {
         Ok(mut text) => {
             text.sections[1].value = format!("{}", stats.balls_available);
+        }
+        _ => {}
+    }
+}
+
+
+fn ui_update_blocks_lost(
+    stats: Res<MatchState>,
+    mut ui: Query<&mut Text, With<UITagBlocksLost>>
+) {
+    match ui.get_single_mut() {
+        Ok(mut text) => {
+            text.sections[1].value = format!("{}", stats.blocks_lost);
+        }
+        _ => {}
+    }
+}
+
+fn ui_update_blocks_hit(
+    stats: Res<MatchState>,
+    mut ui: Query<&mut Text, With<UITagBlocksHit>>
+) {
+    match ui.get_single_mut() {
+        Ok(mut text) => {
+            text.sections[1].value = format!("{}", stats.blocks_hit);
         }
         _ => {}
     }

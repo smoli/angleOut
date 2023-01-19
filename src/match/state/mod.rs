@@ -43,7 +43,10 @@ pub struct MatchState {
 
     pub balls: i32,
 
-    pub time_taken: Duration
+    pub time_taken: Duration,
+
+    pub blocks_hit: i32,
+    pub blocks_lost: i32
 }
 
 
@@ -62,6 +65,8 @@ impl MatchState {
         self.balls_lost = 0;
         self.time_taken = Duration::default();
         self.balls = 0;
+        self.blocks_hit = 0;
+        self.blocks_lost = 0;
     }
 }
 
@@ -79,8 +84,10 @@ impl Default for MatchState {
             balls_lost: 0,
             balls_used: 0,
             time_taken: Default::default(),
+            blocks_hit: 0,
             paddle_bounce_combo_possible: false,
-            balls: 0
+            balls: 0,
+            blocks_lost: 0,
         }
     }
 }
@@ -122,8 +129,7 @@ impl MatchState {
             BlockBehaviour::Spinner => 50,
             BlockBehaviour::Vanisher => 100,
             BlockBehaviour::Repuslor => 150,
-            BlockBehaviour::EvaderR => 150,
-            BlockBehaviour::EvaderL => 150
+            BlockBehaviour::EvaderR | BlockBehaviour::EvaderL | BlockBehaviour::EvaderD | BlockBehaviour::EvaderU => 150,
         };
 
         base_points
@@ -134,6 +140,7 @@ impl MatchState {
         let mut awarded = 0;
         let mut hit_type = BlockHitType::Regular;
         self.blocks -= 1;
+        self.blocks_hit += 1;
 
         let base_points = MatchState::get_base_points(block_type, behaviour);
         awarded += base_points * (1 + self.paddle_bounce_combo) + 10 * self.single_bounce_combo;
@@ -177,6 +184,11 @@ impl MatchState {
         self.single_bounce_combo = 0;
     }
 
+    pub fn block_lost(&mut self) {
+        self.blocks_lost += 1;
+        self.blocks -= 1;
+    }
+
     pub fn set_block_count(&mut self, count: i32) {
         self.blocks = count;
     }
@@ -208,12 +220,12 @@ mod tests {
         s.blocks = 100;
 
         s.add_paddle_bounce();
-        s.add_block_hit();
+        s.add_block_hit(&BlockType::Simple, &BlockBehaviour::SittingDuck);
         s.add_paddle_bounce();
         s.add_wall_hit();
-        s.add_block_hit();
+        s.add_block_hit(&BlockType::Simple, &BlockBehaviour::SittingDuck);
         s.add_paddle_bounce();
-        s.add_block_hit();
+        s.add_block_hit(&BlockType::Simple, &BlockBehaviour::SittingDuck);
 
         assert_eq!(s.direct_hits, 2);
         assert_eq!(s.blocks, 97);
@@ -229,9 +241,9 @@ mod tests {
         s.blocks = 100;
 
         s.add_paddle_bounce();
-        s.add_block_hit();
-        s.add_block_hit();
-        s.add_block_hit();
+        s.add_block_hit(&BlockType::Simple, &BlockBehaviour::SittingDuck);
+        s.add_block_hit(&BlockType::Simple, &BlockBehaviour::SittingDuck);
+        s.add_block_hit(&BlockType::Simple, &BlockBehaviour::SittingDuck);
 
         assert_eq!(s.single_bounce_combo, 3);
 
@@ -251,19 +263,19 @@ mod tests {
 
         s.add_paddle_bounce();
         s.add_wall_hit();
-        s.add_block_hit();
+        s.add_block_hit(&BlockType::Simple, &BlockBehaviour::SittingDuck);
         s.add_wall_hit();
-        s.add_block_hit();
+        s.add_block_hit(&BlockType::Simple, &BlockBehaviour::SittingDuck);
 
         assert_eq!(s.paddle_bounce_combo, 1);
 
         s.add_paddle_bounce();
-        s.add_block_hit();
+        s.add_block_hit(&BlockType::Simple, &BlockBehaviour::SittingDuck);
 
         assert_eq!(s.paddle_bounce_combo, 2);
 
         s.add_paddle_bounce();
-        s.add_block_hit();
+        s.add_block_hit(&BlockType::Simple, &BlockBehaviour::SittingDuck);
 
         assert_eq!(s.paddle_bounce_combo, 3);
 
@@ -273,7 +285,7 @@ mod tests {
         assert_eq!(s.paddle_bounce_combo, 0);
 
         s.add_paddle_bounce();
-        s.add_block_hit();
+        s.add_block_hit(&BlockType::Simple, &BlockBehaviour::SittingDuck);
         assert_eq!(s.paddle_bounce_combo, 1);
     }
 

@@ -57,6 +57,8 @@ pub fn make_block(b_type: char, b_beh: char, pos: Vec2) -> Option<Block> {
         'D' => BlockBehaviour::Repuslor,
         'E' => BlockBehaviour::EvaderR,
         'F' => BlockBehaviour::EvaderL,
+        'G' => BlockBehaviour::EvaderU,
+        'H' => BlockBehaviour::EvaderD,
 
         '.' => return None,
 

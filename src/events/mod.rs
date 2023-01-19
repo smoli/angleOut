@@ -26,6 +26,7 @@ pub enum MatchEvent {
     BallSpawned,
     BallLaunched,
     BallLost,
+    BlockLost,
     BounceOffPaddle,
     BounceOffWall,
     TargetHit(Vec3, BlockType, BlockBehaviour),
@@ -106,6 +107,10 @@ fn match_event_handler(
                 if match_state.blocks == 0 {
                     game_flow.send(GameFlowEvent::PlayerWins);
                 }
+            }
+
+            MatchEvent::BlockLost => {
+                match_state.block_lost();
             }
         }
     }

@@ -38,6 +38,8 @@ pub enum BlockBehaviour {
     Repuslor,
     EvaderR,
     EvaderL,
+    EvaderU,
+    EvaderD,
 }
 
 
@@ -185,7 +187,7 @@ fn block_spawn(
                         velocity: Vec3::new(50.0, 0.0, 0.0),
                     });
                     block_commands.insert(RigidBody::Dynamic);
-                    block_commands.insert(LockedAxes::TRANSLATION_LOCKED_Y);
+                    block_commands.insert(LockedAxes::from(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED | LockedAxes::TRANSLATION_LOCKED_Z));
                 }
 
                 BlockBehaviour::EvaderL => {
@@ -193,7 +195,23 @@ fn block_spawn(
                         velocity: Vec3::new(-50.0, 0.0, 0.0),
                     });
                     block_commands.insert(RigidBody::Dynamic);
-                    block_commands.insert(LockedAxes::TRANSLATION_LOCKED_Y);
+                    block_commands.insert(LockedAxes::from(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED | LockedAxes::TRANSLATION_LOCKED_Z));
+                }
+
+                BlockBehaviour::EvaderU => {
+                    block_commands.insert(BlockEvader {
+                        velocity: Vec3::new(0.0, 0.0, -50.0),
+                    });
+                    block_commands.insert(RigidBody::Dynamic);
+                    block_commands.insert(LockedAxes::from(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED | LockedAxes::TRANSLATION_LOCKED_X));
+                }
+
+                BlockBehaviour::EvaderD => {
+                    block_commands.insert(BlockEvader {
+                        velocity: Vec3::new(0.0, 0.0, 50.0),
+                    });
+                    block_commands.insert(RigidBody::Dynamic);
+                    block_commands.insert(LockedAxes::from(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED | LockedAxes::TRANSLATION_LOCKED_X));
                 }
 
                 _ => {}
@@ -327,12 +345,18 @@ fn block_handle_collisions(
 
 fn block_handle_evader_collisions(
     mut blocks: Query<(&CollisionTag, &mut BlockEvader), With<Block>>,
+    mut events: EventWriter<MatchEvent>,
+
 ) {
     for (collision, mut evader) in &mut blocks {
         match collision.other {
 
             CollidableKind::Block | CollidableKind::Wall => {
                 evader.velocity *= -1.0;
+            }
+
+            CollidableKind::DeathTrigger => {
+                events.send(MatchEvent::BlockLost);
             }
 
             _ => {}
