@@ -11,29 +11,19 @@ use crate::state::GameState;
 #[derive(Component)]
 struct UITag;
 
-#[derive(Component)]
-struct UITagPoints;
 
 #[derive(Component)]
-struct UITagBlocks;
+enum UIInfoTag {
+    Points,
+    Blocks,
+    Bounces,
+    WallHits,
+    Combos,
+    Balls,
+    BlocksHit,
+    BlocksLost
+}
 
-#[derive(Component)]
-struct UITagBounces;
-
-#[derive(Component)]
-struct UITagWallHits;
-
-#[derive(Component)]
-struct UITagCombos;
-
-#[derive(Component)]
-struct UITagBalls;
-
-#[derive(Component)]
-struct UITagBlocksHit;
-
-#[derive(Component)]
-struct UITagBlocksLost;
 
 pub struct UIStatsPlugin;
 
@@ -46,14 +36,7 @@ impl Plugin for UIStatsPlugin {
             )
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
-                    .with_system(ui_update_points)
-                    .with_system(ui_update_blocks)
-                    .with_system(ui_update_bounces)
-                    .with_system(ui_update_wall_hits)
-                    .with_system(ui_update_combos)
-                    .with_system(ui_update_balls)
-                    .with_system(ui_update_blocks_hit)
-                    .with_system(ui_update_blocks_lost)
+                    .with_system(ui_update_infos)
             )
 
         ;
@@ -88,14 +71,14 @@ fn ui_spawn(
                         "Points: ", style.clone(),
                     ),
                     TextSection::from_style(style.clone())
-                ])).insert(UITagPoints);
+                ])).insert(UIInfoTag::Points);
             parent
                 .spawn(TextBundle::from_sections([
                     TextSection::new(
                         "Blocks: ", style.clone(),
                     ),
                     TextSection::from_style(style.clone())
-                ])).insert(UITagBlocks);
+                ])).insert(UIInfoTag::Blocks);
 
             parent
                 .spawn(TextBundle::from_sections([
@@ -103,7 +86,7 @@ fn ui_spawn(
                         "Bounces: ", style.clone(),
                     ),
                     TextSection::from_style(style.clone())
-                ])).insert(UITagBounces);
+                ])).insert(UIInfoTag::Bounces);
 
             parent
                 .spawn(TextBundle::from_sections([
@@ -111,7 +94,7 @@ fn ui_spawn(
                         "Wall Hits: ", style.clone(),
                     ),
                     TextSection::from_style(style.clone())
-                ])).insert(UITagWallHits);
+                ])).insert(UIInfoTag::WallHits);
 
             parent
                 .spawn(TextBundle::from_sections([
@@ -119,7 +102,7 @@ fn ui_spawn(
                         "Combos: ", style.clone(),
                     ),
                     TextSection::from_style(style.clone())
-                ])).insert(UITagCombos);
+                ])).insert(UIInfoTag::Combos);
 
             parent
                 .spawn(TextBundle::from_sections([
@@ -127,7 +110,7 @@ fn ui_spawn(
                         "Balls: ", style.clone(),
                     ),
                     TextSection::from_style(style.clone())
-                ])).insert(UITagBalls);
+                ])).insert(UIInfoTag::Balls);
 
             parent
                 .spawn(TextBundle::from_sections([
@@ -135,7 +118,7 @@ fn ui_spawn(
                         "Blocks hit: ", style.clone(),
                     ),
                     TextSection::from_style(style.clone())
-                ])).insert(UITagBlocksHit);
+                ])).insert(UIInfoTag::BlocksHit);
 
             parent
                 .spawn(TextBundle::from_sections([
@@ -143,7 +126,7 @@ fn ui_spawn(
                         "Blocks lost: ", style.clone(),
                     ),
                     TextSection::from_style(style.clone())
-                ])).insert(UITagBlocksLost);
+                ])).insert(UIInfoTag::BlocksLost);
 
         })
         .insert(UITag);
@@ -151,99 +134,22 @@ fn ui_spawn(
 }
 
 
-fn ui_update_points(
+
+fn ui_update_infos(
     stats: Res<MatchState>,
-    mut ui: Query<&mut Text, With<UITagPoints>>
-) {
-    match ui.get_single_mut() {
-        Ok(mut text) => {
-            text.sections[1].value = format!("{}", stats.points);
-        }
-        _ => {}
-    }
-}
+    mut ui: Query<(&mut Text, &UIInfoTag)>
 
-fn ui_update_blocks(
-    stats: Res<MatchState>,
-    mut ui: Query<&mut Text, With<UITagBlocks>>
 ) {
-    match ui.get_single_mut() {
-        Ok(mut text) => {
-            text.sections[1].value = format!("{}", stats.blocks);
+    for (mut text, tag) in &mut ui {
+        match tag {
+            UIInfoTag::Points => text.sections[1].value = format!("{}", stats.points),
+            UIInfoTag::Blocks => text.sections[1].value = format!("{}", stats.blocks),
+            UIInfoTag::Bounces => text.sections[1].value = format!("{}", stats.paddle_bounces),
+            UIInfoTag::WallHits => text.sections[1].value = format!("{}", stats.wall_hits),
+            UIInfoTag::Combos => text.sections[1].value = format!("{}x, {}x", stats.paddle_bounce_combo, stats.single_bounce_combo),
+            UIInfoTag::Balls => text.sections[1].value = format!("{}", stats.balls),
+            UIInfoTag::BlocksHit => text.sections[1].value = format!("{}", stats.blocks_hit),
+            UIInfoTag::BlocksLost => text.sections[1].value = format!("{}", stats.blocks_lost),
         }
-        _ => {}
-    }
-}
-
-fn ui_update_bounces(
-    stats: Res<MatchState>,
-    mut ui: Query<&mut Text, With<UITagBounces>>
-) {
-    match ui.get_single_mut() {
-        Ok(mut text) => {
-            text.sections[1].value = format!("{}", stats.paddle_bounces);
-        }
-        _ => {}
-    }
-}
-
-fn ui_update_wall_hits(
-    stats: Res<MatchState>,
-    mut ui: Query<&mut Text, With<UITagWallHits>>
-) {
-    match ui.get_single_mut() {
-        Ok(mut text) => {
-            text.sections[1].value = format!("{}", stats.wall_hits);
-        }
-        _ => {}
-    }
-}
-
-fn ui_update_combos(
-    stats: Res<MatchState>,
-    mut ui: Query<&mut Text, With<UITagCombos>>
-) {
-    match ui.get_single_mut() {
-        Ok(mut text) => {
-            text.sections[1].value = format!("{}x, {}x", stats.paddle_bounce_combo, stats.single_bounce_combo);
-        }
-        _ => {}
-    }
-}
-
-fn ui_update_balls(
-    stats: Res<Player>,
-    mut ui: Query<&mut Text, With<UITagBalls>>
-) {
-    match ui.get_single_mut() {
-        Ok(mut text) => {
-            text.sections[1].value = format!("{}", stats.balls_available);
-        }
-        _ => {}
-    }
-}
-
-
-fn ui_update_blocks_lost(
-    stats: Res<MatchState>,
-    mut ui: Query<&mut Text, With<UITagBlocksLost>>
-) {
-    match ui.get_single_mut() {
-        Ok(mut text) => {
-            text.sections[1].value = format!("{}", stats.blocks_lost);
-        }
-        _ => {}
-    }
-}
-
-fn ui_update_blocks_hit(
-    stats: Res<MatchState>,
-    mut ui: Query<&mut Text, With<UITagBlocksHit>>
-) {
-    match ui.get_single_mut() {
-        Ok(mut text) => {
-            text.sections[1].value = format!("{}", stats.blocks_hit);
-        }
-        _ => {}
     }
 }
