@@ -47,7 +47,7 @@ const DEMO_MOVING: &str = "AA AA AA AA AA AA AA
  AA .. .. AE .. .. AA
  AA AG .. .. .. AH AA
  AA .. .. AF .. .. AA
- AA AA AA AA AA AA AA";
+ AA CA CA CA CA CA AA";
 
 
 const DEMO_MINIMAL_WIN_STATE_ERROR: &str = "AA AH AA";

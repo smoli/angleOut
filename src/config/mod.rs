@@ -3,7 +3,7 @@ use bevy_rapier3d::geometry::Group;
 pub const SCREEN_WIDTH: f32 = 1600.0;
 pub const SCREEN_HEIGHT: f32 = 800.0;
 pub const BALL_RADIUS: f32 = 3.5 / 2.0;
-pub const MAX_BALL_SPEED: f32 = 160.0;
+pub const MAX_BALL_SPEED: f32 = 130.0;
 pub const MIN_BALL_SPEED: f32 = 130.0;
 pub const MAX_RESTITUTION: f32 = 1.0;
 

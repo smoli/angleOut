@@ -320,10 +320,12 @@ fn block_despawn(
 
 fn block_handle_collisions(
     mut commands: Commands,
-    mut blocks: Query<(Entity, &CollisionTag, &mut Hittable, &Block)>,
+    mut blocks: Query<(Entity, &CollisionTag, &mut Hittable, &Block, &Transform)>,
     mut events: EventWriter<MatchEvent>,
+    my: Res<MyAssetPack>,
+    assets_gltf: Res<Assets<Gltf>>
 ) {
-    for (entity, collision, mut hittable, block) in &mut blocks {
+    for (entity, collision, mut hittable, block, trans) in &mut blocks {
         match collision.other {
 
             CollidableKind::Ball => {
@@ -334,6 +336,16 @@ fn block_handle_collisions(
                         .despawn_recursive();
                     events.send(MatchEvent::TargetHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
                 } else {
+                    if let Some(gltf) = assets_gltf.get(&my.0) {
+
+                    commands.entity(entity)
+                        .remove::<SceneBundle>()
+                        .insert(SceneBundle {
+                            scene: gltf.named_scenes["006_Block_CrackedOnce"].clone(),
+                            ..default()
+                        })
+                        .insert(TransformBundle::from_transform(trans.clone()));
+                    }
                     info!("still alive")
                 }
             }

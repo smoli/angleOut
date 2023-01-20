@@ -93,7 +93,7 @@ fn setup_3d_environment(
     const HALF_SIZE: f32 = 300.0;
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            color: Color::rgb(0.7, 0.7, 1.0),
+            color: Color::rgb(0.7, 0.7, 0.9),
             shadow_projection: OrthographicProjection {
                 left: -HALF_SIZE,
                 right: HALF_SIZE,
@@ -117,7 +117,7 @@ fn setup_3d_environment(
     // Directional Light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            color: Color::rgb(0.7, 0.7, 1.0),
+            color: Color::rgb(0.7, 0.7, 0.8),
             shadow_depth_bias: 0.0,
             shadows_enabled: false,
             illuminance: 75_000.0 / 2.0,
@@ -131,7 +131,7 @@ fn setup_3d_environment(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            color: Color::rgb(0.7, 0.7, 1.0),
+            color: Color::rgb(0.7, 0.7, 0.7),
             shadow_depth_bias: 0.0,
             shadows_enabled: false,
             illuminance: 5_000.0,
