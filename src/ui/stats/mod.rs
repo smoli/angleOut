@@ -46,20 +46,21 @@ impl Plugin for UIStatsPlugin {
 
 
 fn ui_update_infos(
-    stats: Res<MatchState>,
+    match_stats: Res<MatchState>,
+    player_stats: Res<Player>,
     mut ui: Query<(&mut Text, &UIInfoTag)>
 
 ) {
     for (mut text, tag) in &mut ui {
         match tag {
-            UIInfoTag::Points => text.sections[1].value = format!("{}", stats.points),
-            UIInfoTag::Blocks => text.sections[1].value = format!("{}", stats.blocks),
-            UIInfoTag::Bounces => text.sections[1].value = format!("{}", stats.paddle_bounces),
-            UIInfoTag::WallHits => text.sections[1].value = format!("{}", stats.wall_hits),
-            UIInfoTag::Combos => text.sections[1].value = format!("{}x, {}x", stats.paddle_bounce_combo, stats.single_bounce_combo),
-            UIInfoTag::Balls => text.sections[1].value = format!("{}", stats.balls),
-            UIInfoTag::BlocksHit => text.sections[1].value = format!("{}", stats.blocks_hit),
-            UIInfoTag::BlocksLost => text.sections[1].value = format!("{}", stats.blocks_lost),
+            UIInfoTag::Points => text.sections[1].value = format!("{}", match_stats.points),
+            UIInfoTag::Blocks => text.sections[1].value = format!("{}", match_stats.blocks),
+            UIInfoTag::Bounces => text.sections[1].value = format!("{}", match_stats.paddle_bounces),
+            UIInfoTag::WallHits => text.sections[1].value = format!("{}", match_stats.wall_hits),
+            UIInfoTag::Combos => text.sections[1].value = format!("{}x, {}x", match_stats.paddle_bounce_combo, match_stats.single_bounce_combo),
+            UIInfoTag::Balls => text.sections[1].value = format!("{}", player_stats.balls_available),
+            UIInfoTag::BlocksHit => text.sections[1].value = format!("{}", match_stats.blocks_hit),
+            UIInfoTag::BlocksLost => text.sections[1].value = format!("{}", match_stats.blocks_lost),
         }
     }
 }
