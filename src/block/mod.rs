@@ -7,7 +7,7 @@ use bevy::gltf::{Gltf, GltfMesh};
 use bevy::log::{info};
 use bevy::math::Vec2;
 use bevy::pbr::{AlphaMode, MaterialMeshBundle, NotShadowCaster};
-use bevy::prelude::{AssetServer, Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, Material, MaterialPlugin, Mesh, Name, PbrBundle, Plugin, Query, Res, ResMut, SceneBundle, StandardMaterial, SystemSet, Time, Transform, TransformBundle, Vec3, Visibility, With, Without};
+use bevy::prelude::{AssetServer, Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, Material, MaterialPlugin, Mesh, Name, PbrBundle, Plugin, Query, Res, ResMut, SceneBundle, StandardMaterial, SystemSet, Time, Timer, TimerMode, Transform, TransformBundle, Vec3, Visibility, With, Without};
 use bevy::render::mesh::VertexAttributeValues;
 use bevy::scene::Scene;
 use bevy::time::FixedTimestep;
@@ -51,11 +51,19 @@ struct BlockVanisher;
 
 #[derive(Component)]
 struct BlockEvader {
-    velocity: Vec3
+    velocity: Vec3,
 }
 
 #[derive(Component)]
 struct BlockRepulsor;
+
+
+#[derive(Component)]
+struct Shaking {
+    timer: Timer,
+    original_position: Vec3,
+    direction: Vec3,
+}
 
 #[derive(Component, Debug)]
 pub struct Block {
@@ -99,8 +107,9 @@ impl Plugin for BlockPlugin {
                     .with_system(block_repluse.label(SystemLabels::UpdateWorld))
                     .with_system(block_update_evader)
                     .with_system(block_handle_evader_collisions)
-                    // .with_system(block_custom_material)
-                    // .with_system(block_update_custom_material)
+                    .with_system(block_shake.after(SystemLabels::UpdateWorld))
+                // .with_system(block_custom_material)
+                // .with_system(block_update_custom_material)
             )
 
             .add_system_set(
@@ -125,7 +134,7 @@ fn block_spawn(
     asset_server: Res<AssetServer>,
     my: Res<MyAssetPack>,
     empties: Query<(Entity, &Block), With<RequestTag>>,
-    assets_gltf: Res<Assets<Gltf>>
+    assets_gltf: Res<Assets<Gltf>>,
 ) {
     if let Some(gltf) = assets_gltf.get(&my.0) {
         for (entity, block) in &empties {
@@ -243,7 +252,7 @@ fn block_spawn(
 
 fn block_update_custom_material(
     mut materials: ResMut<Assets<CustomMaterial>>,
-    time: Res<Time>
+    time: Res<Time>,
 ) {
     for (handle, mut mat) in materials.iter_mut() {
         mat.time = time.elapsed_seconds();
@@ -254,7 +263,7 @@ fn block_custom_material(
     mut commands: Commands,
     blocks: Query<(Entity, &Handle<Mesh>, &Name), Without<CustomMaterialApplied>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut custom_materials: ResMut<Assets<CustomMaterial>>
+    mut custom_materials: ResMut<Assets<CustomMaterial>>,
 ) {
     for (block, handle, name) in &blocks {
         commands.entity(block)
@@ -264,7 +273,7 @@ fn block_custom_material(
             continue;
         }
 
-       if let Some(mesh) = meshes.get_mut(handle) {
+        if let Some(mesh) = meshes.get_mut(handle) {
             if let Some(VertexAttributeValues::Float32x3(
                             positions,
                         )) = mesh.attribute(Mesh::ATTRIBUTE_POSITION)
@@ -285,25 +294,23 @@ fn block_custom_material(
                     colors,
                 );
             }
-           let custom_material =
-               custom_materials.add(CustomMaterial {
-                   color1: Color::BLUE,
-                   color2: Color::GOLD,
-                   time: 0.0,
-/*                   color_texture: None,*/
-                   alpha_mode: AlphaMode::Blend,
-               });
+            let custom_material =
+                custom_materials.add(CustomMaterial {
+                    color1: Color::BLUE,
+                    color2: Color::GOLD,
+                    time: 0.0,
+                    /*                   color_texture: None,*/
+                    alpha_mode: AlphaMode::Blend,
+                });
 
 
-           commands
-               .entity(block)
-               .remove::<Handle<StandardMaterial>>();
-           commands.entity(block).insert(custom_material);
-/*            commands
+            commands
                 .entity(block)
-                .remove::<Handle<StandardMaterial>>();*/
-
-
+                .remove::<Handle<StandardMaterial>>();
+            commands.entity(block).insert(custom_material);
+            /*            commands
+                            .entity(block)
+                            .remove::<Handle<StandardMaterial>>();*/
         }
     }
 }
@@ -323,11 +330,10 @@ fn block_handle_collisions(
     mut blocks: Query<(Entity, &CollisionTag, &mut Hittable, &Block, &Transform)>,
     mut events: EventWriter<MatchEvent>,
     my: Res<MyAssetPack>,
-    assets_gltf: Res<Assets<Gltf>>
+    assets_gltf: Res<Assets<Gltf>>,
 ) {
     for (entity, collision, mut hittable, block, trans) in &mut blocks {
         match collision.other {
-
             CollidableKind::Ball => {
                 hittable.hit_points -= 1;
 
@@ -337,22 +343,27 @@ fn block_handle_collisions(
                     events.send(MatchEvent::TargetHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
                 } else {
                     if let Some(gltf) = assets_gltf.get(&my.0) {
-
                         let sceneName = match hittable.hit_points {
-                            2 =>   "006_Block_CrackedOnce",
+                            2 => "006_Block_CrackedOnce",
                             1 => "007_Block_CrackedTwice",
 
                             _ => "003_SimpleBlock"
-
                         };
 
-                    commands.entity(entity)
-                        .remove::<SceneBundle>()
-                        .insert(SceneBundle {
-                            scene: gltf.named_scenes[sceneName].clone(),
-                            ..default()
-                        })
-                        .insert(TransformBundle::from_transform(trans.clone()));
+                        let mut newTrans: Transform = trans.clone();
+
+                        commands.entity(entity)
+                            .remove::<SceneBundle>()
+                            .insert(SceneBundle {
+                                scene: gltf.named_scenes[sceneName].clone(),
+                                ..default()
+                            })
+                            .insert(TransformBundle::from_transform(newTrans))
+                            .insert(Shaking {
+                                timer: Timer::from_seconds(Duration::from_millis(200).as_secs_f32(), TimerMode::Once),
+                                original_position: trans.translation.clone(),
+                                direction: Vec3::NEG_Z,
+                            });
                     }
                     info!("still alive")
                 }
@@ -367,11 +378,9 @@ fn block_handle_evader_collisions(
     mut commands: Commands,
     mut blocks: Query<(Entity, &CollisionTag, &mut BlockEvader), With<Block>>,
     mut events: EventWriter<MatchEvent>,
-
 ) {
     for (block, collision, mut evader) in &mut blocks {
         match collision.other {
-
             CollidableKind::Block | CollidableKind::Wall => {
                 evader.velocity *= -1.0;
             }
@@ -383,6 +392,28 @@ fn block_handle_evader_collisions(
             }
 
             _ => {}
+        }
+    }
+}
+
+
+fn block_shake(
+    mut commands: Commands,
+    mut shaking: Query<(Entity, &mut Shaking, &mut Transform)>,
+    time: Res<Time>,
+) {
+    for (block, mut shaking, mut trans) in &mut shaking {
+        shaking.timer.tick(time.delta());
+        if shaking.timer.percent() <= 0.5 {
+            info!("Shake");
+            trans.translation += shaking.direction * shaking.timer.elapsed_secs();
+        } else if !shaking.timer.just_finished() {
+            trans.translation -= shaking.direction * shaking.timer.elapsed_secs() * 0.5;
+        } else {
+            commands.entity(block)
+                .remove::<Shaking>();
+
+            trans.translation = shaking.original_position;
         }
     }
 }
@@ -468,7 +499,7 @@ fn block_repluse(
 
 fn block_update_evader(
     time: Res<Time>,
-    mut ball: Query<(&mut Transform, &mut BlockEvader)>
+    mut ball: Query<(&mut Transform, &mut BlockEvader)>,
 ) {
     for (mut trans, mut evader) in &mut ball {
         trans.translation += evader.velocity * time.delta().as_secs_f32();
