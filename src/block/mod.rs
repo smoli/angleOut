@@ -362,7 +362,7 @@ fn block_handle_collisions(
                             .insert(Shaking {
                                 timer: Timer::from_seconds(Duration::from_millis(200).as_secs_f32(), TimerMode::Once),
                                 original_position: trans.translation.clone(),
-                                direction: Vec3::NEG_Z,
+                                direction: if let Some(v) = collision.other_velocity { v.normalize() } else { Vec3::NEG_Z }
                             });
                     }
                     info!("still alive")
