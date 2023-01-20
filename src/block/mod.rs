@@ -338,10 +338,18 @@ fn block_handle_collisions(
                 } else {
                     if let Some(gltf) = assets_gltf.get(&my.0) {
 
+                        let sceneName = match hittable.hit_points {
+                            2 =>   "006_Block_CrackedOnce",
+                            1 => "007_Block_CrackedTwice",
+
+                            _ => "003_SimpleBlock"
+
+                        };
+
                     commands.entity(entity)
                         .remove::<SceneBundle>()
                         .insert(SceneBundle {
-                            scene: gltf.named_scenes["006_Block_CrackedOnce"].clone(),
+                            scene: gltf.named_scenes[sceneName].clone(),
                             ..default()
                         })
                         .insert(TransformBundle::from_transform(trans.clone()));
