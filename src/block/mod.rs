@@ -11,6 +11,7 @@ use bevy::prelude::{AssetServer, Color, Commands, Component, DespawnRecursiveExt
 use bevy::render::mesh::VertexAttributeValues;
 use bevy::scene::Scene;
 use bevy::time::FixedTimestep;
+use bevy_hanabi::ParticleEffect;
 use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, ExternalForce, ExternalImpulse, Friction, LockedAxes, Restitution, RigidBody, Sensor};
 use crate::ball::Ball;
 use crate::config::{ARENA_WIDTH, ARENA_WIDTH_H, BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH, BLOCK_WIDTH_H, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
@@ -405,7 +406,6 @@ fn block_shake(
     for (block, mut shaking, mut trans) in &mut shaking {
         shaking.timer.tick(time.delta());
         if shaking.timer.percent() <= 0.5 {
-            info!("Shake");
             trans.translation += shaking.direction * shaking.timer.elapsed_secs();
         } else if !shaking.timer.just_finished() {
             trans.translation -= shaking.direction * shaking.timer.elapsed_secs() * 0.5;

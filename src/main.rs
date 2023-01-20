@@ -15,6 +15,7 @@ mod player;
 mod game;
 mod materials;
 mod points;
+mod particles;
 
 use std::f32::consts::PI;
 use bevy::app::App;
@@ -35,6 +36,7 @@ use crate::config::{BLOCK_DEPTH, BLOCK_GAP, SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::events::EventsPlugin;
 use crate::game::GamePlugin;
 use crate::level::{LevelDefinition, LevelPlugin, TargetLayout};
+use crate::particles::ParticlePlugin;
 use crate::physics::PhysicsPlugin;
 use crate::points::PointsPlugin;
 use crate::r#match::MatchPlugin;
@@ -80,6 +82,7 @@ fn main() {
     app.add_plugin(GamePlugin);
     app.add_plugin(MatchPlugin);
     app.add_plugin(PointsPlugin);
+    app.add_plugin(ParticlePlugin);
 
     app.add_plugin(InputManagerPlugin::<GameFlowActions>::default());
     app.add_plugin(InputManagerPlugin::<MatchActions>::default());

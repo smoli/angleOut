@@ -11,7 +11,7 @@ use crate::state::GameState;
 use bevy_rapier3d::render::RapierDebugRenderPlugin;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CollidableKind {
     Ball,
     Wall,
