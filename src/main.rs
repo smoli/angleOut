@@ -70,7 +70,7 @@ fn main() {
     setup_ui(&mut app);
     app.add_plugin(EventsPlugin);
 
-    app.add_state(GameState::Start);
+    app.add_state(GameState::InMatch);
 
     app.add_plugin(PhysicsPlugin);
 
