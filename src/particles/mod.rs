@@ -15,6 +15,7 @@ use bevy::{
     render::settings::{WgpuFeatures, WgpuSettings},
     sprite::Anchor,
 };
+use crate::ball::Ball;
 
 
 pub struct ParticlePlugin;
@@ -90,15 +91,14 @@ fn particles_setup_block_impact(
 
 
 fn particle_handle_block_ball(
-    blocks: Query<(&CollisionTag, &Transform), With<Block>>,
-    mut effect: Query<(&mut ParticleEffect, &mut Transform), Without<Block>>,
+    blocks: Query<(&CollisionTag, &Transform), With<Ball>>,
+    mut effect: Query<(&mut ParticleEffect, &mut Transform), Without<Ball>>,
 ) {
     let (mut effect, mut effect_transform) = effect.single_mut();
 
     for (collision, trans) in &blocks {
-        if collision.other == CollidableKind::Ball {
-            println!("{:?}", effect_transform);
-            effect_transform.translation = trans.translation;
+        if collision.other == CollidableKind::Block {
+            effect_transform.translation = trans.translation.clone();
             effect.maybe_spawner().unwrap().reset();
         }
 

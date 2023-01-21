@@ -90,7 +90,6 @@ fn make_grid_from_string_layout(
     if let Some(res) = interpret_grid(layout, gap) {
         let mut c = 0;
         for b in res {
-            println!("{:?}", b);
             commands
                 .spawn(b)
                 .insert(RequestTag);
