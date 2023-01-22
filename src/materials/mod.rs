@@ -1,10 +1,7 @@
-use std::time::Duration;
-use bevy::prelude::{AlphaMode, Color, Component, Handle, Image, Material, Vec4};
-use bevy::render::render_asset::RenderAssets;
-use bevy::render::render_resource::{AsBindGroup, AsBindGroupError, AsBindGroupShaderType, BindGroupLayout, PreparedBindGroup, ShaderRef, ShaderType};
-use bevy::render::renderer::RenderDevice;
-use bevy::render::texture::FallbackImage;
+use bevy::prelude::{AlphaMode, Color, Component, Image, Material, Vec4};
 use bevy::reflect::TypeUuid;
+use bevy::render::render_asset::RenderAssets;
+use bevy::render::render_resource::{AsBindGroup, AsBindGroupShaderType, ShaderRef, ShaderType};
 
 #[derive(Component)]
 pub struct CustomMaterialApplied;
@@ -36,7 +33,7 @@ pub struct CustomMaterialUniform {
 
 
 impl AsBindGroupShaderType<CustomMaterialUniform> for CustomMaterial {
-    fn as_bind_group_shader_type(&self, images: &RenderAssets<Image>) -> CustomMaterialUniform {
+    fn as_bind_group_shader_type(&self, _images: &RenderAssets<Image>) -> CustomMaterialUniform {
         CustomMaterialUniform {
             color1: self.color1.as_linear_rgba_f32().into(),
             color2: self.color2.as_linear_rgba_f32().into(),

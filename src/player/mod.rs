@@ -58,8 +58,7 @@ impl Player {
         if self.balls_grabbed > 0 {
             self.balls_grabbed -= 1;
             self.balls_in_play += 1;
-        } else
-        if self.balls_spawned > 0 {
+        } else if self.balls_spawned > 0 {
             self.balls_spawned -= 1;
             self.balls_in_play += 1;
         }

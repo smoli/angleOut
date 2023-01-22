@@ -1,6 +1,6 @@
 use bevy::log::info;
-use bevy::prelude::{App, Color, Component, Commands, Entity, Plugin, Query, SystemSet, TextBundle, TextSection, TextStyle, With, AssetServer, Res, GamepadButtonType, EventWriter, NodeBundle, Style, Size, Val, JustifyContent, default, BuildChildren, FlexDirection, TextAlignment, DespawnRecursiveExt};
-use bevy::ui::{AlignContent, AlignSelf, UiRect};
+use bevy::prelude::{App, Color, Component, Commands, Entity, Plugin, Query, SystemSet, TextBundle, TextSection, TextStyle, With, AssetServer, Res, GamepadButtonType, EventWriter, NodeBundle, Style, Size, Val, default, BuildChildren, DespawnRecursiveExt};
+use bevy::ui::{AlignSelf};
 use leafwing_input_manager::input_map::InputMap;
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::ActionState;
@@ -53,7 +53,7 @@ fn ui_spawn(
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((TextBundle::from_sections([
+            parent.spawn(TextBundle::from_sections([
                 TextSection::new(
                     "Angle Out - Press A to play",
                     TextStyle {
@@ -67,7 +67,7 @@ fn ui_spawn(
                 align_self: AlignSelf::Center,
                 ..default()
             })
-            ))
+            )
                 ;
         })
         .insert(UITag)

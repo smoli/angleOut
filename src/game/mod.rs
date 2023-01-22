@@ -1,8 +1,6 @@
 use bevy::app::{App, Plugin};
 use bevy::prelude::{ResMut, SystemSet};
-use bevy::utils::default;
 use crate::player::{Player, PowerUp};
-use crate::r#match::state::MatchState;
 use crate::state::GameState;
 
 pub struct GamePlugin;

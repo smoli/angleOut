@@ -1,3 +1,27 @@
+use bevy::app::App;
+use bevy::DefaultPlugins;
+use bevy::gltf::Gltf;
+use bevy::prelude::{AssetServer, ClearColor, Color, Commands, Handle, PluginGroup, Res, Resource, WindowDescriptor};
+use bevy::utils::default;
+use bevy::window::{close_on_esc, MonitorSelection, WindowPlugin, WindowPosition};
+use leafwing_input_manager::prelude::InputManagerPlugin;
+
+use crate::actions::{CameraActions, GameFlowActions, MatchActions};
+use crate::arena::ArenaPlugin;
+use crate::ball::BallPlugin;
+use crate::block::BlockPlugin;
+use crate::config::{BLOCK_GAP, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::events::EventsPlugin;
+use crate::game::GamePlugin;
+use crate::level::{LevelDefinition, LevelPlugin, TargetLayout};
+use crate::particles::ParticlePlugin;
+use crate::physics::PhysicsPlugin;
+use crate::points::PointsPlugin;
+use crate::r#match::MatchPlugin;
+use crate::ship::ShipPlugin;
+use crate::state::GameState;
+use crate::ui::UI;
+
 mod config;
 mod r#match;
 mod state;
@@ -16,34 +40,6 @@ mod game;
 mod materials;
 mod points;
 mod particles;
-
-use std::f32::consts::PI;
-use bevy::app::App;
-use bevy::DefaultPlugins;
-use bevy::gltf::Gltf;
-use bevy::math::Quat;
-use bevy::pbr::{AmbientLight, DirectionalLight, DirectionalLightBundle};
-use bevy::prelude::{AssetServer, Camera, Camera3dBundle, ClearColor, Color, Commands, GamepadButtonType, Handle, Msaa, OrthographicProjection, PluginGroup, Query, Res, Resource, Transform, Vec3, WindowDescriptor, With};
-use bevy::utils::default;
-use bevy::window::{close_on_esc, MonitorSelection, WindowMode, WindowPlugin, WindowPosition};
-use leafwing_input_manager::InputManagerBundle;
-use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
-use crate::actions::{CameraActions, GameFlowActions, MatchActions};
-use crate::arena::ArenaPlugin;
-use crate::ball::BallPlugin;
-use crate::block::{BlockBehaviour, BlockPlugin, BlockType};
-use crate::config::{BLOCK_DEPTH, BLOCK_GAP, SCREEN_HEIGHT, SCREEN_WIDTH};
-use crate::events::EventsPlugin;
-use crate::game::GamePlugin;
-use crate::level::{LevelDefinition, LevelPlugin, TargetLayout};
-use crate::particles::ParticlePlugin;
-use crate::physics::PhysicsPlugin;
-use crate::points::PointsPlugin;
-use crate::r#match::MatchPlugin;
-use crate::ship::ShipPlugin;
-use crate::state::GameState;
-use crate::ui::UI;
-
 
 const DEMO_MOVING: &str = "AA AA AA AA AA AA AA
  AA .. .. AE .. .. AA

@@ -1,6 +1,6 @@
 use bevy::app::{App, Plugin};
 use bevy::log::info;
-use bevy::prelude::{AmbientLight, Camera, Camera3dBundle, Commands, Component, Color, default, DespawnRecursiveExt, DirectionalLight, DirectionalLightBundle, Entity, OrthographicProjection, Query, SystemSet, Transform, Vec3, With};
+use bevy::prelude::{AmbientLight, Camera3dBundle, Commands, Component, Color, default, DespawnRecursiveExt, DirectionalLight, DirectionalLightBundle, Entity, OrthographicProjection, Query, SystemSet, Transform, Vec3, With};
 use leafwing_input_manager::Actionlike;
 use leafwing_input_manager::prelude::InputManagerPlugin;
 use crate::state::GameState;

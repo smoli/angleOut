@@ -1,4 +1,4 @@
-use bevy::prelude::{Component, App, AssetServer, Commands, default, info, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor, Entity, DespawnRecursiveExt};
+use bevy::prelude::{Component, App, AssetServer, Commands, default, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor, Entity, DespawnRecursiveExt};
 use bevy::scene::SceneBundle;
 use bevy_rapier3d::dynamics::CoefficientCombineRule;
 use bevy_rapier3d::prelude::{Collider, Friction, Restitution, RigidBody};

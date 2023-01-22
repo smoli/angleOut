@@ -1,14 +1,15 @@
-use std::f32::consts::{PI, TAU};
+use std::f32::consts::PI;
 use std::time::Duration;
+
 use bevy::app::{App, Plugin};
-use bevy::asset::{AssetServer, LoadState};
-use bevy::log::{info, warn};
+use bevy::asset::AssetServer;
+use bevy::log::info;
 use bevy::math::Vec3;
-use bevy::pbr::{NotShadowCaster, PbrBundle};
-use bevy::prelude::{AlphaMode, Assets, BuildChildren, Commands, Component, ComputedVisibility, default, DespawnRecursiveExt, Entity, Handle, Image, Mesh, Quat, Query, Res, ResMut, Resource, shape, SpatialBundle, SpriteSheetBundle, StandardMaterial, SystemSet, TextureAtlas, TextureAtlasSprite, TimerMode, Transform, TransformBundle, Vec2, Visibility, With};
+use bevy::pbr::NotShadowCaster;
+use bevy::prelude::{Assets, BuildChildren, Commands, Component, DespawnRecursiveExt, Entity, Handle, Quat, Query, Res, ResMut, Resource, SpatialBundle, SystemSet, TextureAtlas, TimerMode, Transform, Vec2, With};
 use bevy::time::{Time, Timer};
-use bevy_rapier3d::rapier::crossbeam::channel::at;
-use bevy_sprite3d::{AtlasSprite3d, AtlasSprite3dBundle, Sprite3d, Sprite3dParams, Sprite3dPlugin};
+use bevy_sprite3d::{AtlasSprite3d, Sprite3dParams, Sprite3dPlugin};
+
 use crate::state::GameState;
 
 pub struct PointsPlugin;
@@ -126,13 +127,7 @@ fn points_handle_requests(
     points_resource: Res<PointsResources>,
     requests: Query<(Entity, &PointsDisplay), With<PointsDisplayRequest>>,
     mut sprite_params: Sprite3dParams,
-    asset_server: Res<AssetServer>,
 ) {
-    /*
-        if asset_server.get_load_state(&points_resource.atlas) != LoadState::Loaded {
-            return;
-        }*/
-
     for (entity, points) in &requests {
         info!("Points request");
 

@@ -1,22 +1,15 @@
-use bevy::app::App;
-use bevy::core::Name;
-use bevy::log::info;
-use bevy::prelude::{Commands, Assets, DespawnRecursiveExt, Entity, Plugin, ResMut, SystemSet, Transform, Vec2, Vec4, With, Query, Without};
-
-use bevy_hanabi::{BillboardModifier, ColorOverLifetimeModifier, EffectAsset, Gradient, HanabiPlugin, ParticleEffect, ParticleEffectBundle, PositionCircleModifier, PositionSphereModifier, ShapeDimension, SizeOverLifetimeModifier, Spawner, Value};
-use crate::block::Block;
-use crate::config::BLOCK_DEPTH;
-use crate::physics::{CollidableKind, CollisionTag};
-use crate::state::GameState;
-
-
 use bevy::{
     prelude::*,
     render::settings::{WgpuFeatures, WgpuSettings},
-    sprite::Anchor,
 };
-use crate::ball::Ball;
+use bevy::app::App;
+use bevy::core::Name;
+use bevy::prelude::{Assets, Commands, Entity, Plugin, Query, ResMut, SystemSet, Transform, Vec2, Vec4, With, Without};
+use bevy_hanabi::{BillboardModifier, ColorOverLifetimeModifier, EffectAsset, Gradient, HanabiPlugin, ParticleEffect, ParticleEffectBundle, PositionSphereModifier, ShapeDimension, SizeOverLifetimeModifier, Spawner, Value};
 
+use crate::ball::Ball;
+use crate::physics::{CollidableKind, CollisionTag};
+use crate::state::GameState;
 
 #[derive(Component)]
 struct ImpactEffect;
@@ -162,8 +155,8 @@ fn particle_handle_ball_trail(
 
 
 fn particles_despawn_all(
-    mut commands: Commands,
-    effects: Query<Entity, With<ParticleEffect>>
+    mut _commands: Commands,
+    _effects: Query<Entity, With<ParticleEffect>>
 ) {
     /*for effect in &effects {
         commands.entity(effect)

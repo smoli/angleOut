@@ -4,7 +4,6 @@ use bevy::utils::default;
 use crate::state::GameState;
 use std::f32::consts::TAU;
 use bevy::log::info;
-use bevy::utils::tracing::enabled;
 use bevy_rapier3d::prelude::{ActiveEvents, Ccd, CoefficientCombineRule, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalForce, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Velocity};
 use bevy_rapier3d::dynamics::RigidBody;
 use crate::config::{BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_BOUNCE_IMPULSE, PADDLE_LAUNCH_IMPULSE, PADDLE_THICKNESS};

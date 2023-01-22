@@ -2,19 +2,17 @@ use std::f32::consts::TAU;
 use std::time::Duration;
 use bevy::utils::default;
 use bevy::app::App;
-use bevy::asset::{Asset, Assets, Handle};
-use bevy::gltf::{Gltf, GltfMesh};
+use bevy::asset::{Assets, Handle};
+use bevy::gltf::Gltf;
 use bevy::log::{info};
 use bevy::math::Vec2;
-use bevy::pbr::{AlphaMode, MaterialMeshBundle, NotShadowCaster};
-use bevy::prelude::{AssetServer, Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, Material, MaterialPlugin, Mesh, Name, PbrBundle, Plugin, Query, Res, ResMut, SceneBundle, StandardMaterial, SystemSet, Time, Timer, TimerMode, Transform, TransformBundle, Vec3, Visibility, With, Without};
+use bevy::pbr::AlphaMode;
+use bevy::prelude::{Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, MaterialPlugin, Mesh, Name, Plugin, Query, Res, ResMut, SceneBundle, StandardMaterial, SystemSet, Time, Timer, TimerMode, Transform, TransformBundle, Vec3, Visibility, With, Without};
 use bevy::render::mesh::VertexAttributeValues;
-use bevy::scene::Scene;
 use bevy::time::FixedTimestep;
-use bevy_hanabi::ParticleEffect;
-use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, ExternalForce, ExternalImpulse, Friction, LockedAxes, Restitution, RigidBody, Sensor};
+use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, ExternalForce, Friction, LockedAxes, Restitution, RigidBody, Sensor};
 use crate::ball::Ball;
-use crate::config::{ARENA_WIDTH, ARENA_WIDTH_H, BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH, BLOCK_WIDTH_H, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
+use crate::config::{BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH, BLOCK_WIDTH_H, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
@@ -132,7 +130,6 @@ impl Plugin for BlockPlugin {
 
 fn block_spawn(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     my: Res<MyAssetPack>,
     empties: Query<(Entity, &Block), With<RequestTag>>,
     assets_gltf: Res<Assets<Gltf>>,
@@ -255,7 +252,7 @@ fn block_update_custom_material(
     mut materials: ResMut<Assets<CustomMaterial>>,
     time: Res<Time>,
 ) {
-    for (handle, mut mat) in materials.iter_mut() {
+    for (_, mut mat) in materials.iter_mut() {
         mat.time = time.elapsed_seconds();
     }
 }
@@ -344,22 +341,22 @@ fn block_handle_collisions(
                     events.send(MatchEvent::TargetHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
                 } else {
                     if let Some(gltf) = assets_gltf.get(&my.0) {
-                        let sceneName = match hittable.hit_points {
+                        let scene_name = match hittable.hit_points {
                             2 => "006_Block_CrackedOnce",
                             1 => "007_Block_CrackedTwice",
 
                             _ => "003_SimpleBlock"
                         };
 
-                        let mut newTrans: Transform = trans.clone();
+                        let mut new_trans: Transform = trans.clone();
 
                         commands.entity(entity)
                             .remove::<SceneBundle>()
                             .insert(SceneBundle {
-                                scene: gltf.named_scenes[sceneName].clone(),
+                                scene: gltf.named_scenes[scene_name].clone(),
                                 ..default()
                             })
-                            .insert(TransformBundle::from_transform(newTrans))
+                            .insert(TransformBundle::from_transform(new_trans))
                             .insert(Shaking {
                                 timer: Timer::from_seconds(Duration::from_millis(200).as_secs_f32(), TimerMode::Once),
                                 original_position: trans.translation.clone(),

@@ -1,6 +1,5 @@
 use bevy::app::App;
-use bevy::ecs::query::QuerySingleError;
-use bevy::prelude::{AssetServer, BuildChildren, Commands, Component, NodeBundle, Plugin, Query, Res, Style, SystemSet, Text, TextBundle, With};
+use bevy::prelude::{AssetServer, BuildChildren, Commands, Component, NodeBundle, Plugin, Query, Res, Style, SystemSet, Text, TextBundle};
 use bevy::text::{TextSection, TextStyle};
 use bevy::ui::{AlignItems, Display, FlexDirection};
 use bevy::utils::default;
@@ -64,7 +63,6 @@ fn ui_update_infos(
             UIInfoTag::Balls => text.sections[1].value = format!("{}", player_stats.balls_available),
             UIInfoTag::BlocksHit => text.sections[1].value = format!("{}", match_stats.blocks_hit),
             UIInfoTag::BlocksLost => text.sections[1].value = format!("{}", match_stats.blocks_lost),
-            UIInfoTag::BallsInPLay => text.sections[1].value = format!("{}", player_stats.balls_in_play),
             UIInfoTag::BallsInPLay => text.sections[1].value = format!("{}", player_stats.balls_in_play),
             UIInfoTag::BallsGrabbed => text.sections[1].value = format!("{}", player_stats.balls_grabbed),
             UIInfoTag::BallsLost => text.sections[1].value = format!("{}", player_stats.balls_lost),
@@ -184,7 +182,7 @@ fn ui_spawn(
 
         })
         .insert(UITag);
-    ;
+
 }
 
 

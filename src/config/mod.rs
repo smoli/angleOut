@@ -1,4 +1,3 @@
-use bevy::math::Vec3;
 use bevy_rapier3d::geometry::Group;
 
 pub const SCREEN_WIDTH: f32 = 1600.0;

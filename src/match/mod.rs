@@ -2,11 +2,10 @@ pub mod state;
 
 use std::f32::consts::PI;
 use bevy::app::App;
-use bevy::prelude::{AmbientLight, Camera, Camera3dBundle, Color, Commands, Component, default, DirectionalLight, DirectionalLightBundle, Entity, EventReader, GamepadButtonType, IntoSystemDescriptor, OrthographicProjection, Plugin, Quat, Query, ResMut, SystemSet, Transform, Vec3, With};
+use bevy::prelude::{AmbientLight, Camera, Camera3dBundle, Color, Commands, Component, default, DirectionalLight, DirectionalLightBundle, Entity, GamepadButtonType, IntoSystemDescriptor, OrthographicProjection, Plugin, Quat, Query, ResMut, SystemSet, Transform, Vec3, With};
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::CameraActions;
-use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
@@ -20,7 +19,7 @@ pub struct MatchPlugin;
 impl Plugin for MatchPlugin {
     fn build(&self, app: &mut App) {
         app
-            .insert_resource(state::MatchState::default())
+            .insert_resource(MatchState::default())
 
             .add_system_set(
                 SystemSet::on_enter(GameState::InMatch)
@@ -87,7 +86,6 @@ fn setup_3d_environment(
 
                 .build(),
         }).insert(Environment3d);
-    ;
 
     // Directional Light
     const HALF_SIZE: f32 = 300.0;

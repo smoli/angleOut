@@ -1,18 +1,16 @@
 mod layout;
 
-use std::thread::spawn;
 use std::time::Duration;
 use bevy::app::App;
-use bevy::prelude::{AssetServer, Commands, Component, IntoSystemDescriptor, Plugin, Res, ResMut, Resource, SystemSet, Vec2};
+use bevy::prelude::{Commands, Component, IntoSystemDescriptor, Plugin, Res, ResMut, Resource, SystemSet};
 use bevy::utils::default;
-use crate::ball::{Ball, ball_spawn};
 use crate::block::{Block, BlockBehaviour, BlockType};
-use crate::config::{BLOCK_DEPTH, BLOCK_GAP, BLOCK_WIDTH, BLOCK_WIDTH_H};
+use crate::config::BLOCK_GAP;
 use crate::labels::SystemLabels;
 use crate::level::layout::{generate_block_grid, interpret_grid};
 use crate::level::TargetLayout::FilledGrid;
 use crate::r#match::state::MatchState;
-use crate::ship::{Ship, ship_spawn};
+use crate::ship::Ship;
 use crate::state::GameState;
 
 
