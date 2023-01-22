@@ -1,21 +1,21 @@
 use bevy::app::App;
 use bevy::asset::Handle;
-use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, GamepadButtonType, info, IntoSystemDescriptor, KeyCode, Plugin, Quat, Query, Res, ResMut, Resource, SystemSet, Time, Transform, TransformBundle, Vec2, Vec3, With};
+use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, GamepadButtonType, info, IntoSystemDescriptor, KeyCode, Plugin, Quat, Query, Res, ResMut, Resource, SystemSet, Time, Transform, TransformBundle, Vec2, Vec3, With, Without};
 use bevy::scene::{Scene, SceneBundle};
 use bevy::utils::default;
 use bevy_rapier3d::geometry::CollisionGroups;
-use bevy_rapier3d::prelude::{ActiveEvents, Collider};
+use bevy_rapier3d::prelude::{ActiveEvents, Collider, ExternalForce};
 use leafwing_input_manager::axislike::DualAxisData;
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, DualAxis, InputMap};
 use crate::actions::MatchActions;
-use crate::ball::Ball;
-use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, COLLIDER_GROUP_BALL, COLLIDER_GROUP_PADDLE, PADDLE_LIFT, PADDLE_POSITION_ACCEL_ACCEL, PADDLE_POSITION_MAX_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H};
+use crate::ball::{ActiveBall, Ball};
+use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_PADDLE, GRAB_ATTRACT_RADIUS, GRAB_FORCE_MAGNITUDE, GRAB_RADIUS, PADDLE_LIFT, PADDLE_POSITION_ACCEL_ACCEL, PADDLE_POSITION_MAX_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
 use crate::physics::{Collidable, CollidableKind};
-use crate::player::Player;
+use crate::player::{Player, PowerUp};
 use crate::state::GameState;
 
 #[derive(Resource)]
@@ -61,6 +61,7 @@ impl Plugin for ShipPlugin {
                     .with_system(ship_articulate.label(SystemLabels::UpdateWorld))
                     .with_system(ship_update_position.label(SystemLabels::UpdateWorld))
                     .with_system(ship_launch_ball.label(SystemLabels::UpdateWorld))
+                    .with_system(ship_grab_ball.label(SystemLabels::UpdateWorld))
             )
 
             .add_system_set(
@@ -91,6 +92,7 @@ pub fn ship_spawn(
                     .insert(GamepadButtonType::RightTrigger, MatchActions::SpawnOrLaunchBall)
                     .insert(GamepadButtonType::RightTrigger2, MatchActions::SpawnOrLaunchBall)
                     .insert(KeyCode::Space, MatchActions::SpawnOrLaunchBall)
+                    .insert(GamepadButtonType::LeftTrigger2, MatchActions::GrabTheBall)
                     .build(),
             })
             .insert(TransformBundle::from(Transform::from_xyz(PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z)))
@@ -206,13 +208,54 @@ fn ship_launch_ball(
         if action.pressed(MatchActions::SpawnOrLaunchBall) {
             action.consume(MatchActions::SpawnOrLaunchBall);
 
-            if player.balls_spawned > 0 {
+            if player.balls_spawned > 0 || player.balls_grabbed > 0 {
                 info!("Ball launch requested by operator");
                 events.send(MatchEvent::BallLaunched);
             } else {
                 info!("Ball spawn requested by operator");
                 events.send(MatchEvent::BallSpawned);
             }
+
+        }
+    }
+}
+
+fn ship_grab_ball(
+    mut commands: Commands,
+    player: Res<Player>,
+    ship: Query<(&ActionState<MatchActions>, &Transform), (With<Ship>, Without<Ball>)>,
+    mut balls: Query<(Entity, &mut Transform, &mut ExternalForce), (With<Ball>, Without<Ship>)>,
+    mut events: EventWriter<MatchEvent>,
+) {
+    if !player.power_ups.contains(&PowerUp::Grabber) {
+        return;
+    }
+
+    if player.balls_grabbed > 0 {
+        return;
+    }
+    for (action, ship_trans) in &ship {
+        if action.pressed(MatchActions::GrabTheBall) {
+
+            for (ball, mut ball_trans, mut ball_force) in &mut balls {
+                let target = ship_trans.translation + Vec3::new(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS);
+                let v = target - ball_trans.translation;
+                let d = v.length();
+                if d < GRAB_ATTRACT_RADIUS {
+                    info!("Distance {}", d);
+                    if d < GRAB_RADIUS {
+                        info!("Grabbing");
+                        commands.entity(ball)
+                            .remove::<ActiveBall>();
+                        events.send(MatchEvent::BallGrabbed);
+                        ball_trans.translation = target;
+                    } else {
+                        info!("Pulling in");
+                        ball_force.force += v.normalize() * GRAB_FORCE_MAGNITUDE;
+                    }
+                }
+            }
+
 
         }
     }

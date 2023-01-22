@@ -25,6 +25,7 @@ pub enum MatchEvent {
     Start,
     BallSpawned,
     BallLaunched,
+    BallGrabbed,
     BallLost,
     BlockLost,
     BounceOffPaddle,
@@ -82,6 +83,7 @@ fn match_event_handler(
             }
 
             MatchEvent::BallLost => {
+                info!("Ball Lost");
                 player.ball_lost();
                 match_state.ball_lost();
                 if player.balls_available == 0 && match_state.blocks > 0 {
@@ -111,6 +113,9 @@ fn match_event_handler(
 
             MatchEvent::BlockLost => {
                 match_state.block_lost();
+            }
+            MatchEvent::BallGrabbed => {
+                player.ball_grabbed();
             }
         }
     }

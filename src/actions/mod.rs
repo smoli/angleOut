@@ -20,5 +20,6 @@ pub enum CameraActions {
 pub enum MatchActions {
     ArticulateLeft,
     ArticulateRight,
-    SpawnOrLaunchBall
+    SpawnOrLaunchBall,
+    GrabTheBall
 }

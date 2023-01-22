@@ -1,12 +1,20 @@
 use bevy::prelude::Resource;
 
+#[derive(PartialEq)]
+pub enum PowerUp {
+    Grabber
+}
 
 #[derive(Resource)]
 pub struct Player {
     pub points: i32,
     pub balls_available: i32,
     pub balls_spawned: i32,
-    pub balls_in_play: i32
+    pub balls_in_play: i32,
+    pub balls_lost: i32,
+    pub balls_grabbed: i32,
+    pub power_ups: Vec<PowerUp>
+
 }
 
 impl Default for Player {
@@ -16,6 +24,9 @@ impl Default for Player {
             balls_available: 0,
             balls_spawned: 0,
             balls_in_play: 0,
+            balls_grabbed: 0,
+            balls_lost: 0,
+            power_ups: vec![]
         }
     }
 }
@@ -27,6 +38,9 @@ impl Player {
         self.balls_available = 0;
         self.balls_spawned = 0;
         self.balls_in_play = 0;
+        self.balls_grabbed = 0;
+        self.balls_lost = 0;
+        self.power_ups = vec![];
     }
 
     pub fn set_balls(&mut self, count: i32) {
@@ -41,16 +55,26 @@ impl Player {
     }
 
     pub fn ball_launched(&mut self) {
+        if self.balls_grabbed > 0 {
+            self.balls_grabbed -= 1;
+            self.balls_in_play += 1;
+        } else
         if self.balls_spawned > 0 {
             self.balls_spawned -= 1;
             self.balls_in_play += 1;
         }
     }
 
+    pub fn ball_grabbed(&mut self) {
+        self.balls_grabbed += 1;
+        self.balls_in_play -= 1;
+    }
+
     pub fn ball_lost(&mut self) {
         if self.balls_in_play > 0 {
             self.balls_in_play -= 1;
         }
+        self.balls_lost += 1;
     }
 
     pub fn player_has_won(&mut self, match_points: i32) {

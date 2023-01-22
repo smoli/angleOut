@@ -1,7 +1,7 @@
 use bevy::app::{App, Plugin};
 use bevy::prelude::{ResMut, SystemSet};
 use bevy::utils::default;
-use crate::player::Player;
+use crate::player::{Player, PowerUp};
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
 
@@ -24,6 +24,7 @@ fn game_start(
     mut player:ResMut<Player>
 ) {
     player.reset();
-    player.set_balls(3);
+    player.set_balls(300);
+    player.power_ups.push(PowerUp::Grabber);
 }
 

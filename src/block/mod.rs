@@ -492,7 +492,7 @@ fn block_repluse(
                 bf += direction * (f * -1.0)
             }
         }
-        ball_force.force = bf;
+        ball_force.force += bf;
     }
 }
 

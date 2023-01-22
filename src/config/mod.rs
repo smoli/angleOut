@@ -1,3 +1,4 @@
+use bevy::math::Vec3;
 use bevy_rapier3d::geometry::Group;
 
 pub const SCREEN_WIDTH: f32 = 1600.0;
@@ -6,6 +7,16 @@ pub const BALL_RADIUS: f32 = 3.5 / 2.0;
 pub const MAX_BALL_SPEED: f32 = 130.0;
 pub const MIN_BALL_SPEED: f32 = 130.0;
 pub const MAX_RESTITUTION: f32 = 1.0;
+
+
+// This is basically a factor that the dispatcher vector between the ship an the ball is multiplied.
+pub const GRAB_FORCE_MAGNITUDE: f32 = 300.0;
+
+// Max Distance where grab force will be applied
+pub const GRAB_ATTRACT_RADIUS: f32 = 30.0;
+
+// Distance at which the ball is actually grabbed and will be made inactive
+pub const GRAB_RADIUS: f32 = 2.0;
 
 pub const PADDLE_WIDTH: f32 = 20.0;
 pub const PADDLE_WIDTH_H: f32 = PADDLE_WIDTH / 2.0;

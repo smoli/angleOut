@@ -3,7 +3,7 @@ use bevy::core::Name;
 use bevy::log::info;
 use bevy::prelude::{Commands, Assets, DespawnRecursiveExt, Entity, Plugin, ResMut, SystemSet, Transform, Vec2, Vec4, With, Query, Without};
 
-use bevy_hanabi::{BillboardModifier, ColorOverLifetimeModifier, EffectAsset, Gradient, HanabiPlugin, ParticleEffect, ParticleEffectBundle, PositionCircleModifier, PositionSphereModifier, ShapeDimension, SizeOverLifetimeModifier, Spawner};
+use bevy_hanabi::{BillboardModifier, ColorOverLifetimeModifier, EffectAsset, Gradient, HanabiPlugin, ParticleEffect, ParticleEffectBundle, PositionCircleModifier, PositionSphereModifier, ShapeDimension, SizeOverLifetimeModifier, Spawner, Value};
 use crate::block::Block;
 use crate::config::BLOCK_DEPTH;
 use crate::physics::{CollidableKind, CollisionTag};
@@ -17,6 +17,12 @@ use bevy::{
 };
 use crate::ball::Ball;
 
+
+#[derive(Component)]
+struct ImpactEffect;
+
+#[derive(Component)]
+struct TrailEffect;
 
 pub struct ParticlePlugin;
 
@@ -53,9 +59,6 @@ fn particles_setup_block_impact(
     mut commands: Commands,
     mut effects: ResMut<Assets<EffectAsset>>,
 ) {
-    let mut gradient = Gradient::new();
-    gradient.add_key(0.0, Vec4::new(0.5, 0.5, 0.5, 1.0));
-    gradient.add_key(1.0, Vec4::new(0.3, 0.3, 0.3, 0.0));
 
     let mut gradient = Gradient::new();
     gradient.add_key(0.0, Vec4::new(1.0, 0.0, 0.0, 1.0));
@@ -82,26 +85,78 @@ fn particles_setup_block_impact(
             .render(ColorOverLifetimeModifier { gradient })
             .render(BillboardModifier {})
 
+
     );
 
     commands
         .spawn(ParticleEffectBundle::new(effect).with_spawner(spawner))
-        .insert(Name::new("effect"));
+        .insert(Name::new("effect"))
+        .insert(ImpactEffect);
 }
 
 
 fn particle_handle_block_ball(
-    blocks: Query<(&CollisionTag, &Transform), With<Ball>>,
-    mut effect: Query<(&mut ParticleEffect, &mut Transform), Without<Ball>>,
+    balls: Query<(&CollisionTag, &Transform), With<Ball>>,
+    mut effect: Query<(&mut ParticleEffect, &mut Transform), (Without<Ball>, With<ImpactEffect>)>,
 ) {
     let (mut effect, mut effect_transform) = effect.single_mut();
 
-    for (collision, trans) in &blocks {
+    for (collision, trans) in &balls {
         if collision.other == CollidableKind::Block {
             effect_transform.translation = trans.translation.clone();
             effect.maybe_spawner().unwrap().reset();
         }
 
+    }
+}
+
+
+fn particles_setup_ball_trail(
+    mut commands: Commands,
+    mut effects: ResMut<Assets<EffectAsset>>,
+) {
+    let mut gradient = Gradient::new();
+    gradient.add_key(0.0, Vec4::new(0.5, 0.5, 0.5, 1.0));
+    gradient.add_key(1.0, Vec4::new(0.3, 0.3, 0.3, 0.0));
+
+    let spawner = Spawner::new(20.0.into(), Value::Single(1.0), Value::Single(0.6));
+    let effect = effects.add(
+        EffectAsset {
+            name: "BallTrail".into(),
+            capacity: 32768,
+            spawner,
+            ..Default::default()
+        }
+            .init(PositionSphereModifier {
+                radius: 0.5,
+                speed: 25.0.into(),
+                dimension: ShapeDimension::Volume,
+                ..Default::default()
+            })
+            .render(SizeOverLifetimeModifier {
+                gradient: Gradient::constant(Vec2::new(1.0, 0.5)),
+            })
+            .render(ColorOverLifetimeModifier { gradient })
+            .render(BillboardModifier {})
+
+    );
+
+    commands
+        .spawn(ParticleEffectBundle::new(effect).with_spawner(spawner))
+        .insert(Name::new("trail"))
+        .insert(TrailEffect);
+}
+
+
+
+fn particle_handle_ball_trail(
+    balls: Query<(&Transform), With<Ball>>,
+    mut effect: Query<(&mut ParticleEffect, &mut Transform), (Without<Ball>, With<TrailEffect>)>,
+) {
+    let (_, mut effect_transform) = effect.single_mut();
+
+    for (trans) in &balls {
+            effect_transform.translation = trans.translation.clone();
     }
 }
 

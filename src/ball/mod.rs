@@ -37,6 +37,7 @@ impl Plugin for BallPlugin {
 
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
+                    .with_system(ball_clear_external_forces.before(SystemLabels::UpdateWorld))
                     .with_system(ball_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(ball_spin.label(SystemLabels::UpdateWorld))
                     .with_system(ball_update_inactive.label(SystemLabels::UpdateWorld))
@@ -103,7 +104,7 @@ pub fn ball_spawn(
 
 fn ball_spin(
     timer: Res<Time>,
-    mut ball: Query<&mut Transform, With<Ball>>) {
+    mut ball: Query<&mut Transform, With<ActiveBall>>) {
     for mut trans in &mut ball {
         trans.rotate_y(1.0 * TAU * timer.delta_seconds());
     }
@@ -111,13 +112,22 @@ fn ball_spin(
 
 fn ball_update_inactive(
     ship_state: Res<ShipState>,
-    mut query: Query<&mut Transform, (Without<ActiveBall>, With<Ball>)>)
+    mut query: Query<(&mut Transform, &mut Velocity, &mut ExternalImpulse), (Without<ActiveBall>, With<Ball>)>)
 {
-    for mut trans in &mut query {
+    for (mut trans, mut velo, mut impulse) in &mut query {
         trans.translation = ship_state.ship_position.clone() + Vec3::new(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS);
+        velo.linvel = Vec3::ZERO;
+        impulse.impulse = Vec3::ZERO;
     }
 }
 
+fn ball_clear_external_forces(
+    mut balls: Query<&mut ExternalForce, With<Ball>>
+) {
+    for mut force in &mut balls {
+        force.force = Vec3::ZERO;
+    }
+}
 
 pub fn compute_launch_impulse(angle: f32, value: f32) -> Vec3 {
     //                                       Z-Axis: negative is up
@@ -185,7 +195,7 @@ fn ball_correct_too_low_z(mut query: Query<&mut Velocity, With<ActiveBall>>) {
 fn ball_handle_collisions(
     mut commands: Commands,
     ship_state: Res<ShipState>,
-    mut balls: Query<(Entity, &mut ExternalImpulse, &CollisionTag, &mut Velocity), With<Ball>>,
+    mut balls: Query<(Entity, &mut ExternalImpulse, &CollisionTag, &mut Velocity), With<ActiveBall>>,
     mut events: EventWriter<MatchEvent>,
 ) {
     for (ball, mut ext_imp, collision, mut velo) in &mut balls {
