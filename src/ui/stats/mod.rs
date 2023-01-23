@@ -1,8 +1,11 @@
 use bevy::app::App;
-use bevy::prelude::{AssetServer, BuildChildren, Commands, Component, NodeBundle, Plugin, Query, Res, Style, SystemSet, Text, TextBundle};
+use bevy::prelude::{AssetServer, BuildChildren, Commands, Component, NodeBundle, Plugin, Query, Res, Style, SystemSet, Text, TextBundle, With, Without};
 use bevy::text::{TextSection, TextStyle};
 use bevy::ui::{AlignItems, Display, FlexDirection};
 use bevy::utils::default;
+use bevy_rapier3d::prelude::Velocity;
+use crate::ball::Ball;
+
 use crate::player::Player;
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
@@ -23,7 +26,8 @@ enum UIInfoTag {
     BlocksLost,
     BallsInPLay,
     BallsGrabbed,
-    BallsLost
+    BallsLost,
+    BallSpeed
 }
 
 
@@ -50,8 +54,8 @@ impl Plugin for UIStatsPlugin {
 fn ui_update_infos(
     match_stats: Res<MatchState>,
     player_stats: Res<Player>,
-    mut ui: Query<(&mut Text, &UIInfoTag)>
-
+    mut ui: Query<(&mut Text, &UIInfoTag), Without<Ball>>,
+    balls: Query<&Velocity, With<Ball>>
 ) {
     for (mut text, tag) in &mut ui {
         match tag {
@@ -66,6 +70,13 @@ fn ui_update_infos(
             UIInfoTag::BallsInPLay => text.sections[1].value = format!("{}", player_stats.balls_in_play),
             UIInfoTag::BallsGrabbed => text.sections[1].value = format!("{}", player_stats.balls_grabbed),
             UIInfoTag::BallsLost => text.sections[1].value = format!("{}", player_stats.balls_lost),
+            UIInfoTag::BallSpeed => {
+                match balls.get_single() {
+                    Ok(velo) => text.sections[1].value = format!("{}", velo.linvel.length()),
+                    Err(_) => text.sections[1].value = format!("No Ball")
+                }
+            }
+
         }
     }
 }
@@ -179,6 +190,14 @@ fn ui_spawn(
                     ),
                     TextSection::from_style(style.clone())
                 ])).insert(UIInfoTag::BlocksLost);
+
+            parent
+                .spawn(TextBundle::from_sections([
+                    TextSection::new(
+                        "Ball Speed: ", style.clone(),
+                    ),
+                    TextSection::from_style(style.clone())
+                ])).insert(UIInfoTag::BallSpeed);
 
         })
         .insert(UITag);

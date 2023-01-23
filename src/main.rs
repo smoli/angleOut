@@ -1,7 +1,7 @@
 use bevy::app::App;
 use bevy::DefaultPlugins;
 use bevy::gltf::Gltf;
-use bevy::prelude::{AssetServer, ClearColor, Color, Commands, Handle, PluginGroup, Res, Resource, WindowDescriptor};
+use bevy::prelude::{AssetServer, ClearColor, Color, Commands, Handle, PluginGroup, Res, Resource, WindowDescriptor, WindowMode};
 use bevy::utils::default;
 use bevy::window::{close_on_esc, MonitorSelection, WindowPlugin, WindowPosition};
 use leafwing_input_manager::prelude::InputManagerPlugin;

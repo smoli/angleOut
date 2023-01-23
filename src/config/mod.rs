@@ -9,13 +9,13 @@ pub const MAX_RESTITUTION: f32 = 1.0;
 
 
 // This is basically a factor that the dispatcher vector between the ship an the ball is multiplied.
-pub const GRAB_FORCE_MAGNITUDE: f32 = 300.0;
+pub const GRAB_FORCE_MAGNITUDE: f32 = 500.0;
 
 // Max Distance where grab force will be applied
 pub const GRAB_ATTRACT_RADIUS: f32 = 30.0;
 
 // Distance at which the ball is actually grabbed and will be made inactive
-pub const GRAB_RADIUS: f32 = 2.0;
+pub const GRAB_RADIUS: f32 = 5.0;
 
 pub const PADDLE_WIDTH: f32 = 20.0;
 pub const PADDLE_WIDTH_H: f32 = PADDLE_WIDTH / 2.0;

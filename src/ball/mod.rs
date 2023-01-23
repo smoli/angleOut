@@ -158,21 +158,20 @@ fn ball_inactive_handle_events(
     }
 }
 
-fn ball_limit_velocity(mut query: Query<(&mut Velocity, &mut Transform), With<ActiveBall>>) {
-    for (mut velo, mut trans) in &mut query {
+fn ball_limit_velocity(mut query: Query<(&mut Velocity, &ExternalForce), With<ActiveBall>>) {
+    for (mut velo, mut ext_force) in &mut query {
         let v = velo.linvel.length();
+
+        if ext_force.force.length() != 0.0 {
+            continue;
+        }
 
         if v > MAX_BALL_SPEED {
             velo.linvel = velo.linvel * MAX_BALL_SPEED / v;
+        } else if v < MIN_BALL_SPEED {
+            velo.linvel = velo.linvel * MIN_BALL_SPEED / v;
         }
-        // } else if v < MIN_BALL_SPEED {
-        //     velo.linvel = velo.linvel * MIN_BALL_SPEED / v;
-        // }
 
-        if trans.translation.y != 0.0 {
-            trans.translation.y = 0.0;
-            warn!("Correcting ball height! We're loosing that ball")
-        }
     }
 }
 

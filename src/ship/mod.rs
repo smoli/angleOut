@@ -1,7 +1,10 @@
 use bevy::app::App;
-use bevy::prelude::{AssetServer, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, GamepadButtonType, info, IntoSystemDescriptor, KeyCode, Plugin, Quat, Query, Res, ResMut, Resource, SystemSet, Time, Transform, TransformBundle, Vec2, Vec3, With, Without};
+use bevy::hierarchy::BuildChildren;
+use bevy::pbr::{AlphaMode, PbrBundle, StandardMaterial};
+use bevy::prelude::{Assets, AssetServer, Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, GamepadButtonType, info, IntoSystemDescriptor, KeyCode, Mesh, Plugin, Quat, Query, Res, ResMut, Resource, shape, SystemSet, Time, Transform, TransformBundle, Vec2, Vec3, With, Without};
 use bevy::scene::SceneBundle;
 use bevy::utils::default;
+use bevy_prototype_lyon::prelude::ShapePlugin;
 use bevy_rapier3d::geometry::CollisionGroups;
 use bevy_rapier3d::prelude::{ActiveEvents, Collider, ExternalForce};
 use leafwing_input_manager::axislike::DualAxisData;
@@ -17,6 +20,9 @@ use crate::level::RequestTag;
 use crate::physics::{Collidable, CollidableKind};
 use crate::player::{Player, PowerUp};
 use crate::state::GameState;
+
+#[derive(Component)]
+struct DebugShape;
 
 #[derive(Resource)]
 pub struct ShipState {
@@ -50,6 +56,7 @@ pub struct ShipPlugin;
 impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_plugin(ShapePlugin)
             .insert_resource(ShipState {
                 ship_position: Default::default(),
                 ship_rotation: 0.0,
@@ -62,6 +69,7 @@ impl Plugin for ShipPlugin {
                     .with_system(ship_update_position.label(SystemLabels::UpdateWorld))
                     .with_system(ship_launch_ball.label(SystemLabels::UpdateWorld))
                     .with_system(ship_grab_ball.label(SystemLabels::UpdateWorld))
+                    .with_system(ship_setup_debug_grab_distances.label(SystemLabels::UpdateWorld))
             )
 
             .add_system_set(
@@ -218,6 +226,67 @@ fn ship_launch_ball(
 
         }
     }
+}
+
+
+
+fn ship_setup_debug_grab_distances(
+    mut commands: Commands,
+    ships: Query<Entity, (With<Ship>, Without<DebugShape>)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    for ship in &ships {
+
+        let s1 = commands.spawn(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                radius: GRAB_RADIUS,
+                ..default()
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::Rgba {
+                    red: 1.0,
+                    green: 0.0,
+                    blue: 1.0,
+                    alpha: 0.2
+                },
+                alpha_mode: AlphaMode::Blend,
+                perceptual_roughness: 1.0,
+                ..default()
+            }),
+            transform: Transform::from_xyz(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+        }).id();
+
+        let s2 = commands.spawn(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                radius: GRAB_ATTRACT_RADIUS,
+                ..default()
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::Rgba {
+                    red: 0.0,
+                    green: 1.0,
+                    blue: 1.0,
+                    alpha: 0.2,
+                },
+                perceptual_roughness: 1.0,
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            }),
+            transform: Transform::from_xyz(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+        }).id();
+
+        commands.entity(ship)
+            .push_children(&[s1, s2])
+            .insert(DebugShape);
+    }
+
 }
 
 fn ship_grab_ball(
