@@ -40,6 +40,7 @@ mod game;
 mod materials;
 mod points;
 mod particles;
+mod powerups;
 
 const DEMO_MOVING: &str = "AA AA AA AA AA AA AA
  AA .. .. AE .. .. AA

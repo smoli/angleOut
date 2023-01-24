@@ -18,7 +18,8 @@ use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
 use crate::physics::{Collidable, CollidableKind};
-use crate::player::{Player, PowerUp};
+use crate::player::Player;
+use crate::powerups::{Grabber};
 use crate::state::GameState;
 
 #[derive(Component)]
@@ -69,7 +70,7 @@ impl Plugin for ShipPlugin {
                     .with_system(ship_update_position.label(SystemLabels::UpdateWorld))
                     .with_system(ship_launch_ball.label(SystemLabels::UpdateWorld))
                     .with_system(ship_grab_ball.label(SystemLabels::UpdateWorld))
-                    .with_system(ship_setup_debug_grab_distances.label(SystemLabels::UpdateWorld))
+                    // .with_system(ship_setup_debug_grab_distances.label(SystemLabels::UpdateWorld))
             )
 
             .add_system_set(
@@ -109,7 +110,11 @@ pub fn ship_spawn(
             .insert(ActiveEvents::COLLISION_EVENTS)
             .insert(Collidable {
                 kind: CollidableKind::Ship
-            });
+            })
+            .insert(Grabber {
+                grabs: 2,
+            })
+            ;
     }
 }
 
@@ -292,18 +297,14 @@ fn ship_setup_debug_grab_distances(
 fn ship_grab_ball(
     mut commands: Commands,
     player: Res<Player>,
-    ship: Query<(&ActionState<MatchActions>, &Transform), (With<Ship>, Without<Ball>)>,
+    mut ship: Query<(&ActionState<MatchActions>, &Transform, &mut Grabber), (With<Ship>, Without<Ball>)>,
     mut balls: Query<(Entity, &mut Transform, &mut ExternalForce), (With<Ball>, Without<Ship>)>,
     mut events: EventWriter<MatchEvent>,
 ) {
-    if !player.power_ups.contains(&PowerUp::Grabber) {
-        return;
-    }
-
     if player.balls_grabbed > 0 {
         return;
     }
-    for (action, ship_trans) in &ship {
+    for (action, ship_trans, mut grabber) in &mut ship {
         if action.pressed(MatchActions::GrabTheBall) {
 
             for (ball, mut ball_trans, mut ball_force) in &mut balls {
@@ -311,15 +312,13 @@ fn ship_grab_ball(
                 let v = target - ball_trans.translation;
                 let d = v.length();
                 if d < GRAB_ATTRACT_RADIUS {
-                    info!("Distance {}", d);
                     if d < GRAB_RADIUS {
-                        info!("Grabbing");
                         commands.entity(ball)
                             .remove::<ActiveBall>();
                         events.send(MatchEvent::BallGrabbed);
                         ball_trans.translation = target;
+                        grabber.grabs -= 1;
                     } else {
-                        info!("Pulling in");
                         ball_force.force += v.normalize() * GRAB_FORCE_MAGNITUDE;
                     }
                 }
