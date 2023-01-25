@@ -42,9 +42,14 @@ impl Plugin for BallPlugin {
                     .with_system(ball_update_inactive.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
-                    .with_system(ball_limit_velocity.label(SystemLabels::UpdateWorld))
                     // .with_system(ball_correct_too_low_z.label(SystemLabels::UpdateWorld))
                     .with_system(ball_handle_collisions.label(SystemLabels::UpdateWorld))
+            )
+            .add_system_set(
+                SystemSet::on_update(GameState::InMatch)
+                    .with_system(ball_limit_velocity.after(SystemLabels::UpdateWorld))
+
+
             )
         ;
     }
@@ -172,6 +177,10 @@ fn ball_limit_velocity(mut query: Query<(&mut Velocity, &ExternalForce), With<Ac
             velo.linvel = velo.linvel * MIN_BALL_SPEED / v;
         }
 
+        if velo.linvel.y != 0.0 {
+            warn!("It wants to break free!");
+            velo.linvel.y = 0.0
+        }
     }
 }
 
