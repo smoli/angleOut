@@ -155,11 +155,11 @@ fn particle_handle_ball_trail(
 
 
 fn particles_despawn_all(
-    mut _commands: Commands,
-    _effects: Query<Entity, With<ParticleEffect>>
+    mut commands: Commands,
+    effects: Query<Entity, With<ImpactEffect>>
 ) {
-    /*for effect in &effects {
+    for effect in &effects {
         commands.entity(effect)
             .despawn_recursive();
-    }*/
+    }
 }

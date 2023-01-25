@@ -48,8 +48,10 @@ impl Plugin for BallPlugin {
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(ball_limit_velocity.after(SystemLabels::UpdateWorld))
-
-
+            )
+            .add_system_set(
+                SystemSet::on_exit(GameState::PostMatchWin)
+                    .with_system(ball_despawn)
             )
         ;
     }
@@ -102,6 +104,16 @@ pub fn ball_spawn(
                 kind: CollidableKind::Ball
             })
         ;
+    }
+}
+
+fn ball_despawn(
+    mut commands: Commands,
+    balls: Query<Entity, With<Ball>>
+) {
+    for ball in &balls {
+        commands.entity(ball)
+            .despawn_recursive();
     }
 }
 

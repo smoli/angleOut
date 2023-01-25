@@ -1,3 +1,5 @@
+extern crate core;
+
 use bevy::app::App;
 use bevy::DefaultPlugins;
 use bevy::gltf::Gltf;
@@ -115,7 +117,7 @@ fn setup_screen(app: &mut App) {
             height: SCREEN_HEIGHT,
             position: WindowPosition::Centered,
             monitor: MonitorSelection::Current,
-            mode: WindowMode::SizedFullscreen,
+            // mode: WindowMode::SizedFullscreen,
             title: "Angle Out".to_string(),
             cursor_visible: false,
             ..default()

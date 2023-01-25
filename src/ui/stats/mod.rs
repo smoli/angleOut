@@ -1,5 +1,6 @@
 use bevy::app::App;
-use bevy::prelude::{AssetServer, BuildChildren, Commands, Component, NodeBundle, Plugin, Query, Res, Style, SystemSet, Text, TextBundle, With, Without};
+use bevy::hierarchy::DespawnRecursiveExt;
+use bevy::prelude::{AssetServer, BuildChildren, Commands, Component, Entity, NodeBundle, Plugin, Query, Res, Style, SystemSet, Text, TextBundle, With, Without};
 use bevy::text::{TextSection, TextStyle};
 use bevy::ui::{AlignItems, Display, FlexDirection};
 use bevy::utils::default;
@@ -44,12 +45,25 @@ impl Plugin for UIStatsPlugin {
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(ui_update_infos)
             )
-
+            .add_system_set(
+                SystemSet::on_exit(GameState::InMatch)
+                    .with_system(ui_despawn)
+            )
         ;
     }
 }
 
 
+
+fn ui_despawn(
+    mut commands: Commands,
+    ui: Query<Entity, With<UIInfoTag>>
+) {
+    for ui in &ui {
+        commands.entity(ui)
+            .despawn_recursive();
+    }
+}
 
 fn ui_update_infos(
     match_stats: Res<MatchState>,

@@ -22,7 +22,7 @@ fn game_start(
     mut player:ResMut<Player>
 ) {
     player.reset();
-    player.set_balls(300);
+    player.set_balls(3);
     player.power_ups.push(PowerUp::Grabber);
 }
 

@@ -123,6 +123,10 @@ impl Plugin for BlockPlugin {
                 SystemSet::on_exit(GameState::PostMatchLoose)
                     .with_system(block_despawn)
             )
+            .add_system_set(
+                SystemSet::on_exit(GameState::PostMatchWin)
+                    .with_system(block_despawn)
+            )
         ;
     }
 }
