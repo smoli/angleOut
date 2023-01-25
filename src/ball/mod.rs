@@ -167,6 +167,10 @@ fn ball_limit_velocity(mut query: Query<(&mut Velocity, &ExternalForce), With<Ac
     for (mut velo, mut ext_force) in &mut query {
         let v = velo.linvel.length();
 
+        if v == 0.0 {
+            continue;
+        }
+
         if ext_force.force.length() != 0.0 {
             continue;
         }
