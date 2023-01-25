@@ -30,11 +30,7 @@ impl Plugin for ArenaPlugin {
             )
 
             .add_system_set(
-                SystemSet::on_exit(GameState::PostMatchLoose)
-                    .with_system(arena_despawn)
-            )
-            .add_system_set(
-                SystemSet::on_exit(GameState::PostMatchWin)
+                SystemSet::on_exit(GameState::PostMatch)
                     .with_system(arena_despawn)
             )
         ;

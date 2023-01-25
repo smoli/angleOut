@@ -10,29 +10,30 @@ use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::GameFlowActions;
 use crate::events::GameFlowEvent;
+use crate::player::{Player, PlayerState};
 use crate::state::GameState;
 
-pub struct PostMatchLoseUIPlugin;
+pub struct PostMatchUIPlugin;
 
 
 #[derive(Component)]
 struct UITag;
 
-impl Plugin for PostMatchLoseUIPlugin {
+impl Plugin for PostMatchUIPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_system_set(
-                SystemSet::on_enter(GameState::PostMatchLoose)
+                SystemSet::on_enter(GameState::PostMatch)
                     .with_system(ui_spawn)
             )
 
             .add_system_set(
-                SystemSet::on_update(GameState::PostMatchLoose)
+                SystemSet::on_update(GameState::PostMatch)
                     .with_system(ui_handle_action)
             )
 
             .add_system_set(
-                SystemSet::on_exit(GameState::PostMatchLoose)
+                SystemSet::on_exit(GameState::PostMatch)
                     .with_system(ui_despawn)
             )
         ;
@@ -63,6 +64,7 @@ fn ui_handle_action(
 }
 
 fn ui_spawn(
+    player: Res<Player>,
     mut commands: Commands,
     asset_server: Res<AssetServer>
 ) {
@@ -92,7 +94,11 @@ fn ui_spawn(
             parent.spawn(TextBundle::from_sections(
                 [
                     TextSection::new(
-                        "You loose!",
+                        match player.state {
+                            PlayerState::Open => "You shouldn't be here!",
+                            PlayerState::HasWon => "You won!",
+                            PlayerState::HasLost => "You loose!"
+                        },
                         TextStyle {
                             font: asset_server.load("BAUHS93.TTF"),
                             font_size: 60.0,

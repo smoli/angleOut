@@ -8,7 +8,7 @@ use crate::state::GameState;
 mod start;
 mod stats;
 mod game;
-mod post_lose;
+mod post_match;
 
 
 #[derive(Component)]
@@ -39,7 +39,7 @@ impl Plugin for UI {
             .add_plugin(start::UIStartPlugin)
             .add_plugin(game::UIGamePlugin)
             .add_plugin(stats::UIStatsPlugin)
-            .add_plugin(post_lose::PostMatchLoseUIPlugin)
+            .add_plugin(post_match::PostMatchUIPlugin)
 
 
             .add_system_set(

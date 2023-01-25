@@ -5,7 +5,7 @@ use crate::ball::Ball;
 use crate::block::{BlockBehaviour, BlockType};
 use crate::labels::SystemLabels;
 use crate::level::{LevelDefinition, RequestTag};
-use crate::player::Player;
+use crate::player::{Player, PlayerState};
 use crate::points::{PointsDisplay, PointsDisplayRequest};
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
@@ -122,6 +122,7 @@ fn match_event_handler(
 }
 
 fn game_flow_handler(
+    mut player: ResMut<Player>,
     mut events: EventReader<GameFlowEvent>,
     mut game_state: ResMut<State<GameState>>,
 ) {
@@ -137,12 +138,14 @@ fn game_flow_handler(
 
             GameFlowEvent::PlayerWins => {
                 info!("Player wins!");
-                let _ = game_state.set(GameState::PostMatchWin);
+                player.state = PlayerState::HasWon;
+                let _ = game_state.set(GameState::PostMatch);
             }
 
             GameFlowEvent::PlayerLooses => {
                 info!("Player looses!");
-                let _ = game_state.set(GameState::PostMatchLoose);
+                player.state = PlayerState::HasLost;
+                let _ = game_state.set(GameState::PostMatch);
             }
 
             GameFlowEvent::EndGame => {}

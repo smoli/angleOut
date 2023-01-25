@@ -5,8 +5,16 @@ pub enum PowerUp {
     Grabber
 }
 
+
+pub enum PlayerState {
+    Open,
+    HasWon,
+    HasLost,
+}
+
 #[derive(Resource)]
 pub struct Player {
+    pub state: PlayerState,
     pub points: i32,
     pub balls_available: i32,
     pub balls_spawned: i32,
@@ -20,6 +28,7 @@ pub struct Player {
 impl Default for Player {
     fn default() -> Self {
         Player {
+            state: PlayerState::Open,
             points: 0,
             balls_available: 0,
             balls_spawned: 0,
@@ -34,6 +43,7 @@ impl Default for Player {
 impl Player {
 
     pub fn reset(&mut self) {
+        self.state = PlayerState::Open;
         self.points = 0;
         self.balls_available = 0;
         self.balls_spawned = 0;

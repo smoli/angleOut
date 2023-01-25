@@ -49,8 +49,9 @@ impl Plugin for BallPlugin {
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(ball_limit_velocity.after(SystemLabels::UpdateWorld))
             )
+
             .add_system_set(
-                SystemSet::on_exit(GameState::PostMatchWin)
+                SystemSet::on_exit(GameState::PostMatch)
                     .with_system(ball_despawn)
             )
         ;

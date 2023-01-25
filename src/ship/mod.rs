@@ -74,21 +74,12 @@ impl Plugin for ShipPlugin {
             )
 
             .add_system_set(
-                SystemSet::on_update(GameState::PostMatchLoose)
+                SystemSet::on_update(GameState::PostMatch)
                     .with_system(ship_articulate.label(SystemLabels::UpdateWorld))
                     .with_system(ship_update_position.label(SystemLabels::UpdateWorld))
             )
             .add_system_set(
-                SystemSet::on_update(GameState::PostMatchWin)
-                    .with_system(ship_articulate.label(SystemLabels::UpdateWorld))
-                    .with_system(ship_update_position.label(SystemLabels::UpdateWorld))
-            )
-            .add_system_set(
-                SystemSet::on_exit(GameState::PostMatchLoose)
-                    .with_system(ship_despawn)
-            )
-            .add_system_set(
-                SystemSet::on_exit(GameState::PostMatchWin)
+                SystemSet::on_exit(GameState::PostMatch)
                     .with_system(ship_despawn)
             )
         ;
