@@ -6,6 +6,7 @@ use std::f32::consts::TAU;
 use bevy::log::info;
 use bevy_rapier3d::prelude::{ActiveEvents, Ccd, CoefficientCombineRule, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalForce, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Sleeping, Velocity};
 use bevy_rapier3d::dynamics::RigidBody;
+use bevy_rapier3d::na::inf;
 use crate::config::{BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_BOUNCE_IMPULSE, PADDLE_LAUNCH_IMPULSE, PADDLE_THICKNESS};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
@@ -139,8 +140,8 @@ fn ball_update_inactive(
 {
     for (mut trans, mut velo, mut impulse) in &mut query {
         trans.translation = ship_state.ship_position.clone() + Vec3::new(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS);
-        velo.linvel = Vec3::ZERO;
-        impulse.impulse = Vec3::ZERO;
+        // velo.linvel = Vec3::ZERO;
+        // impulse.impulse = Vec3::ZERO;
     }
 }
 
@@ -170,7 +171,7 @@ fn ball_inactive_handle_events(
             match ev {
                 MatchEvent::BallSpawned => {}
                 MatchEvent::BallLaunched => {
-                    velo.linvel = compute_launch_impulse(ship_state.ship_rotation, 1.0);
+                    velo.linvel = compute_launch_impulse(ship_state.ship_rotation, 10.0);
                     commands.entity(ball)
                         .insert(ActiveBall);
                     col.filters = col.filters | COLLIDER_GROUP_PADDLE | COLLIDER_GROUP_BLOCK;
@@ -187,6 +188,7 @@ fn ball_limit_velocity(mut query: Query<(&mut Velocity, &ExternalForce), With<Ac
         let v = velo.linvel.length();
 
         if v == 0.0 {
+            info!("No speed");
             continue;
         }
 
