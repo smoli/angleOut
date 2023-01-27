@@ -165,12 +165,12 @@ fn ball_inactive_handle_events(
     ship_state: Res<ShipState>,
     mut balls: Query<(Entity, &mut Velocity, &mut CollisionGroups), (Without<ActiveBall>, With<Ball>)>)
 {
-    for (ball, mut ext_force, mut col) in &mut balls {
+    for (ball, mut velo, mut col) in &mut balls {
         for ev in events.iter() {
             match ev {
                 MatchEvent::BallSpawned => {}
                 MatchEvent::BallLaunched => {
-                    ext_force.linvel = compute_launch_impulse(ship_state.ship_rotation, 1.0);
+                    velo.linvel = compute_launch_impulse(ship_state.ship_rotation, 1.0);
                     commands.entity(ball)
                         .insert(ActiveBall);
                     col.filters = col.filters | COLLIDER_GROUP_PADDLE | COLLIDER_GROUP_BLOCK;
