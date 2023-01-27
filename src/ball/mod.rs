@@ -4,7 +4,7 @@ use bevy::utils::default;
 use crate::state::GameState;
 use std::f32::consts::TAU;
 use bevy::log::info;
-use bevy_rapier3d::prelude::{ActiveEvents, Ccd, CoefficientCombineRule, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalForce, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Velocity};
+use bevy_rapier3d::prelude::{ActiveEvents, Ccd, CoefficientCombineRule, Collider, ColliderMassProperties, CollisionGroups, Damping, ExternalForce, ExternalImpulse, Friction, GravityScale, LockedAxes, MassProperties, Restitution, Sleeping, Velocity};
 use bevy_rapier3d::dynamics::RigidBody;
 use crate::config::{BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_NONE, COLLIDER_GROUP_PADDLE, MAX_BALL_SPEED, MAX_RESTITUTION, MIN_BALL_SPEED, PADDLE_BOUNCE_IMPULSE, PADDLE_LAUNCH_IMPULSE, PADDLE_THICKNESS};
 use crate::events::MatchEvent;
@@ -37,17 +37,22 @@ impl Plugin for BallPlugin {
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(ball_clear_external_forces.before(SystemLabels::UpdateWorld))
+            )
+
+            .add_system_set(
+                SystemSet::on_update(GameState::InMatch)
                     .with_system(ball_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(ball_spin.label(SystemLabels::UpdateWorld))
                     .with_system(ball_update_inactive.label(SystemLabels::UpdateWorld))
-                    .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
-                    .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
                     // .with_system(ball_correct_too_low_z.label(SystemLabels::UpdateWorld))
                     .with_system(ball_handle_collisions.label(SystemLabels::UpdateWorld))
+                    .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
             )
+
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
-                    .with_system(ball_limit_velocity.after(SystemLabels::UpdateWorld))
+                    .with_system(ball_limit_velocity
+                        .after(SystemLabels::UpdateWorld))
             )
 
             .add_system_set(
@@ -89,6 +94,7 @@ pub fn ball_spawn(
                 coefficient: 0.0,
                 combine_rule: CoefficientCombineRule::Min,
             })
+            .insert(Sleeping::disabled())
             .insert(ColliderMassProperties::Density(20.0))
             .insert(ColliderMassProperties::MassProperties(MassProperties {
                 mass: 1.0,
@@ -157,14 +163,14 @@ fn ball_inactive_handle_events(
     mut commands: Commands,
     mut events: EventReader<MatchEvent>,
     ship_state: Res<ShipState>,
-    mut balls: Query<(Entity, &mut ExternalImpulse, &mut CollisionGroups), (Without<ActiveBall>, With<Ball>)>)
+    mut balls: Query<(Entity, &mut ExternalForce, &mut CollisionGroups), (Without<ActiveBall>, With<Ball>)>)
 {
-    for (ball, mut ext_imp, mut col) in &mut balls {
+    for (ball, mut ext_force, mut col) in &mut balls {
         for ev in events.iter() {
             match ev {
                 MatchEvent::BallSpawned => {}
                 MatchEvent::BallLaunched => {
-                    ext_imp.impulse = compute_launch_impulse(ship_state.ship_rotation, PADDLE_LAUNCH_IMPULSE);
+                    ext_force.force = compute_launch_impulse(ship_state.ship_rotation, PADDLE_LAUNCH_IMPULSE);
                     commands.entity(ball)
                         .insert(ActiveBall);
                     col.filters = col.filters | COLLIDER_GROUP_PADDLE | COLLIDER_GROUP_BLOCK;

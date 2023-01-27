@@ -1,5 +1,5 @@
 use bevy::log::info;
-use bevy::prelude::{App, AssetServer, BackgroundColor, BuildChildren, Color, Commands, Component, default, DespawnRecursiveExt, Entity, EventReader, EventWriter, FlexDirection, GamepadButtonType, JustifyContent, NodeBundle, Plugin, Query, Res, SceneBundle, Size, Style, SystemSet, Text, TextBundle, TextSection, TextStyle, Transform, TransformBundle, Val, With};
+use bevy::prelude::{App, AssetServer, BackgroundColor, BuildChildren, Color, Commands, Component, default, DespawnRecursiveExt, Entity, EventReader, EventWriter, FlexDirection, GamepadButtonType, JustifyContent, KeyCode, NodeBundle, Plugin, Query, Res, SceneBundle, Size, Style, SystemSet, Text, TextBundle, TextSection, TextStyle, Transform, TransformBundle, Val, With};
 use bevy::ui::{AlignSelf, UiRect};
 use leafwing_input_manager::input_map::InputMap;
 use leafwing_input_manager::InputManagerBundle;
@@ -148,6 +148,7 @@ fn ui_spawn(
             action_state: ActionState::default(),
             input_map: InputMap::default()
                 .insert(GamepadButtonType::South, UIAction::ActivateSelection)
+                .insert(KeyCode::Space, UIAction::ActivateSelection)
                 .insert(GamepadButtonType::DPadDown, UIAction::SelectDown)
                 .insert(GamepadButtonType::DPadUp, UIAction::SelectUp)
                 .build(),
