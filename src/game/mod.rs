@@ -1,6 +1,7 @@
 use bevy::app::{App, Plugin};
 use bevy::prelude::{ResMut, SystemSet};
-use crate::player::{Player, PowerUp};
+use crate::player::Player;
+use crate::powerups::PowerUpType;
 use crate::state::GameState;
 
 pub struct GamePlugin;
@@ -23,6 +24,6 @@ fn game_start(
 ) {
     player.reset();
     player.set_balls(3);
-    player.power_ups.push(PowerUp::Grabber);
+    player.power_ups.push(PowerUpType::Grabber(5));
 }
 

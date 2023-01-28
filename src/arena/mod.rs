@@ -124,11 +124,6 @@ fn arena_spawn(
     commands.spawn(Collider::cuboid(ARENA_WIDTH_H, 60.0, wall_thickness))
         .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, ARENA_HEIGHT_H + 50.0 + wall_thickness)))
         // .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 0.0)))
-        .insert(Restitution {
-            coefficient: MAX_RESTITUTION,
-            combine_rule: CoefficientCombineRule::Max,
-        })
-        .insert(Friction::coefficient(0.0))
         .insert(Collidable {
             kind: CollidableKind::DeathTrigger,
         })

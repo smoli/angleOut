@@ -18,6 +18,7 @@ use crate::game::GamePlugin;
 use crate::level::{LevelDefinition, LevelPlugin, TargetLayout};
 use crate::particles::ParticlePlugin;
 use crate::physics::PhysicsPlugin;
+use crate::pickups::PickupsPlugin;
 use crate::points::PointsPlugin;
 use crate::r#match::MatchPlugin;
 use crate::ship::ShipPlugin;
@@ -43,6 +44,7 @@ mod materials;
 mod points;
 mod particles;
 mod powerups;
+mod pickups;
 
 const DEMO_MOVING: &str = "AA AA AA AA AA AA AA
  AA .. .. AE .. .. AA
@@ -82,6 +84,7 @@ fn main() {
     app.add_plugin(MatchPlugin);
     app.add_plugin(PointsPlugin);
     app.add_plugin(ParticlePlugin);
+    app.add_plugin(PickupsPlugin);
 
     app.add_plugin(InputManagerPlugin::<GameFlowActions>::default());
     app.add_plugin(InputManagerPlugin::<MatchActions>::default());

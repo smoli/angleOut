@@ -5,8 +5,10 @@ use crate::ball::Ball;
 use crate::block::{BlockBehaviour, BlockType};
 use crate::labels::SystemLabels;
 use crate::level::{LevelDefinition, RequestTag};
+use crate::pickups::{Pickup, PickupType};
 use crate::player::{Player, PlayerState};
 use crate::points::{PointsDisplay, PointsDisplayRequest};
+use crate::powerups::PowerUpType;
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
 
@@ -31,6 +33,7 @@ pub enum MatchEvent {
     BounceOffPaddle,
     BounceOffWall,
     TargetHit(Vec3, BlockType, BlockBehaviour),
+    PickedUp(PickupType)
 }
 
 
@@ -106,6 +109,12 @@ fn match_event_handler(
                     position: p.clone(),
                 }).insert(PointsDisplayRequest);
 
+                commands.spawn(Pickup {
+                    spawn_position: p.clone(),
+                    pickup_type: PickupType::PowerUp(PowerUpType::Grabber(5))
+                }).insert(RequestTag);
+
+
                 if match_state.blocks == 0 {
                     game_flow.send(GameFlowEvent::PlayerWins);
                 }
@@ -114,8 +123,13 @@ fn match_event_handler(
             MatchEvent::BlockLost => {
                 match_state.block_lost();
             }
+
             MatchEvent::BallGrabbed => {
                 player.ball_grabbed();
+            }
+
+            MatchEvent::PickedUp(pt) => {
+                info!("Player picked up {:?}", pt)
             }
         }
     }

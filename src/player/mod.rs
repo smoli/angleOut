@@ -1,9 +1,5 @@
 use bevy::prelude::Resource;
-
-#[derive(PartialEq)]
-pub enum PowerUp {
-    Grabber
-}
+use crate::powerups::PowerUpType;
 
 
 pub enum PlayerState {
@@ -21,7 +17,7 @@ pub struct Player {
     pub balls_in_play: i32,
     pub balls_lost: i32,
     pub balls_grabbed: i32,
-    pub power_ups: Vec<PowerUp>
+    pub power_ups: Vec<PowerUpType>
 
 }
 

@@ -18,6 +18,7 @@ pub enum CollidableKind {
     DeathTrigger,
     Ship,
     Block,
+    Pickup
 }
 
 #[derive(Component)]
@@ -46,7 +47,7 @@ impl Plugin for PhysicsPlugin {
                     .with_system(handle_contact_force_events.before(SystemLabels::UpdateWorld))
                     .with_system(cleanup_collision_tags.after(SystemLabels::UpdateState))
             )
-        // .add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(RapierDebugRenderPlugin::default())
         ;
     }
 }
@@ -89,7 +90,10 @@ fn handle_collision_events(
                                 other_velocity: vel_a
                             });
 
-                        // info!("Collision {:?}-{:?}", col_a.kind, col_b.kind);
+
+                        if col_a.kind != CollidableKind::Block {
+                            info!("Collision {:?}-{:?}", col_a.kind, col_b.kind);
+                        }
                     }
                 }
             }

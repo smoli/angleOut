@@ -13,7 +13,7 @@ use leafwing_input_manager::prelude::{ActionState, DualAxis, InputMap};
 
 use crate::actions::MatchActions;
 use crate::ball::{ActiveBall, Ball};
-use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_PADDLE, GRAB_ATTRACT_RADIUS, GRAB_FORCE_MAGNITUDE, GRAB_RADIUS, PADDLE_LIFT, PADDLE_POSITION_MAX_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H};
+use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_PICKUP, GRAB_ATTRACT_RADIUS, GRAB_FORCE_MAGNITUDE, GRAB_RADIUS, PADDLE_LIFT, PADDLE_POSITION_MAX_ACCEL, PADDLE_RESTING_ROTATION, PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z, PADDLE_ROTATION_ACCEL, PADDLE_THICKNESS, PADDLE_WIDTH_H};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
@@ -111,7 +111,7 @@ pub fn ship_spawn(
             })
             .insert(TransformBundle::from(Transform::from_xyz(PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z)))
             .insert(Collider::round_cuboid(PADDLE_WIDTH_H - PADDLE_THICKNESS * 0.15, PADDLE_THICKNESS, PADDLE_THICKNESS * 0.35, PADDLE_THICKNESS * 0.15))
-            .insert(CollisionGroups::new(COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_BALL))
+            .insert(CollisionGroups::new(COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_BALL | COLLIDER_GROUP_PICKUP))
             .insert(ActiveEvents::COLLISION_EVENTS)
             .insert(Collidable {
                 kind: CollidableKind::Ship
@@ -328,8 +328,6 @@ fn ship_grab_ball(
                     }
                 }
             }
-
-
         }
     }
 }

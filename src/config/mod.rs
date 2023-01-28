@@ -46,6 +46,7 @@ pub const COLLIDER_GROUP_PADDLE:Group = Group::GROUP_2;
 pub const COLLIDER_GROUP_BLOCK:Group  = Group::GROUP_3;
 pub const COLLIDER_GROUP_ARENA:Group  = Group::GROUP_4;
 pub const COLLIDER_GROUP_DEATH:Group  = Group::GROUP_5;
+pub const COLLIDER_GROUP_PICKUP:Group  = Group::GROUP_6;
 
 pub const BLOCK_WIDTH: f32 = 15.0;
 pub const BLOCK_WIDTH_H: f32 = BLOCK_WIDTH / 2.0;
@@ -54,3 +55,5 @@ pub const BLOCK_DEPTH: f32 = 7.51;
 pub const BLOCK_GAP: f32 = 2.0;
 pub const BLOCK_ROUNDNESS: f32 = 0.2;
 
+pub const PICKUP_SPEED: f32 = 20.0;
+pub const PICKUP_GENERIC_SCENE: &str = "009_PU_Generic";
