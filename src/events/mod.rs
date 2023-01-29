@@ -118,13 +118,6 @@ fn match_event_handler(
                     position: p.clone(),
                 }).insert(PointsDisplayRequest);
 
-                commands.spawn(Pickup {
-                    spawn_position: p.clone(),
-                    pickup_type: PickupType::Grabber(5)
-                })
-                    .insert(RequestTag);
-
-
                 if match_state.blocks == 0 {
                     game_flow.send(GameFlowEvent::PlayerWins);
                 }

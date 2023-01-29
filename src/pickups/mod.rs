@@ -1,6 +1,6 @@
 use bevy::app::{App, Plugin};
 use bevy::gltf::Gltf;
-use bevy::prelude::{Assets, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, info, IntoSystemDescriptor, Query, Res, SystemSet, Time, Transform, TransformBundle, Vec3, With};
+use bevy::prelude::{Assets, Commands, Component, DespawnRecursiveExt, Entity, EventReader, EventWriter, info, IntoSystemDescriptor, Query, Res, ResMut, SystemSet, Time, Transform, TransformBundle, Vec3, With};
 use bevy::scene::SceneBundle;
 use bevy::utils::default;
 use bevy_rapier3d::dynamics::GravityScale;
@@ -10,10 +10,11 @@ use crate::config::{COLLIDER_GROUP_DEATH, COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_
 use crate::events::MatchEvent;
 
 use crate::labels::SystemLabels;
-use crate::level::RequestTag;
+use crate::level::{LevelDefinition, RequestTag};
 use crate::MyAssetPack;
 use crate::physics::{Collidable, CollidableKind, CollisionTag};
 use crate::powerups::PowerUpType;
+use crate::r#match::state::MatchState;
 use crate::state::GameState;
 
 pub struct PickupsPlugin;
@@ -26,6 +27,7 @@ impl Plugin for PickupsPlugin {
                     .with_system(pickup_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(pickup_update.label(SystemLabels::UpdateWorld))
                     .with_system(pickup_handle_collisions.label(SystemLabels::UpdateWorld))
+                    .with_system(pickup_spawn_globals_on_event.label(SystemLabels::UpdateWorld))
             )
 
             .add_system_set(
@@ -53,6 +55,36 @@ pub struct Pickup {
 #[derive(Component)]
 pub struct Fall {
     pub dir: Vec3,
+}
+
+
+
+fn pickup_spawn_globals_on_event(
+    mut commands: Commands,
+    mut events: EventReader<MatchEvent>,
+    mut match_state: ResMut<MatchState>,
+    mut level: ResMut<LevelDefinition>,
+) {
+  //  let (player_entity, mut player, mut bouncer) = players.get_single_mut().unwrap();
+
+    for ev in events.iter() {
+        match ev {
+
+            MatchEvent::TargetHit(p, block_type, behaviour) => {
+
+                if let Some(pickup_type) = level.pickup_at(match_state.blocks as usize) {
+                    commands.spawn(Pickup {
+                        spawn_position: p.clone(),
+                        pickup_type: pickup_type.clone()
+                    })
+                        .insert(RequestTag);
+
+                }
+            }
+
+            _ => {}
+        }
+    }
 }
 
 

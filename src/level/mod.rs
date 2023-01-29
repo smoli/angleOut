@@ -1,18 +1,22 @@
-mod layout;
-
 use std::time::Duration;
+
 use bevy::app::App;
-use bevy::prelude::{Commands, Component, IntoSystemDescriptor, Plugin, Res, ResMut, Resource, SystemSet};
-use bevy::utils::default;
+use bevy::log::info;
+use bevy::prelude::{Commands, Component, IntoSystemDescriptor, Plugin, ResMut, Resource, SystemSet};
+use bevy::utils::{default, HashMap};
+use rand::{Rng, thread_rng};
+
 use crate::block::{Block, BlockBehaviour, BlockType};
 use crate::config::BLOCK_GAP;
 use crate::labels::SystemLabels;
 use crate::level::layout::{generate_block_grid, interpret_grid};
 use crate::level::TargetLayout::FilledGrid;
+use crate::pickups::PickupType;
 use crate::r#match::state::MatchState;
 use crate::ship::Ship;
 use crate::state::GameState;
 
+mod layout;
 
 #[derive(Component)]
 pub struct RequestTag;
@@ -29,6 +33,8 @@ pub struct LevelDefinition {
     pub simultaneous_balls: i32,
     pub targets: TargetLayout,
     pub time_limit: Option<Duration>,
+    pub global_pickups: Vec<PickupType>,
+    pub distributed_global_pickups: HashMap<usize, PickupType>,
 }
 
 
@@ -38,10 +44,45 @@ impl Default for LevelDefinition {
             targets: FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
             simultaneous_balls: 1,
             time_limit: None,
+            global_pickups: Vec::new(),
+            distributed_global_pickups: HashMap::new(),
         }
     }
 }
 
+
+impl LevelDefinition {
+
+    pub fn pickup_at(&self, remaining_block_count: usize) -> Option<&PickupType> {
+        self.distributed_global_pickups.get(&remaining_block_count)
+    }
+
+    pub fn distribute_global_pickups(&mut self, block_count: usize) {
+        let mut rng = thread_rng();
+        self.distributed_global_pickups.clear();
+
+
+        let mut placed: Vec<usize> = vec![];
+        let mut start = 0;
+        let mut end = block_count;
+        for pickup in &self.global_pickups {
+            let pos: usize = rng.gen_range(start..end);
+            if placed.contains(&pos) {
+                unreachable!("Moving start and end around should avoid this!");
+            }
+
+            if pos == block_count - 1 {
+                end = pos;
+            } else {
+                start = pos;
+            }
+            placed.push(pos);
+            self.distributed_global_pickups.insert(pos, pickup.clone());
+
+            info!("{:?} at {}", pickup, pos);
+        }
+    }
+}
 
 pub struct LevelPlugin;
 
@@ -103,9 +144,8 @@ fn make_grid_from_string_layout(
 
 fn level_spawn(
     mut stats: ResMut<MatchState>,
-    level: Res<LevelDefinition>,
+    mut level: ResMut<LevelDefinition>,
     mut commands: Commands) {
-
     commands
         .spawn(Ship::default())
         .insert(RequestTag);
@@ -119,6 +159,8 @@ fn level_spawn(
             make_grid_from_string_layout(&mut commands, layout, *gap)
         }
     };
+
+    level.distribute_global_pickups(count as usize);
 
     stats.set_block_count(count);
 }

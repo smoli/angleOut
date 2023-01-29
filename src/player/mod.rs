@@ -5,9 +5,8 @@ use bevy::prelude::{Component, Entity, Plugin, Query, SystemSet, With, Without, 
 
 use crate::pickups::{Pickup, PickupType};
 
-use crate::powerups::{Grabber, PowerUpData, PowerUpType};
+use crate::powerups::{Grabber};
 use crate::state::GameState;
-
 
 pub enum PlayerState {
     Open,

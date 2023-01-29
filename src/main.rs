@@ -18,7 +18,7 @@ use crate::game::GamePlugin;
 use crate::level::{LevelDefinition, LevelPlugin, TargetLayout};
 use crate::particles::ParticlePlugin;
 use crate::physics::PhysicsPlugin;
-use crate::pickups::PickupsPlugin;
+use crate::pickups::{PickupsPlugin, PickupType};
 use crate::player::PlayerPlugin;
 use crate::points::PointsPlugin;
 use crate::r#match::MatchPlugin;
@@ -99,8 +99,9 @@ fn main() {
         // targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
         targets: TargetLayout::SparseGrid(DEMO_MOVING.to_string(), BLOCK_GAP),
         time_limit: None,
-    }
-    );
+        global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+        ..default()
+    });
 
     app.run();
 }
@@ -117,18 +118,18 @@ fn load_gltf(
 fn setup_screen(app: &mut App) {
     app.insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-        window: WindowDescriptor {
-            width: SCREEN_WIDTH,
-            height: SCREEN_HEIGHT,
-            position: WindowPosition::Centered,
-            monitor: MonitorSelection::Current,
-            // mode: WindowMode::SizedFullscreen,
-            title: "Angle Out".to_string(),
-            cursor_visible: false,
+            window: WindowDescriptor {
+                width: SCREEN_WIDTH,
+                height: SCREEN_HEIGHT,
+                position: WindowPosition::Centered,
+                monitor: MonitorSelection::Current,
+                // mode: WindowMode::SizedFullscreen,
+                title: "Angle Out".to_string(),
+                cursor_visible: false,
+                ..default()
+            },
             ..default()
-        },
-        ..default()
-    }));
+        }));
 }
 
 
