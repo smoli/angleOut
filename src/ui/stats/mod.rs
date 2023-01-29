@@ -67,10 +67,12 @@ fn ui_despawn(
 
 fn ui_update_infos(
     match_stats: Res<MatchState>,
-    player_stats: Res<Player>,
+    player_stats: Query<&Player>,
     mut ui: Query<(&mut Text, &UIInfoTag), Without<Ball>>,
     balls: Query<&Velocity, With<Ball>>
 ) {
+    let player = player_stats.get_single().unwrap();
+
     for (mut text, tag) in &mut ui {
         match tag {
             UIInfoTag::Points => text.sections[1].value = format!("{}", match_stats.points),
@@ -78,12 +80,12 @@ fn ui_update_infos(
             UIInfoTag::Bounces => text.sections[1].value = format!("{}", match_stats.paddle_bounces),
             UIInfoTag::WallHits => text.sections[1].value = format!("{}", match_stats.wall_hits),
             UIInfoTag::Combos => text.sections[1].value = format!("{}x, {}x", match_stats.paddle_bounce_combo, match_stats.single_bounce_combo),
-            UIInfoTag::Balls => text.sections[1].value = format!("{}", player_stats.balls_available),
+            UIInfoTag::Balls => text.sections[1].value = format!("{}", player.balls_available),
             UIInfoTag::BlocksHit => text.sections[1].value = format!("{}", match_stats.blocks_hit),
             UIInfoTag::BlocksLost => text.sections[1].value = format!("{}", match_stats.blocks_lost),
-            UIInfoTag::BallsInPLay => text.sections[1].value = format!("{}", player_stats.balls_in_play),
-            UIInfoTag::BallsGrabbed => text.sections[1].value = format!("{}", player_stats.balls_grabbed),
-            UIInfoTag::BallsLost => text.sections[1].value = format!("{}", player_stats.balls_lost),
+            UIInfoTag::BallsInPLay => text.sections[1].value = format!("{}", player.balls_in_play),
+            UIInfoTag::BallsGrabbed => text.sections[1].value = format!("{}", player.balls_grabbed),
+            UIInfoTag::BallsLost => text.sections[1].value = format!("{}", player.balls_lost),
             UIInfoTag::BallSpeed => {
                 match balls.get_single() {
                     Ok(velo) => text.sections[1].value = format!("{}", velo.linvel.length()),

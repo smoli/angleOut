@@ -218,10 +218,12 @@ fn ship_update_position(time: Res<Time>, mut ship_state: ResMut<ShipState>, mut 
 }
 
 fn ship_launch_ball(
-    player: Res<Player>,
+    players: Query<&Player>,
     mut query: Query<&mut ActionState<MatchActions>, With<Ship>>,
     mut events: EventWriter<MatchEvent>,
 ) {
+    let player = players.get_single().unwrap();
+
     for mut action in &mut query {
         if action.pressed(MatchActions::SpawnOrLaunchBall) {
             action.consume(MatchActions::SpawnOrLaunchBall);
@@ -301,11 +303,13 @@ fn ship_setup_debug_grab_distances(
 
 fn ship_grab_ball(
     mut commands: Commands,
-    player: Res<Player>,
+    players: Query<&Player>,
     mut ship: Query<(&ActionState<MatchActions>, &Transform, &mut Grabber), (With<Ship>, Without<Ball>)>,
     mut balls: Query<(Entity, &mut Transform, &mut ExternalForce), (With<Ball>, Without<Ship>)>,
     mut events: EventWriter<MatchEvent>,
 ) {
+    let player = players.get_single().unwrap();
+
     if player.balls_grabbed > 0 {
         return;
     }

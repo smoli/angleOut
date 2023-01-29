@@ -64,10 +64,12 @@ fn ui_handle_action(
 }
 
 fn ui_spawn(
-    player: Res<Player>,
+    players: Query<&Player>,
     mut commands: Commands,
     asset_server: Res<AssetServer>
 ) {
+    let player = players.get_single().unwrap();
+
     commands
         .spawn(NodeBundle {
             node: Default::default(),

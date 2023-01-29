@@ -1,5 +1,8 @@
-use bevy::prelude::Resource;
-use crate::powerups::PowerUpType;
+use std::collections::HashMap;
+use bevy::log::info;
+use bevy::prelude::Component;
+
+use crate::powerups::{PowerUpData, PowerUpType};
 
 
 pub enum PlayerState {
@@ -8,7 +11,7 @@ pub enum PlayerState {
     HasLost,
 }
 
-#[derive(Resource)]
+#[derive(Component)]
 pub struct Player {
     pub state: PlayerState,
     pub points: i32,
@@ -17,8 +20,6 @@ pub struct Player {
     pub balls_in_play: i32,
     pub balls_lost: i32,
     pub balls_grabbed: i32,
-    pub power_ups: Vec<PowerUpType>
-
 }
 
 impl Default for Player {
@@ -31,7 +32,6 @@ impl Default for Player {
             balls_in_play: 0,
             balls_grabbed: 0,
             balls_lost: 0,
-            power_ups: vec![]
         }
     }
 }
@@ -46,7 +46,6 @@ impl Player {
         self.balls_in_play = 0;
         self.balls_grabbed = 0;
         self.balls_lost = 0;
-        self.power_ups = vec![];
     }
 
     pub fn set_balls(&mut self, count: i32) {
@@ -55,6 +54,7 @@ impl Player {
 
     pub fn ball_spawned(&mut self) {
         if self.balls_available > 0 {
+            info!("Ball spawned");
             self.balls_available -= 1;
             self.balls_spawned += 1;
         }

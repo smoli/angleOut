@@ -1,6 +1,6 @@
 use bevy::app::{App, Plugin};
 use bevy::log::info;
-use bevy::prelude::{Commands, EventReader, EventWriter, IntoSystemDescriptor, ResMut, State, SystemSet, Vec3};
+use bevy::prelude::{Commands, EventReader, EventWriter, IntoSystemDescriptor, Query, ResMut, State, SystemSet, Vec3};
 use crate::ball::Ball;
 use crate::block::{BlockBehaviour, BlockType};
 use crate::labels::SystemLabels;
@@ -33,7 +33,7 @@ pub enum MatchEvent {
     BounceOffPaddle,
     BounceOffWall,
     TargetHit(Vec3, BlockType, BlockBehaviour),
-    PickedUp(PickupType)
+    PickedUp(PickupType),
 }
 
 
@@ -61,10 +61,12 @@ fn match_event_handler(
     mut commands: Commands,
     mut events: EventReader<MatchEvent>,
     mut match_state: ResMut<MatchState>,
-    mut player: ResMut<Player>,
+    mut players: Query<&mut Player>,
     mut level: ResMut<LevelDefinition>,
     mut game_flow: EventWriter<GameFlowEvent>,
 ) {
+    let mut player = players.get_single_mut().unwrap();
+
     for ev in events.iter() {
         match ev {
             MatchEvent::Start => {
@@ -72,6 +74,7 @@ fn match_event_handler(
             }
 
             MatchEvent::BallSpawned => {
+                info!("Executing ball spawn request");
                 if player.balls_available > 0 && player.balls_spawned == 0 && player.balls_in_play < level.simultaneous_balls {
                     commands
                         .spawn(Ball::default())
@@ -96,7 +99,18 @@ fn match_event_handler(
 
             MatchEvent::BounceOffPaddle => {
                 match_state.add_paddle_bounce();
+                /*                if let Some(mut bouncer) = player.power_ups.get(&PowerUpType::Bouncer) {
+                                    if !bouncer.available() {
+                                        game_flow.send(GameFlowEvent::PlayerLooses)
+                                    } else {
+                                        bouncer.use_one();
+                                    }
+                                } else {
+                                    game_flow.send(GameFlowEvent::PlayerLooses)
+                                }
+                */
             }
+
             MatchEvent::BounceOffWall => {
                 match_state.add_wall_hit();
             }
@@ -109,11 +123,11 @@ fn match_event_handler(
                     position: p.clone(),
                 }).insert(PointsDisplayRequest);
 
-                commands.spawn(Pickup {
-                    spawn_position: p.clone(),
-                    pickup_type: PickupType::PowerUp(PowerUpType::Grabber(5))
-                }).insert(RequestTag);
-
+                /*                commands.spawn(Pickup {
+                                    spawn_position: p.clone(),
+                                    pickup_type: PickupType::PowerUp(PowerUpType::Grabber { grabs: 5 })
+                                }).insert(RequestTag);
+                */
 
                 if match_state.blocks == 0 {
                     game_flow.send(GameFlowEvent::PlayerWins);
@@ -136,7 +150,7 @@ fn match_event_handler(
 }
 
 fn game_flow_handler(
-    mut player: ResMut<Player>,
+    mut players: Query<&mut Player>,
     mut events: EventReader<GameFlowEvent>,
     mut game_state: ResMut<State<GameState>>,
 ) {
@@ -151,15 +165,19 @@ fn game_flow_handler(
             }
 
             GameFlowEvent::PlayerWins => {
-                info!("Player wins!");
-                player.state = PlayerState::HasWon;
-                let _ = game_state.set(GameState::PostMatch);
+                if let Ok(mut player) = players.get_single_mut() {
+                    info!("Player wins!");
+                    player.state = PlayerState::HasWon;
+                    let _ = game_state.set(GameState::PostMatch);
+                };
             }
 
             GameFlowEvent::PlayerLooses => {
-                info!("Player looses!");
-                player.state = PlayerState::HasLost;
-                let _ = game_state.set(GameState::PostMatch);
+                if let Ok(mut player) = players.get_single_mut() {
+                    info!("Player looses!");
+                    player.state = PlayerState::HasLost;
+                    let _ = game_state.set(GameState::PostMatch);
+                };
             }
 
             GameFlowEvent::EndGame => {}
