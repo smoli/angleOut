@@ -54,6 +54,10 @@ impl Player {
         self.balls_available = count;
     }
 
+    pub fn add_balls(&mut self, count: i32) {
+        self.balls_available += count
+    }
+
     pub fn ball_spawned(&mut self) {
         if self.balls_available > 0 {
             info!("Ball spawned");
@@ -106,9 +110,24 @@ impl Plugin for PlayerPlugin {
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(player_pickup_grabber)
+                    .with_system(player_pickup_more_balls)
             )
 
         ;
+    }
+}
+
+
+fn player_pickup_more_balls(
+    mut commands: Commands,
+    mut players: Query<(Entity, &mut Player, &Pickup)>
+) {
+    for (entity, mut player, pickup) in &mut players {
+        if let PickupType::MoreBalls(count) = pickup.pickup_type {
+            player.add_balls(count);
+            commands.entity(entity)
+                .remove::<Pickup>();
+        }
     }
 }
 

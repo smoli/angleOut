@@ -1,19 +1,17 @@
 use bevy::app::{App, Plugin};
 use bevy::gltf::Gltf;
-use bevy::prelude::{Assets, Commands, Component, DespawnRecursiveExt, Entity, EventReader, EventWriter, info, IntoSystemDescriptor, Query, Res, ResMut, SystemSet, Time, Transform, TransformBundle, Vec3, With};
+use bevy::prelude::{Assets, Commands, Component, DespawnRecursiveExt, Entity, EventReader, EventWriter, IntoSystemDescriptor, Query, Res, ResMut, SystemSet, Time, Transform, TransformBundle, Vec3, With};
 use bevy::scene::SceneBundle;
 use bevy::utils::default;
 use bevy_rapier3d::dynamics::GravityScale;
-use bevy_rapier3d::prelude::{ActiveEvents, Collider, ColliderMassProperties, CollisionGroups, Sensor, RigidBody};
+use bevy_rapier3d::prelude::{ActiveEvents, Collider, CollisionGroups, RigidBody};
 
 use crate::config::{COLLIDER_GROUP_DEATH, COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_PICKUP, PICKUP_GENERIC_SCENE, PICKUP_SPEED};
 use crate::events::MatchEvent;
-
 use crate::labels::SystemLabels;
 use crate::level::{LevelDefinition, RequestTag};
 use crate::MyAssetPack;
 use crate::physics::{Collidable, CollidableKind, CollisionTag};
-use crate::powerups::PowerUpType;
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
 
@@ -41,7 +39,7 @@ impl Plugin for PickupsPlugin {
 
 #[derive(Debug, Clone, Copy)]
 pub enum PickupType {
-    MoreBalls(u8),
+    MoreBalls(i32),
     Grabber(i16)
 }
 
