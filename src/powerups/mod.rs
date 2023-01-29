@@ -33,7 +33,7 @@ impl PowerUpData for Bouncer {
 }
 
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Grabber {
     pub grabs: i16
 }

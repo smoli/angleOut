@@ -322,6 +322,7 @@ fn ship_grab_ball(
                             events.send(MatchEvent::BallGrabbed);
                             ball_trans.translation = target;
                             grabber.use_one();
+                            info!("{} grabs left", grabber.grabs);
                         } else {
                             ball_force.force += v.normalize() * GRAB_FORCE_MAGNITUDE;
                         }

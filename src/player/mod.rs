@@ -1,8 +1,12 @@
 use std::collections::HashMap;
+use bevy::app::App;
 use bevy::log::info;
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Component, Entity, Plugin, Query, SystemSet, With, Without, Commands};
 
-use crate::powerups::{PowerUpData, PowerUpType};
+use crate::pickups::{Pickup, PickupType};
+
+use crate::powerups::{Grabber, PowerUpData, PowerUpType};
+use crate::state::GameState;
 
 
 pub enum PlayerState {
@@ -19,7 +23,7 @@ pub struct Player {
     pub balls_carried: i32,
     pub balls_in_play: i32,
     pub balls_lost: i32,
-    pub balls_grabbed: i32
+    pub balls_grabbed: i32,
 }
 
 impl Default for Player {
@@ -31,13 +35,12 @@ impl Default for Player {
             balls_carried: 0,
             balls_in_play: 0,
             balls_grabbed: 0,
-            balls_lost: 0
+            balls_lost: 0,
         }
     }
 }
 
 impl Player {
-
     pub fn reset(&mut self) {
         self.state = PlayerState::Open;
         self.points = 0;
@@ -92,5 +95,48 @@ impl Player {
 
     pub fn has_player_lost(&self) -> bool {
         self.balls_available + self.balls_in_play == 0
+    }
+}
+
+
+pub struct PlayerPlugin;
+
+impl Plugin for PlayerPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_system_set(
+                SystemSet::on_update(GameState::InMatch)
+                    .with_system(player_pickup_grabber)
+            )
+
+        ;
+    }
+}
+
+
+fn player_pickup_grabber(
+    mut commands: Commands,
+    with_grabber: Query<(Entity, &Grabber, &Pickup), With<Player>>,
+    without_grabber: Query<(Entity, &Pickup), (Without<Grabber>, With<Player>)>,
+) {
+    if let Ok((entity, grabber, pickup)) = with_grabber.get_single() {
+        if let PickupType::Grabber(count) = pickup.pickup_type {
+            commands.entity(entity)
+                .remove::<Pickup>()
+                .insert(Grabber {
+                    grabs: count + grabber.grabs
+                });
+
+            info!("More grabs!")
+        }
+    } else if let Ok((entity, pickup)) = without_grabber.get_single() {
+        if let PickupType::Grabber(count) = pickup.pickup_type {
+            commands.entity(entity)
+                .remove::<Pickup>()
+                .insert(Grabber {
+                    grabs: count
+                });
+            info!("Finally grabs!")
+        }
     }
 }

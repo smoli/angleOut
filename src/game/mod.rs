@@ -45,9 +45,6 @@ fn game_start(
                 .insert(Bouncer {
                     bounces: -1
                 })
-                .insert(Grabber {
-                    grabs: 4,
-                })
             ;
         }
     }

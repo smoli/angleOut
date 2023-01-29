@@ -19,6 +19,7 @@ use crate::level::{LevelDefinition, LevelPlugin, TargetLayout};
 use crate::particles::ParticlePlugin;
 use crate::physics::PhysicsPlugin;
 use crate::pickups::PickupsPlugin;
+use crate::player::PlayerPlugin;
 use crate::points::PointsPlugin;
 use crate::r#match::MatchPlugin;
 use crate::ship::ShipPlugin;
@@ -85,6 +86,7 @@ fn main() {
     app.add_plugin(PointsPlugin);
     app.add_plugin(ParticlePlugin);
     app.add_plugin(PickupsPlugin);
+    app.add_plugin(PlayerPlugin);
 
     app.add_plugin(InputManagerPlugin::<GameFlowActions>::default());
     app.add_plugin(InputManagerPlugin::<MatchActions>::default());

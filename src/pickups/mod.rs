@@ -40,10 +40,10 @@ impl Plugin for PickupsPlugin {
 #[derive(Debug, Clone, Copy)]
 pub enum PickupType {
     MoreBalls(u8),
-    PowerUp(PowerUpType),
+    Grabber(i16)
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Pickup {
     pub spawn_position: Vec3,
     pub pickup_type: PickupType,

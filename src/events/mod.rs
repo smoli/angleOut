@@ -1,6 +1,6 @@
 use bevy::app::{App, Plugin};
 use bevy::log::info;
-use bevy::prelude::{Commands, EventReader, EventWriter, IntoSystemDescriptor, Query, ResMut, State, SystemSet, Vec3};
+use bevy::prelude::{Commands, Entity, EventReader, EventWriter, IntoSystemDescriptor, Query, ResMut, State, SystemSet, Vec3};
 use crate::ball::Ball;
 use crate::block::{BlockBehaviour, BlockType};
 use crate::labels::SystemLabels;
@@ -8,7 +8,7 @@ use crate::level::{LevelDefinition, RequestTag};
 use crate::pickups::{Pickup, PickupType};
 use crate::player::{Player, PlayerState};
 use crate::points::{PointsDisplay, PointsDisplayRequest};
-use crate::powerups::{Bouncer, PowerUpData, PowerUpType};
+use crate::powerups::{Bouncer, Grabber, PowerUpData, PowerUpType};
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
 
@@ -61,11 +61,11 @@ fn match_event_handler(
     mut commands: Commands,
     mut events: EventReader<MatchEvent>,
     mut match_state: ResMut<MatchState>,
-    mut players: Query<(&mut Player, &mut Bouncer)>,
+    mut players: Query<(Entity, &mut Player, &mut Bouncer)>,
     mut level: ResMut<LevelDefinition>,
     mut game_flow: EventWriter<GameFlowEvent>,
 ) {
-    let (mut player, mut bouncer) = players.get_single_mut().unwrap();
+    let (player_entity, mut player, mut bouncer) = players.get_single_mut().unwrap();
 
     for ev in events.iter() {
         match ev {
@@ -118,11 +118,12 @@ fn match_event_handler(
                     position: p.clone(),
                 }).insert(PointsDisplayRequest);
 
-                /*                commands.spawn(Pickup {
-                                    spawn_position: p.clone(),
-                                    pickup_type: PickupType::PowerUp(PowerUpType::Grabber { grabs: 5 })
-                                }).insert(RequestTag);
-                */
+                commands.spawn(Pickup {
+                    spawn_position: p.clone(),
+                    pickup_type: PickupType::Grabber(5)
+                })
+                    .insert(RequestTag);
+
 
                 if match_state.blocks == 0 {
                     game_flow.send(GameFlowEvent::PlayerWins);
@@ -138,6 +139,12 @@ fn match_event_handler(
             }
 
             MatchEvent::PickedUp(pt) => {
+                commands.entity(player_entity)
+                    .insert(Pickup {
+                        spawn_position: Default::default(),
+                        pickup_type: *pt,
+                    });
+
                 info!("Player picked up {:?}", pt)
             }
         }
