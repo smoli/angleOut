@@ -228,7 +228,7 @@ fn ship_launch_ball(
         if action.pressed(MatchActions::SpawnOrLaunchBall) {
             action.consume(MatchActions::SpawnOrLaunchBall);
 
-            if player.balls_spawned > 0 || player.balls_grabbed > 0 {
+            if player.balls_carried > 0 || player.balls_grabbed > 0 {
                 info!("Ball launch requested by operator");
                 events.send(MatchEvent::BallLaunched);
             } else {

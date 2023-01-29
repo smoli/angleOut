@@ -25,7 +25,9 @@ impl PowerUpData for Bouncer {
     }
 
     fn use_one(&mut self) {
-        self.bounces -= 1;
+        if self.bounces > 0 {
+            self.bounces -= 1;
+        }
     }
 }
 

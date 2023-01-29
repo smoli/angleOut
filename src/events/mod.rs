@@ -8,7 +8,7 @@ use crate::level::{LevelDefinition, RequestTag};
 use crate::pickups::{Pickup, PickupType};
 use crate::player::{Player, PlayerState};
 use crate::points::{PointsDisplay, PointsDisplayRequest};
-use crate::powerups::PowerUpType;
+use crate::powerups::{Bouncer, PowerUpData, PowerUpType};
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
 
@@ -61,11 +61,11 @@ fn match_event_handler(
     mut commands: Commands,
     mut events: EventReader<MatchEvent>,
     mut match_state: ResMut<MatchState>,
-    mut players: Query<&mut Player>,
+    mut players: Query<(&mut Player, &mut Bouncer)>,
     mut level: ResMut<LevelDefinition>,
     mut game_flow: EventWriter<GameFlowEvent>,
 ) {
-    let mut player = players.get_single_mut().unwrap();
+    let (mut player, mut bouncer) = players.get_single_mut().unwrap();
 
     for ev in events.iter() {
         match ev {
@@ -75,7 +75,7 @@ fn match_event_handler(
 
             MatchEvent::BallSpawned => {
                 info!("Executing ball spawn request");
-                if player.balls_available > 0 && player.balls_spawned == 0 && player.balls_in_play < level.simultaneous_balls {
+                if player.balls_available > 0 && player.balls_carried == 0 && player.balls_in_play < level.simultaneous_balls {
                     commands
                         .spawn(Ball::default())
                         .insert(RequestTag)
@@ -99,16 +99,11 @@ fn match_event_handler(
 
             MatchEvent::BounceOffPaddle => {
                 match_state.add_paddle_bounce();
-                /*                if let Some(mut bouncer) = player.power_ups.get(&PowerUpType::Bouncer) {
-                                    if !bouncer.available() {
-                                        game_flow.send(GameFlowEvent::PlayerLooses)
-                                    } else {
-                                        bouncer.use_one();
-                                    }
-                                } else {
-                                    game_flow.send(GameFlowEvent::PlayerLooses)
-                                }
-                */
+                if !bouncer.available() {
+                    game_flow.send(GameFlowEvent::PlayerLooses)
+                } else {
+                    bouncer.use_one();
+                }
             }
 
             MatchEvent::BounceOffWall => {

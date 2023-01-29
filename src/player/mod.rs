@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use bevy::log::info;
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Entity};
 
 use crate::powerups::{PowerUpData, PowerUpType};
 
@@ -16,10 +16,10 @@ pub struct Player {
     pub state: PlayerState,
     pub points: i32,
     pub balls_available: i32,
-    pub balls_spawned: i32,
+    pub balls_carried: i32,
     pub balls_in_play: i32,
     pub balls_lost: i32,
-    pub balls_grabbed: i32,
+    pub balls_grabbed: i32
 }
 
 impl Default for Player {
@@ -28,10 +28,10 @@ impl Default for Player {
             state: PlayerState::Open,
             points: 0,
             balls_available: 0,
-            balls_spawned: 0,
+            balls_carried: 0,
             balls_in_play: 0,
             balls_grabbed: 0,
-            balls_lost: 0,
+            balls_lost: 0
         }
     }
 }
@@ -42,7 +42,7 @@ impl Player {
         self.state = PlayerState::Open;
         self.points = 0;
         self.balls_available = 0;
-        self.balls_spawned = 0;
+        self.balls_carried = 0;
         self.balls_in_play = 0;
         self.balls_grabbed = 0;
         self.balls_lost = 0;
@@ -56,7 +56,7 @@ impl Player {
         if self.balls_available > 0 {
             info!("Ball spawned");
             self.balls_available -= 1;
-            self.balls_spawned += 1;
+            self.balls_carried += 1;
         }
     }
 
@@ -64,8 +64,8 @@ impl Player {
         if self.balls_grabbed > 0 {
             self.balls_grabbed -= 1;
             self.balls_in_play += 1;
-        } else if self.balls_spawned > 0 {
-            self.balls_spawned -= 1;
+        } else if self.balls_carried > 0 {
+            self.balls_carried -= 1;
             self.balls_in_play += 1;
         }
     }
