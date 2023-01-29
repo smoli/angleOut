@@ -19,7 +19,7 @@ use crate::labels::SystemLabels;
 use crate::level::RequestTag;
 use crate::physics::{Collidable, CollidableKind};
 use crate::player::Player;
-use crate::powerups::{Grabber};
+use crate::powerups::{Grabber, PowerUpData};
 use crate::state::GameState;
 
 #[derive(Component)]
@@ -37,7 +37,7 @@ pub struct Ship {
     pub target_position: Vec3,
     pub target_rotation: f32,
     pub current_rotation: f32,
-    pub current_accel: f32
+    pub current_accel: f32,
 }
 
 impl Default for Ship {
@@ -70,7 +70,7 @@ impl Plugin for ShipPlugin {
                     .with_system(ship_update_position.label(SystemLabels::UpdateWorld))
                     .with_system(ship_launch_ball.label(SystemLabels::UpdateWorld))
                     .with_system(ship_grab_ball.label(SystemLabels::UpdateWorld))
-                    // .with_system(ship_setup_debug_grab_distances.label(SystemLabels::UpdateWorld))
+                // .with_system(ship_setup_debug_grab_distances.label(SystemLabels::UpdateWorld))
             )
 
             .add_system_set(
@@ -116,16 +116,13 @@ pub fn ship_spawn(
             .insert(Collidable {
                 kind: CollidableKind::Ship
             })
-            .insert(Grabber {
-                grabs: 2,
-            })
-            ;
+        ;
     }
 }
 
 fn ship_despawn(
     mut commands: Commands,
-    ships: Query<Entity, With<Ship>>
+    ships: Query<Entity, With<Ship>>,
 ) {
     for ship in &ships {
         commands.entity(ship)
@@ -176,28 +173,28 @@ fn ship_update_position(time: Res<Time>, mut ship_state: ResMut<ShipState>, mut 
 
         let mut tp: Vec3 = ship.target_position;
         if dp.length() > 0.1 {
-/*            ship.current_accel += time.delta_seconds() * PADDLE_POSITION_ACCEL_ACCEL;
-            if ship.current_accel > PADDLE_POSITION_MAX_ACCEL {
-                ship.current_accel = PADDLE_POSITION_MAX_ACCEL
-            }
-            tp = trans.translation + dp * time.delta_seconds() * ship.current_accel;
-*/
+            /*            ship.current_accel += time.delta_seconds() * PADDLE_POSITION_ACCEL_ACCEL;
+                        if ship.current_accel > PADDLE_POSITION_MAX_ACCEL {
+                            ship.current_accel = PADDLE_POSITION_MAX_ACCEL
+                        }
+                        tp = trans.translation + dp * time.delta_seconds() * ship.current_accel;
+            */
             tp = trans.translation + dp * time.delta_seconds() * PADDLE_POSITION_MAX_ACCEL;
         }
 
-/*
-        if dp.length() < 5.0 {
-            ship.current_accel = 0.0;
-            info!("Position reached")
-        }
+        /*
+                if dp.length() < 5.0 {
+                    ship.current_accel = 0.0;
+                    info!("Position reached")
+                }
 
-        let nx = tp.x.clamp(PADDLE_WIDTH_H - ARENA_WIDTH_H, ARENA_WIDTH_H - PADDLE_WIDTH_H);
+                let nx = tp.x.clamp(PADDLE_WIDTH_H - ARENA_WIDTH_H, ARENA_WIDTH_H - PADDLE_WIDTH_H);
 
-        if nx != tp.x {
-            ship.current_accel = 0.0;
-            info!("Position reached");
-            tp.x = nx;
-        }*/
+                if nx != tp.x {
+                    ship.current_accel = 0.0;
+                    info!("Position reached");
+                    tp.x = nx;
+                }*/
 
         tp.x = tp.x.clamp(PADDLE_WIDTH_H - ARENA_WIDTH_H, ARENA_WIDTH_H - PADDLE_WIDTH_H);
 
@@ -235,11 +232,9 @@ fn ship_launch_ball(
                 info!("Ball spawn requested by operator");
                 events.send(MatchEvent::BallSpawned);
             }
-
         }
     }
 }
-
 
 
 fn ship_setup_debug_grab_distances(
@@ -249,7 +244,6 @@ fn ship_setup_debug_grab_distances(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for ship in &ships {
-
         let s1 = commands.spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere {
                 radius: GRAB_RADIUS,
@@ -260,7 +254,7 @@ fn ship_setup_debug_grab_distances(
                     red: 1.0,
                     green: 0.0,
                     blue: 1.0,
-                    alpha: 0.2
+                    alpha: 0.2,
                 },
                 alpha_mode: AlphaMode::Blend,
                 perceptual_roughness: 1.0,
@@ -298,37 +292,39 @@ fn ship_setup_debug_grab_distances(
             .push_children(&[s1, s2])
             .insert(DebugShape);
     }
-
 }
 
 fn ship_grab_ball(
     mut commands: Commands,
-    players: Query<&Player>,
-    mut ship: Query<(&ActionState<MatchActions>, &Transform, &mut Grabber), (With<Ship>, Without<Ball>)>,
+    mut players: Query<(&mut Grabber, &Player), (Without<Ball>, Without<Ship>)>,
+    mut ship: Query<(&ActionState<MatchActions>, &Transform), (With<Ship>, Without<Ball>)>,
     mut balls: Query<(Entity, &mut Transform, &mut ExternalForce), (With<Ball>, Without<Ship>)>,
     mut events: EventWriter<MatchEvent>,
 ) {
-    let player = players.get_single().unwrap();
+    if let Ok((mut grabber, player)) = players.get_single_mut() {
+        if player.balls_carried > 0 {
+            return;
+        }
+        if !grabber.available() {
+            return;
+        }
 
-    if player.balls_grabbed > 0 {
-        return;
-    }
-    for (action, ship_trans, mut grabber) in &mut ship {
-        if action.pressed(MatchActions::GrabTheBall) {
-
-            for (ball, mut ball_trans, mut ball_force) in &mut balls {
-                let target = ship_trans.translation + Vec3::new(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS);
-                let v = target - ball_trans.translation;
-                let d = v.length();
-                if d < GRAB_ATTRACT_RADIUS {
-                    if d < GRAB_RADIUS {
-                        commands.entity(ball)
-                            .remove::<ActiveBall>();
-                        events.send(MatchEvent::BallGrabbed);
-                        ball_trans.translation = target;
-                        grabber.grabs -= 1;
-                    } else {
-                        ball_force.force += v.normalize() * GRAB_FORCE_MAGNITUDE;
+        for (action, ship_trans) in &mut ship {
+            if action.pressed(MatchActions::GrabTheBall) {
+                for (ball, mut ball_trans, mut ball_force) in &mut balls {
+                    let target = ship_trans.translation + Vec3::new(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS);
+                    let v = target - ball_trans.translation;
+                    let d = v.length();
+                    if d < GRAB_ATTRACT_RADIUS {
+                        if d < GRAB_RADIUS {
+                            commands.entity(ball)
+                                .remove::<ActiveBall>();
+                            events.send(MatchEvent::BallGrabbed);
+                            ball_trans.translation = target;
+                            grabber.use_one();
+                        } else {
+                            ball_force.force += v.normalize() * GRAB_FORCE_MAGNITUDE;
+                        }
                     }
                 }
             }

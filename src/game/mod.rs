@@ -3,7 +3,7 @@ use bevy::prelude::{Commands, Entity, Query, SystemSet};
 use bevy::utils::default;
 
 use crate::player::{Player};
-use crate::powerups::Bouncer;
+use crate::powerups::{Bouncer, Grabber};
 use crate::state::GameState;
 
 pub struct GamePlugin;
@@ -44,7 +44,11 @@ fn game_start(
                 })
                 .insert(Bouncer {
                     bounces: -1
-                });
+                })
+                .insert(Grabber {
+                    grabs: 4,
+                })
+            ;
         }
     }
 

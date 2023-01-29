@@ -91,9 +91,9 @@ fn handle_collision_events(
                             });
 
 
-                        if col_a.kind != CollidableKind::Block {
+/*                        if col_a.kind != CollidableKind::Block {
                             info!("Collision {:?}-{:?}", col_a.kind, col_b.kind);
-                        }
+                        }*/
                     }
                 }
             }

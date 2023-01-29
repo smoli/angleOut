@@ -63,14 +63,16 @@ impl Player {
     pub fn ball_launched(&mut self) {
         if self.balls_grabbed > 0 {
             self.balls_grabbed -= 1;
-            self.balls_in_play += 1;
-        } else if self.balls_carried > 0 {
+        }
+
+        if self.balls_carried > 0 {
             self.balls_carried -= 1;
             self.balls_in_play += 1;
         }
     }
 
     pub fn ball_grabbed(&mut self) {
+        self.balls_carried += 1;
         self.balls_grabbed += 1;
         self.balls_in_play -= 1;
     }
