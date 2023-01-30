@@ -41,7 +41,7 @@ fn arena_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    commands
+   /* commands
         .spawn(SceneBundle {
             scene: asset_server.load("ship3_003.glb#Scene2"),
             ..default()
@@ -67,7 +67,7 @@ fn arena_spawn(
             speed: BACKGROUND_SPEED,
         })
     ;
-
+*/
 
     let wall_thickness = 10.0;
     // Left

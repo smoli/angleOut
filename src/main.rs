@@ -116,7 +116,8 @@ fn load_gltf(
 }
 
 fn setup_screen(app: &mut App) {
-    app.insert_resource(ClearColor(Color::BLACK))
+    app
+        .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
                 width: SCREEN_WIDTH,

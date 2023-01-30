@@ -2,6 +2,7 @@ pub mod state;
 
 use std::f32::consts::PI;
 use bevy::app::App;
+use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::prelude::{AmbientLight, Camera, Camera3dBundle, Color, Commands, Component, default, DirectionalLight, DirectionalLightBundle, Entity, GamepadButtonType, IntoSystemDescriptor, OrthographicProjection, Plugin, Quat, Query, ResMut, SystemSet, Transform, Vec3, With};
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
@@ -39,7 +40,6 @@ impl Plugin for MatchPlugin {
             .add_system_set(
                 SystemSet::on_exit(GameState::PostMatch)
                     .with_system(tear_down_3d_environment)
-
             );
     }
 }
@@ -47,7 +47,7 @@ impl Plugin for MatchPlugin {
 
 fn match_spawn(
     mut match_state: ResMut<MatchState>,
-    mut commands: Commands
+    mut commands: Commands,
 ) {
     match_state.reset();
     commands.spawn(Match);
@@ -68,8 +68,14 @@ fn setup_3d_environment(
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 200.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y),
         // transform: Transform::from_xyz(0.0, 0.0, -100.00001).looking_at(Vec3::ZERO, Vec3::Y),
+        camera: Camera {
+            hdr: true,
+            ..default()
+        },
+
         ..default()
     })
+        .insert(BloomSettings::default())
         .insert(InputManagerBundle::<CameraActions> {
             action_state: ActionState::default(),
             input_map: InputMap::default()
@@ -100,7 +106,6 @@ fn setup_3d_environment(
             shadows_enabled: true,
             illuminance: 75_000.0 / 2.0,
             ..default()
-
         },
         transform: Transform::from_xyz(200.0, 200.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y),
 
@@ -115,7 +120,6 @@ fn setup_3d_environment(
             shadows_enabled: false,
             illuminance: 75_000.0 / 2.0,
             ..default()
-
         },
         transform: Transform::from_xyz(200.0, 200.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y),
 
@@ -140,16 +144,12 @@ fn setup_3d_environment(
         color: Color::WHITE,
         brightness: 0.4,
     });
-
-
-
 }
 
 
 fn camera_update_position(mut query: Query<(&mut Transform, &mut ActionState<CameraActions>), With<Camera>>) {
     for (mut trans, mut action) in &mut query {
-
-        let mut rotation:Option<Quat> = None;
+        let mut rotation: Option<Quat> = None;
 
         if action.pressed(CameraActions::Down) {
             rotation = Some(Quat::from_rotation_x(PI / 20.0));
@@ -185,6 +185,5 @@ fn camera_update_position(mut query: Query<(&mut Transform, &mut ActionState<Cam
             trans.translation = nt.translation;
             trans.rotation = nt.rotation;
         }
-
     }
 }
