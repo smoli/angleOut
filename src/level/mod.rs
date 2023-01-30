@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bevy::app::App;
-use bevy::log::info;
+use bevy::log::{error, info, warn};
 use bevy::prelude::{Commands, Component, IntoSystemDescriptor, Plugin, ResMut, Resource, SystemSet};
 use bevy::utils::{default, HashMap};
 use rand::{Rng, thread_rng};
@@ -52,7 +52,6 @@ impl Default for LevelDefinition {
 
 
 impl LevelDefinition {
-
     pub fn pickup_at(&self, remaining_block_count: usize) -> Option<&PickupType> {
         self.distributed_global_pickups.get(&remaining_block_count)
     }
@@ -65,21 +64,33 @@ impl LevelDefinition {
         let mut placed: Vec<usize> = vec![];
         let mut start = 0;
         let mut end = block_count;
+        info!("Distributing {} global pickups", self.global_pickups.len());
         for pickup in &self.global_pickups {
-            let pos: usize = rng.gen_range(start..end);
-            if placed.contains(&pos) {
-                unreachable!("Moving start and end around should avoid this!");
+            let mut repeats = 10;
+
+            while repeats > 0 {
+                repeats -= 1;
+                let pos: usize = rng.gen_range(start..end);
+
+                if placed.contains(&pos) {
+                    warn!("Moving start and end around should avoid this!");
+                } else {
+                    if pos == block_count - 1 {
+                        end = pos + 1;
+                    } else {
+                        start = pos;
+                    }
+                    placed.push(pos);
+                    self.distributed_global_pickups.insert(pos, pickup.clone());
+
+                    info!("{:?} at {}", pickup, pos);
+                    break;
+                }
             }
 
-            if pos == block_count - 1 {
-                end = pos;
-            } else {
-                start = pos;
+            if repeats == 0 {
+                warn!("Could not distribute all pickups")
             }
-            placed.push(pos);
-            self.distributed_global_pickups.insert(pos, pickup.clone());
-
-            info!("{:?} at {}", pickup, pos);
         }
     }
 }
