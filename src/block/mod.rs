@@ -4,7 +4,7 @@ use bevy::utils::default;
 use bevy::app::App;
 use bevy::asset::{Assets, Handle};
 use bevy::gltf::Gltf;
-use bevy::log::{info};
+use bevy::log::info;
 use bevy::math::Vec2;
 use bevy::pbr::AlphaMode;
 use bevy::prelude::{Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, MaterialPlugin, Mesh, Name, Plugin, Query, Res, ResMut, SceneBundle, StandardMaterial, SystemSet, Time, Timer, TimerMode, Transform, TransformBundle, Vec3, Visibility, With, Without};
@@ -16,7 +16,8 @@ use crate::config::{BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLO
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
-use crate::materials::{CustomMaterial, CustomMaterialApplied};
+use crate::materials::block::{BlockMaterial};
+use crate::materials::CustomMaterialApplied;
 use crate::MyAssetPack;
 use crate::physics::{Collidable, CollidableKind, CollisionTag};
 use crate::state::GameState;
@@ -82,7 +83,7 @@ impl Default for Block {
     fn default() -> Self {
         Block {
             position: Default::default(),
-            asset_name: "ship3_003.glb#Scene3".to_string(),
+            asset_name: "003_SimpleBlock".to_string(),
             block_type: BlockType::Simple,
             behaviour: BlockBehaviour::SittingDuck,
         }
@@ -96,7 +97,7 @@ impl Plugin for BlockPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_plugin(
-                MaterialPlugin::<CustomMaterial>::default(),
+                MaterialPlugin::<BlockMaterial>::default(),
             )
 
             .add_system_set(
@@ -107,8 +108,8 @@ impl Plugin for BlockPlugin {
                     .with_system(block_update_evader)
                     .with_system(block_handle_evader_collisions)
                     .with_system(block_shake.after(SystemLabels::UpdateWorld))
-                // .with_system(block_custom_material)
-                // .with_system(block_update_custom_material)
+                 .with_system(block_custom_material)
+                 .with_system(block_update_custom_material)
             )
 
             .add_system_set(
@@ -142,14 +143,10 @@ fn block_spawn(
                 .remove::<RequestTag>()
 
                 .insert(SceneBundle {
-                    scene: gltf.named_scenes["003_SimpleBlock"].clone(),
+                    scene: gltf.named_scenes[&block.asset_name].clone(),
                     ..default()
                 })
-                /*            .insert(PbrBundle {
-                            mesh: asset_server.load(block.asset_name.as_str()),
-                            ..default()
-                        })*/
-                .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)))
+                     .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)))
                 .insert(Collider::round_cuboid(
                     BLOCK_WIDTH / 2.0 - 2.0 * BLOCK_ROUNDNESS,
                     BLOCK_HEIGHT / 2.0 - 2.0 * BLOCK_ROUNDNESS,
@@ -249,7 +246,7 @@ fn block_spawn(
 
 
 fn block_update_custom_material(
-    mut materials: ResMut<Assets<CustomMaterial>>,
+    mut materials: ResMut<Assets<BlockMaterial>>,
     time: Res<Time>,
 ) {
     for (_, mut mat) in materials.iter_mut() {
@@ -261,13 +258,14 @@ fn block_custom_material(
     mut commands: Commands,
     blocks: Query<(Entity, &Handle<Mesh>, &Name), Without<CustomMaterialApplied>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut custom_materials: ResMut<Assets<CustomMaterial>>,
+    mut custom_materials: ResMut<Assets<BlockMaterial>>,
 ) {
     for (block, handle, name) in &blocks {
         commands.entity(block)
             .insert(CustomMaterialApplied);
 
-        if name.as_ref() != "SimpleBlock" {
+        if name.as_ref() != "SimpleBlock.001" {
+            info!("{}", name.as_ref());
             continue;
         }
 
@@ -293,7 +291,7 @@ fn block_custom_material(
                 );
             }
             let custom_material =
-                custom_materials.add(CustomMaterial {
+                custom_materials.add(BlockMaterial {
                     color1: Color::BLUE,
                     color2: Color::GOLD,
                     time: 0.0,
@@ -306,9 +304,6 @@ fn block_custom_material(
                 .entity(block)
                 .remove::<Handle<StandardMaterial>>();
             commands.entity(block).insert(custom_material);
-            /*            commands
-                            .entity(block)
-                            .remove::<Handle<StandardMaterial>>();*/
         }
     }
 }

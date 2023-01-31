@@ -3,11 +3,13 @@ pub mod state;
 use std::f32::consts::PI;
 use bevy::app::App;
 use bevy::core_pipeline::bloom::BloomSettings;
-use bevy::prelude::{AmbientLight, Camera, Camera3dBundle, Color, Commands, Component, default, DirectionalLight, DirectionalLightBundle, Entity, GamepadButtonType, IntoSystemDescriptor, OrthographicProjection, Plugin, Quat, Query, ResMut, SystemSet, Transform, Vec3, With};
+use bevy::pbr::{MaterialMeshBundle, NotShadowReceiver, PbrBundle, StandardMaterial};
+use bevy::prelude::{AmbientLight, Assets, Camera, Camera3dBundle, Color, Commands, Component, default, DirectionalLight, DirectionalLightBundle, Entity, GamepadButtonType, IntoSystemDescriptor, MaterialPlugin, Mesh, OrthographicProjection, Plugin, Quat, Query, ResMut, shape, SystemSet, Transform, Vec3, With};
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::CameraActions;
 use crate::labels::SystemLabels;
+use crate::materials::background::BackgroundMaterial;
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
 use crate::ui::{Environment3d, tear_down_3d_environment};
@@ -21,6 +23,10 @@ impl Plugin for MatchPlugin {
     fn build(&self, app: &mut App) {
         app
             .insert_resource(MatchState::default())
+
+            .add_plugin(
+                MaterialPlugin::<BackgroundMaterial>::default(),
+            )
 
             .add_system_set(
                 SystemSet::on_enter(GameState::InMatch)
@@ -62,6 +68,8 @@ fn match_despawn(mut commands: Commands, matches: Query<Entity, With<Match>>) {
 
 fn setup_3d_environment(
     mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<BackgroundMaterial>>,
 ) {
     // commands.spawn(Camera2dBundle::default());
     // camera
@@ -75,7 +83,12 @@ fn setup_3d_environment(
 
         ..default()
     })
-        .insert(BloomSettings::default())
+        .insert(BloomSettings {
+            threshold: 1.50,
+            knee: 0.1,
+            scale: 0.5,
+            intensity: 0.1,
+        })
         .insert(InputManagerBundle::<CameraActions> {
             action_state: ActionState::default(),
             input_map: InputMap::default()
@@ -144,6 +157,25 @@ fn setup_3d_environment(
         color: Color::WHITE,
         brightness: 0.4,
     });
+
+
+    // background
+
+    commands
+        .spawn(MaterialMeshBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane{ size: 150.0 })),
+            material: materials.add(BackgroundMaterial {
+                color1: Default::default(),
+                color2: Default::default(),
+                time: 0.0,
+                alpha_mode: Default::default(),
+            }),
+            transform: Transform::from_xyz(0.0, -10.0, 0.0),
+            ..default()
+        })
+        .insert(NotShadowReceiver)
+
+    ;
 }
 
 

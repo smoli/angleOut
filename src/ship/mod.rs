@@ -1,4 +1,6 @@
+use std::os::unix::raw::gid_t;
 use bevy::app::App;
+use bevy::gltf::Gltf;
 use bevy::hierarchy::BuildChildren;
 use bevy::pbr::{AlphaMode, PbrBundle, StandardMaterial};
 use bevy::prelude::{Assets, AssetServer, Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, GamepadButtonType, info, IntoSystemDescriptor, KeyCode, Mesh, Plugin, Quat, Query, Res, ResMut, Resource, shape, SystemSet, Time, Transform, TransformBundle, Vec2, Vec3, With, Without};
@@ -17,6 +19,7 @@ use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, BALL_RADIUS, COLLIDER_GROUP_B
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
+use crate::MyAssetPack;
 use crate::physics::{Collidable, CollidableKind};
 use crate::player::Player;
 use crate::powerups::{Grabber, PowerUpData};
@@ -43,7 +46,7 @@ pub struct Ship {
 impl Default for Ship {
     fn default() -> Self {
         Ship {
-            asset_name: "ship3_003.glb#Scene4".to_string(),
+            asset_name: "004_Ship_3".to_string(),
             target_position: Default::default(),
             target_rotation: 0.0,
             current_rotation: 0.0,
@@ -86,16 +89,20 @@ impl Plugin for ShipPlugin {
     }
 }
 
-pub fn ship_spawn(
+fn ship_spawn(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    my: Res<MyAssetPack>,
+    assets_gltf: Res<Assets<Gltf>>,
     empties: Query<(Entity, &Ship), With<RequestTag>>,
 ) {
+
+    if let Some(gltf) = assets_gltf.get(&my.0) {
+
     for (entity, ship) in &empties {
         commands.entity(entity)
             .remove::<RequestTag>()
             .insert(SceneBundle {
-                scene: asset_server.load(ship.asset_name.as_str()),
+                scene: gltf.named_scenes["004_Ship_3"].clone(),
                 ..default()
             })
             .insert(InputManagerBundle::<MatchActions> {
@@ -117,6 +124,7 @@ pub fn ship_spawn(
                 kind: CollidableKind::Ship
             })
         ;
+    }
     }
 }
 

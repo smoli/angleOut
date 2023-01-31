@@ -52,8 +52,35 @@ fn fragment(
     #import bevy_pbr::mesh_vertex_output
 ) -> @location(0) vec4<f32> {
 
-    let tempo: f32 = 0.5;
+/*    let tempo: f32 = 0.5;
     let x = material.time * tempo;
-    let p: f32 =  sin(f5(x*2.0)) * 0.5 + 0.5;
-    return material.color1 * vec4<f32>(1.0, 1.0, 1.0, p);
+    let p: f32 =  sin(x) * 0.5 + 0.5;
+    return material.color1 * vec4<f32>(1.0, 1.0, 1.0, p);*/
+//
+//    let col = vec3<f32>(1.0, 0.5, 0.5);
+//
+//    return vec4<f32>(col * uv.x, 1.0);
+
+    var col = vec3<f32>(1.0, 0.0, 1.0);
+/*
+    col = col * 0.01 / uv.x
+         + col * 0.01 / (1.0 - uv.x)
+         + col * 0.01 / uv.y
+         + col * 0.01 / (1.0 - uv.y);*/
+
+
+
+    let pix = floor(uv * 5.0);
+
+ let thickness = 0.05;
+     col = col * smoothstep(1.0 - thickness, 1.0, uv.x)
+         + col * smoothstep(1.0 - thickness, 1.0, uv.y)
+         + col * smoothstep(1.0 - thickness, 1.0, 1.0 - uv.x)
+         + col * smoothstep(1.0 - thickness, 1.0, 1.0 - uv.y)
+
+         + mix(col * 0.8, col * 1.0, sin(material.time + pix.x - pix.y) + cos(material.time + pix.x * pix.y));
+
+
+    return vec4<f32>(col, 1.0);
+    //return vec4<f32>(uv, 0.5 + 0.5 * sin(material.time), 1.0) * uv.y;
 }
