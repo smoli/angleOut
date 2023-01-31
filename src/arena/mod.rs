@@ -1,5 +1,5 @@
 use bevy::pbr::NotShadowReceiver;
-use bevy::prelude::{Component, App, AssetServer, Commands, default, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor, Entity, DespawnRecursiveExt, Assets, ResMut, MaterialPlugin, MaterialMeshBundle, shape, Mesh};
+use bevy::prelude::{Component, App, AssetServer, Commands, default, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor, Entity, DespawnRecursiveExt, Assets, ResMut, MaterialPlugin, MaterialMeshBundle, shape, Mesh, Color, AlphaMode};
 use bevy_rapier3d::dynamics::CoefficientCombineRule;
 use bevy_rapier3d::prelude::{Collider, Friction, Restitution, RigidBody};
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, BACKGROUND_LENGTH, BACKGROUND_SPEED, MAX_RESTITUTION};
@@ -82,10 +82,10 @@ fn arena_spawn(
         .spawn(MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(shape::Plane{ size: ARENA_WIDTH_H * 2.0 })),
             material: materials.add(ArenaMaterial {
-                color1: Default::default(),
+                color1: Color::rgb(1.0, 1.0, 0.0),
                 color2: Default::default(),
                 time: 0.0,
-                alpha_mode: Default::default(),
+                alpha_mode: AlphaMode::Blend,
             }),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()

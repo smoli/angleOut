@@ -13,12 +13,12 @@ fn fragment(
     #import bevy_pbr::mesh_vertex_output
 ) -> @location(0) vec4<f32> {
 
-    var col = vec3<f32>(1.0, 0.0, 1.0);
+    var col = vec4<f32>(material.color1.xyz, 1.0);
 
  let thickness = 0.005;
-     col = col * smoothstep(1.0 - thickness, 1.0, uv.x)
-         + col * smoothstep(1.0 - thickness, 1.0, 1.0 - uv.x)
-        ;
-
-    return vec4<f32>(col, 1.0);
+     col = col * (1.0 -  smoothstep(0.0, thickness, uv.x))
+         + col * (1.0 - smoothstep(0.0, thickness, 1.0 - uv.x))
+         ;
+;
+    return col;
 }
