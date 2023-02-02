@@ -265,7 +265,6 @@ fn block_custom_material(
             .insert(CustomMaterialApplied);
 
         if name.as_ref() != "SimpleBlock.001" {
-            info!("{}", name.as_ref());
             continue;
         }
 

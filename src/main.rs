@@ -3,7 +3,7 @@ extern crate core;
 use bevy::app::App;
 use bevy::DefaultPlugins;
 use bevy::gltf::Gltf;
-use bevy::prelude::{AssetServer, ClearColor, Color, Commands, Handle, PluginGroup, Res, Resource, WindowDescriptor, WindowMode};
+use bevy::prelude::{AssetServer, ClearColor, Color, Commands, Handle, Msaa, PluginGroup, Res, Resource, WindowDescriptor, WindowMode};
 use bevy::utils::default;
 use bevy::window::{close_on_esc, MonitorSelection, WindowPlugin, WindowPosition};
 use leafwing_input_manager::prelude::InputManagerPlugin;
@@ -65,6 +65,7 @@ fn main() {
     let mut app = App::new();
 
     // app.insert_resource(Msaa { samples: 4 });
+
 
     app.add_system(load_gltf);
 

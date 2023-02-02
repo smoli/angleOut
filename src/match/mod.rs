@@ -3,6 +3,7 @@ pub mod state;
 use std::f32::consts::PI;
 use bevy::app::App;
 use bevy::core_pipeline::bloom::BloomSettings;
+use bevy::core_pipeline::fxaa::Fxaa;
 use bevy::pbr::{MaterialMeshBundle, NotShadowReceiver, PbrBundle, StandardMaterial};
 use bevy::prelude::{AmbientLight, Assets, Camera, Camera3dBundle, Color, Commands, Component, default, DirectionalLight, DirectionalLightBundle, Entity, GamepadButtonType, IntoSystemDescriptor, MaterialPlugin, Mesh, OrthographicProjection, Plugin, Quat, Query, ResMut, shape, SystemSet, Transform, Vec3, With};
 use leafwing_input_manager::InputManagerBundle;
@@ -99,7 +100,9 @@ fn setup_3d_environment(
                 .insert(GamepadButtonType::DPadRight, CameraActions::Right)
 
                 .build(),
-        }).insert(Environment3d);
+        })
+        .insert(Fxaa::default())
+        .insert(Environment3d);
 
     // Directional Light
     const HALF_SIZE: f32 = 300.0;
@@ -161,9 +164,9 @@ fn setup_3d_environment(
 
     // background
 
-    commands
+    /*commands
         .spawn(MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane{ size: 150.0 })),
+            mesh: meshes.add(Mesh::from(shape::Plane{ size: 400.0 })),
             material: materials.add(BackgroundMaterial {
                 color1: Default::default(),
                 color2: Default::default(),
@@ -174,7 +177,7 @@ fn setup_3d_environment(
             ..default()
         })
         .insert(NotShadowReceiver)
-
+*/
     ;
 }
 

@@ -61,7 +61,7 @@ fn fragment(
 //
 //    return vec4<f32>(col * uv.x, 1.0);
 
-    var col = vec3<f32>(1.0, 0.0, 1.0);
+    var col = vec3<f32>(material.color1.xyz);
 /*
     col = col * 0.01 / uv.x
          + col * 0.01 / (1.0 - uv.x)

@@ -1,11 +1,14 @@
-use bevy::pbr::NotShadowReceiver;
-use bevy::prelude::{Component, App, AssetServer, Commands, default, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor, Entity, DespawnRecursiveExt, Assets, ResMut, MaterialPlugin, MaterialMeshBundle, shape, Mesh, Color, AlphaMode};
+use bevy::log::info;
+use bevy::pbr::{NotShadowReceiver, StandardMaterial};
+use bevy::prelude::{Component, App, AssetServer, Commands, default, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor, Entity, DespawnRecursiveExt, Assets, ResMut, MaterialPlugin, MaterialMeshBundle, shape, Mesh, Color, AlphaMode, SceneBundle, Handle, Without, Name};
 use bevy_rapier3d::dynamics::CoefficientCombineRule;
+use bevy_rapier3d::na::inf;
 use bevy_rapier3d::prelude::{Collider, Friction, Restitution, RigidBody};
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, BACKGROUND_LENGTH, BACKGROUND_SPEED, MAX_RESTITUTION};
 use crate::labels::SystemLabels;
 use crate::materials::arena::ArenaMaterial;
 use crate::materials::background::BackgroundMaterial;
+use crate::materials::CustomMaterialApplied;
 use crate::physics::{Collidable, CollidableKind};
 use crate::state::GameState;
 
@@ -22,7 +25,6 @@ pub struct ArenaPlugin;
 impl Plugin for ArenaPlugin {
     fn build(&self, app: &mut App) {
         app
-
             .add_plugin(
                 MaterialPlugin::<ArenaMaterial>::default(),
             )
@@ -33,6 +35,7 @@ impl Plugin for ArenaPlugin {
             )
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
+                    // .with_system(arena_set_custom_material.label(SystemLabels::UpdateWorld))
                     .with_system(arena_scroll.label(SystemLabels::UpdateWorld))
                     .with_system(arena_update_background_material.label(SystemLabels::UpdateWorld))
             )
@@ -47,12 +50,12 @@ impl Plugin for ArenaPlugin {
 
 fn arena_spawn(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ArenaMaterial>>,
 ) {
-   /* commands
-        .spawn(SceneBundle {
-            scene: asset_server.load("ship3_003.glb#Scene2"),
+   commands
+        .spawn(SceneBundle {            scene: asset_server.load("ship3_003.glb#Scene10"),
             ..default()
         })
         .insert(
@@ -61,11 +64,12 @@ fn arena_spawn(
         .insert(TransformBundle::from(Transform::from_xyz(0.0, -4.0, 0.0)))
         .insert(Scrollable {
             speed: BACKGROUND_SPEED,
-        });
+        })
+       ;
 
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("ship3_003.glb#Scene2"),
+            scene: asset_server.load("ship3_003.glb#Scene10"),
             ..default()
         })
         .insert(
@@ -76,13 +80,13 @@ fn arena_spawn(
             speed: BACKGROUND_SPEED,
         })
     ;
-*/
 
-    commands
+
+/*    commands
         .spawn(MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(shape::Plane{ size: ARENA_WIDTH_H * 2.0 })),
             material: materials.add(ArenaMaterial {
-                color1: Color::rgb(1.0, 1.0, 0.0),
+                color1: Color::rgb(0.0, 1.0, 1.0),
                 color2: Default::default(),
                 time: 0.0,
                 alpha_mode: AlphaMode::Blend,
@@ -91,7 +95,7 @@ fn arena_spawn(
             ..default()
         })
         .insert(NotShadowReceiver)
-        .insert(Arena);
+        .insert(Arena);*/
 
     let wall_thickness = 10.0;
     // Left
@@ -164,6 +168,34 @@ fn arena_despawn(
     for part in &arena_parts {
         commands.entity(part)
             .despawn_recursive();
+    }
+}
+
+fn arena_set_custom_material(
+    mut commands: Commands,
+    arena: Query<(Entity, &Name), Without<CustomMaterialApplied> >,
+    mut materials: ResMut<Assets<ArenaMaterial>>
+) {
+    for (entity, name) in &arena {
+
+        commands.entity(entity)
+            .insert(CustomMaterialApplied);
+
+        info!("Applying Arena Material {}", name.as_ref());
+        if name.as_ref() != "ValleyMesh" {
+            continue;
+        }
+
+        commands.entity(entity)
+            .remove::<Handle<StandardMaterial>>()
+            .insert(materials.add(ArenaMaterial{
+                color1: Default::default(),
+                color2: Default::default(),
+                time: 0.0,
+                alpha_mode: AlphaMode::Blend
+            }))
+        ;
+
     }
 }
 
