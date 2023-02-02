@@ -110,14 +110,18 @@ fn ship_spawn(
                 input_map: InputMap::default()
                     .insert(DualAxis::left_stick(), MatchActions::ArticulateLeft)
                     .insert(DualAxis::right_stick(), MatchActions::ArticulateRight)
+                    .insert(GamepadButtonType::RightTrigger2, MatchActions::ArticulateUp)
+                    .insert(GamepadButtonType::LeftTrigger2, MatchActions::ArticulateDown)
+
+
                     .insert(GamepadButtonType::RightTrigger, MatchActions::SpawnOrLaunchBall)
-                    .insert(GamepadButtonType::RightTrigger2, MatchActions::SpawnOrLaunchBall)
+                    .insert(GamepadButtonType::LeftTrigger, MatchActions::GrabTheBall)
+
                     .insert(KeyCode::Space, MatchActions::SpawnOrLaunchBall)
-                    .insert(GamepadButtonType::LeftTrigger2, MatchActions::GrabTheBall)
                     .build(),
             })
             .insert(TransformBundle::from(Transform::from_xyz(PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z)))
-            .insert(Collider::round_cuboid(PADDLE_WIDTH_H - PADDLE_THICKNESS * 0.15, PADDLE_THICKNESS, PADDLE_THICKNESS * 0.35, PADDLE_THICKNESS * 0.15))
+            .insert(Collider::round_cuboid(PADDLE_WIDTH_H - PADDLE_THICKNESS * 0.15, PADDLE_THICKNESS * 0.25, PADDLE_THICKNESS * 0.35, PADDLE_THICKNESS * 0.15))
             .insert(CollisionGroups::new(COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_BALL | COLLIDER_GROUP_PICKUP))
             .insert(ActiveEvents::COLLISION_EVENTS)
             .insert(Collidable {
@@ -140,7 +144,9 @@ fn ship_despawn(
 
 fn ship_articulate(mut query: Query<(&ActionState<MatchActions>, &mut Ship)>) {
     for (action_state, mut ship) in &mut query {
-        if !action_state.pressed(MatchActions::ArticulateLeft) && !action_state.pressed(MatchActions::ArticulateRight) {
+        if !action_state.pressed(MatchActions::ArticulateLeft) && !action_state.pressed(MatchActions::ArticulateRight)
+           && !action_state.pressed(MatchActions::ArticulateUp) && !action_state.pressed(MatchActions::ArticulateDown)
+        {
             ship.target_position = Vec3::new(PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z);
             ship.target_rotation = PADDLE_RESTING_ROTATION;
             return;
@@ -169,7 +175,15 @@ fn ship_articulate(mut query: Query<(&ActionState<MatchActions>, &mut Ship)>) {
 
         let tz = ARENA_HEIGHT_H - comp.y * PADDLE_LIFT;
 
-        let new_tp = Vec3::new(tx, PADDLE_RESTING_Y, tz);
+
+
+        // Elevation
+        let t_up = action_state.value(MatchActions::ArticulateUp).ceil();
+        let t_down = action_state.value(MatchActions::ArticulateDown).ceil() * -1.0;
+
+        let ty = (t_up + t_down) * 30.0;
+
+        let new_tp = Vec3::new(tx, PADDLE_RESTING_Y + ty, tz);
 
         ship.target_position = new_tp;
     }

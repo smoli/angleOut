@@ -47,7 +47,7 @@ impl Plugin for PhysicsPlugin {
                     .with_system(handle_contact_force_events.before(SystemLabels::UpdateWorld))
                     .with_system(cleanup_collision_tags.after(SystemLabels::UpdateState))
             )
-      //  .add_plugin(RapierDebugRenderPlugin::default())
+       // .add_plugin(RapierDebugRenderPlugin::default())
         ;
     }
 }
