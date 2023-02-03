@@ -4,11 +4,13 @@ use std::f32::consts::PI;
 use bevy::app::App;
 use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::core_pipeline::fxaa::Fxaa;
+use bevy::log::info;
 use bevy::pbr::{MaterialMeshBundle, NotShadowReceiver, PbrBundle, StandardMaterial};
 use bevy::prelude::{AmbientLight, Assets, Camera, Camera3dBundle, Color, Commands, Component, default, DirectionalLight, DirectionalLightBundle, Entity, GamepadButtonType, IntoSystemDescriptor, MaterialPlugin, Mesh, OrthographicProjection, Plugin, Quat, Query, ResMut, shape, SystemSet, Transform, Vec3, With};
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::CameraActions;
+use crate::config::BLOOM_ENABLED;
 use crate::labels::SystemLabels;
 use crate::materials::background::BackgroundMaterial;
 use crate::r#match::state::MatchState;
@@ -62,6 +64,7 @@ fn match_spawn(
 
 fn match_despawn(mut commands: Commands, matches: Query<Entity, With<Match>>) {
     for the_match in &matches {
+        info!("Despawn match {:?}", the_match);
         commands.entity(the_match).despawn();
     }
 }
@@ -78,7 +81,7 @@ fn setup_3d_environment(
         transform: Transform::from_xyz(0.0, 200.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y),
         // transform: Transform::from_xyz(0.0, 0.0, -100.00001).looking_at(Vec3::ZERO, Vec3::Y),
         camera: Camera {
-            hdr: true,
+            hdr: BLOOM_ENABLED,
             ..default()
         },
 

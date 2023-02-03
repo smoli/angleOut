@@ -9,6 +9,7 @@ use crate::state::GameState;
 
 #[allow(unused_imports)]
 use bevy_rapier3d::render::RapierDebugRenderPlugin;
+use crate::config::{BLOOM_ENABLED, DEBUG_INFO_ENABLED, DEBUG_PHYSICS_ENABLED};
 
 
 #[derive(Clone, Debug, PartialEq)]
@@ -46,8 +47,12 @@ impl Plugin for PhysicsPlugin {
                     .with_system(handle_collision_events.before(SystemLabels::UpdateWorld))
                     .with_system(handle_contact_force_events.before(SystemLabels::UpdateWorld))
                     .with_system(cleanup_collision_tags.after(SystemLabels::UpdateState))
-            )
-       // .add_plugin(RapierDebugRenderPlugin::default())
+            );
+
+
+        if DEBUG_PHYSICS_ENABLED && !BLOOM_ENABLED {
+            app.add_plugin(RapierDebugRenderPlugin::default());
+        }
         ;
     }
 }

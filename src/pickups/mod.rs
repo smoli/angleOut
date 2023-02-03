@@ -1,5 +1,6 @@
 use bevy::app::{App, Plugin};
 use bevy::gltf::Gltf;
+use bevy::log::info;
 use bevy::prelude::{Assets, Commands, Component, DespawnRecursiveExt, Entity, EventReader, EventWriter, IntoSystemDescriptor, Query, Res, ResMut, SystemSet, Time, Transform, TransformBundle, Vec3, With};
 use bevy::scene::SceneBundle;
 use bevy::utils::default;
@@ -91,6 +92,7 @@ fn pickup_despawn_all(
     pickups: Query<Entity, With<Pickup>>,
 ) {
     for p in &pickups {
+        info!("Despan pickup {:?}", p);
         commands.entity(p)
             .despawn_recursive();
     }
@@ -160,6 +162,7 @@ fn pickup_handle_collisions(
             _ => {}
         }
 
+        info!("Despanw pickup regardless {:?}", entity);
         commands.entity(entity)
             .despawn_recursive();
     }

@@ -137,6 +137,7 @@ fn ship_despawn(
     ships: Query<Entity, With<Ship>>,
 ) {
     for ship in &ships {
+        info!("Despawn ship {:?}", ship);
         commands.entity(ship)
             .despawn_recursive();
     }

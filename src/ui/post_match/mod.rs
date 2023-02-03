@@ -45,6 +45,7 @@ fn ui_despawn(
     ui: Query<Entity, With<UITag>>
 ) {
     for ui in &ui {
+        info!("Despawn post match ui {:?}", ui);
         commands.entity(ui)
             .despawn_recursive();
     }

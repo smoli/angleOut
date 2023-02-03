@@ -159,6 +159,7 @@ fn particles_despawn_all(
     effects: Query<Entity, With<ImpactEffect>>
 ) {
     for effect in &effects {
+        info!("Despawn particle effect");
         commands.entity(effect)
             .despawn_recursive();
     }

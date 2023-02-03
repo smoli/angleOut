@@ -3,12 +3,14 @@ use std::time::Duration;
 use bevy::utils::default;
 use bevy::app::App;
 use bevy::asset::{Assets, Handle};
-use bevy::gltf::Gltf;
+use bevy::gltf::{Gltf, GltfMesh};
+use bevy::hierarchy::BuildChildren;
 use bevy::log::info;
 use bevy::math::Vec2;
-use bevy::pbr::AlphaMode;
-use bevy::prelude::{Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, MaterialPlugin, Mesh, Name, Plugin, Query, Res, ResMut, SceneBundle, StandardMaterial, SystemSet, Time, Timer, TimerMode, Transform, TransformBundle, Vec3, Visibility, With, Without};
+use bevy::pbr::{AlphaMode, MaterialMeshBundle};
+use bevy::prelude::{Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, MaterialPlugin, Mesh, Name, Plugin, Query, Res, ResMut, Scene, SceneBundle, StandardMaterial, SystemSet, Time, Timer, TimerMode, Transform, TransformBundle, Vec3, Visibility, With, Without};
 use bevy::render::mesh::VertexAttributeValues;
+use bevy::scene::{SceneInstance, SceneSpawner};
 use bevy::time::FixedTimestep;
 use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, ExternalForce, Friction, LockedAxes, Restitution, RigidBody, Sensor};
 use crate::ball::Ball;
@@ -146,7 +148,9 @@ fn block_spawn(
                     scene: gltf.named_scenes[&block.asset_name].clone(),
                     ..default()
                 })
-                     .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)))
+
+
+                .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)))
                 .insert(Collider::round_cuboid(
                     BLOCK_WIDTH / 2.0 - 2.0 * BLOCK_ROUNDNESS,
                     BLOCK_HEIGHT / 2.0 - 2.0 * BLOCK_ROUNDNESS,
@@ -312,6 +316,7 @@ fn block_despawn(
     blocks: Query<Entity, With<Block>>,
 ) {
     for block in &blocks {
+        info!("Despawn block {:?}", block);
         commands.entity(block)
             .despawn_recursive();
     }
@@ -319,17 +324,19 @@ fn block_despawn(
 
 fn block_handle_collisions(
     mut commands: Commands,
-    mut blocks: Query<(Entity, &CollisionTag, &mut Hittable, &Block, &Transform)>,
+    mut blocks: Query<(Entity, &Handle<Scene>, &CollisionTag, &mut Hittable, &Block, &Transform)>,
+    mut scenes: Query<(Entity, &SceneInstance)>,
     mut events: EventWriter<MatchEvent>,
     my: Res<MyAssetPack>,
-    assets_gltf: Res<Assets<Gltf>>,
+    assets_gltf: Res<Assets<Gltf>>
 ) {
-    for (entity, collision, mut hittable, block, trans) in &mut blocks {
+    for (entity, scene_handle, collision, mut hittable, block, trans) in &mut blocks {
         match collision.other {
             CollidableKind::Ball => {
                 hittable.hit_points -= 1;
 
                 if hittable.hit_points == 0 {
+                    info!("despawn block after hit {:?}", entity);
                     commands.entity(entity)
                         .despawn_recursive();
                     events.send(MatchEvent::TargetHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
@@ -344,12 +351,10 @@ fn block_handle_collisions(
 
                         let mut new_trans: Transform = trans.clone();
 
+
                         commands.entity(entity)
-                            .remove::<SceneBundle>()
-                            .insert(SceneBundle {
-                                scene: gltf.named_scenes[scene_name].clone(),
-                                ..default()
-                            })
+                            .insert( gltf.named_scenes[scene_name].clone())
+
                             .insert(TransformBundle::from_transform(new_trans))
                             .insert(Shaking {
                                 timer: Timer::from_seconds(Duration::from_millis(200).as_secs_f32(), TimerMode::Once),
@@ -378,6 +383,7 @@ fn block_handle_evader_collisions(
             }
 
             CollidableKind::DeathTrigger => {
+                info!("Despawn block after losing it {:?}", block);
                 commands.entity(block)
                     .despawn_recursive();
                 events.send(MatchEvent::BlockLost);

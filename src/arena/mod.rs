@@ -97,7 +97,7 @@ fn arena_spawn(
         .insert(NotShadowReceiver)
         .insert(Arena);*/
 
-    let wall_thickness = 10.0;
+    let wall_thickness = 100.0;
     // Left
     commands.spawn(Collider::cuboid(wall_thickness, 60.0, 200.0))
         .insert(TransformBundle::from(Transform::from_xyz(-ARENA_WIDTH_H - wall_thickness, 0.0, 0.0)))
@@ -166,6 +166,7 @@ fn arena_despawn(
     arena_parts: Query<Entity, With<Arena>>
 ) {
     for part in &arena_parts {
+        info!("Despawn arena");
         commands.entity(part)
             .despawn_recursive();
     }

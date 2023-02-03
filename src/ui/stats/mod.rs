@@ -1,11 +1,13 @@
 use bevy::app::App;
 use bevy::hierarchy::DespawnRecursiveExt;
+use bevy::log::info;
 use bevy::prelude::{AssetServer, BuildChildren, Commands, Component, Entity, NodeBundle, Plugin, Query, Res, Style, SystemSet, Text, TextBundle, With, Without};
 use bevy::text::{TextSection, TextStyle};
 use bevy::ui::{AlignItems, Display, FlexDirection};
 use bevy::utils::default;
 use bevy_rapier3d::prelude::Velocity;
 use crate::ball::Ball;
+use crate::config::DEBUG_INFO_ENABLED;
 
 use crate::player::Player;
 use crate::r#match::state::MatchState;
@@ -28,7 +30,8 @@ enum UIInfoTag {
     BallsInPLay,
     BallsGrabbed,
     BallsLost,
-    BallSpeed
+    BallSpeed,
+    BallSpeedZ
 }
 
 
@@ -60,6 +63,7 @@ fn ui_despawn(
     ui: Query<Entity, With<UIInfoTag>>
 ) {
     for ui in &ui {
+        info!("Despawn stats ui {:?}", ui);
         commands.entity(ui)
             .despawn_recursive();
     }
@@ -89,6 +93,12 @@ fn ui_update_infos(
             UIInfoTag::BallSpeed => {
                 match balls.get_single() {
                     Ok(velo) => text.sections[1].value = format!("{}", velo.linvel.length()),
+                    Err(_) => text.sections[1].value = format!("No Ball")
+                }
+            }
+            UIInfoTag::BallSpeedZ => {
+                match balls.get_single() {
+                    Ok(velo) => text.sections[1].value = format!("{}", velo.linvel.z),
                     Err(_) => text.sections[1].value = format!("No Ball")
                 }
             }
@@ -127,6 +137,24 @@ fn ui_spawn(
                     ),
                     TextSection::from_style(style.clone())
                 ])).insert(UIInfoTag::Points);
+
+            parent
+                .spawn(TextBundle::from_sections([
+                    TextSection::new(
+                        "Combos: ", style.clone(),
+                    ),
+                    TextSection::from_style(style.clone())
+                ])).insert(UIInfoTag::Combos);
+
+            parent
+                .spawn(TextBundle::from_sections([
+                    TextSection::new(
+                        "Balls: ", style.clone(),
+                    ),
+                    TextSection::from_style(style.clone())
+                ])).insert(UIInfoTag::Balls);
+
+            if DEBUG_INFO_ENABLED {
             parent
                 .spawn(TextBundle::from_sections([
                     TextSection::new(
@@ -151,21 +179,8 @@ fn ui_spawn(
                     TextSection::from_style(style.clone())
                 ])).insert(UIInfoTag::WallHits);
 
-            parent
-                .spawn(TextBundle::from_sections([
-                    TextSection::new(
-                        "Combos: ", style.clone(),
-                    ),
-                    TextSection::from_style(style.clone())
-                ])).insert(UIInfoTag::Combos);
 
-            parent
-                .spawn(TextBundle::from_sections([
-                    TextSection::new(
-                        "Balls: ", style.clone(),
-                    ),
-                    TextSection::from_style(style.clone())
-                ])).insert(UIInfoTag::Balls);
+
 
             parent
                 .spawn(TextBundle::from_sections([
@@ -215,6 +230,14 @@ fn ui_spawn(
                     TextSection::from_style(style.clone())
                 ])).insert(UIInfoTag::BallSpeed);
 
+            parent
+                .spawn(TextBundle::from_sections([
+                    TextSection::new(
+                        "Ball Z: ", style.clone(),
+                    ),
+                    TextSection::from_style(style.clone())
+                ])).insert(UIInfoTag::BallSpeedZ);
+            }
         })
         .insert(UITag);
 

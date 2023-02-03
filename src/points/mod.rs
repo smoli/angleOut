@@ -114,6 +114,7 @@ fn points_update(
         fuse.timer.tick(time.delta());
 
         if fuse.timer.finished() {
+            info!("Despawn points display {:?}", points);
             commands.entity(points)
                 .despawn_recursive();
         } else {

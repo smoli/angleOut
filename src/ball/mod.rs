@@ -45,7 +45,7 @@ impl Plugin for BallPlugin {
                     .with_system(ball_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(ball_spin.label(SystemLabels::UpdateWorld))
                     .with_system(ball_update_inactive.label(SystemLabels::UpdateWorld))
-                    // .with_system(ball_correct_too_low_z.label(SystemLabels::UpdateWorld))
+                    .with_system(ball_correct_too_low_z.label(SystemLabels::UpdateWorld))
                     .with_system(ball_handle_collisions.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
             )
@@ -120,6 +120,7 @@ fn ball_despawn(
     balls: Query<Entity, With<Ball>>
 ) {
     for ball in &balls {
+        info!("despawn ball {:?}", ball);
         commands.entity(ball)
             .despawn_recursive();
     }
@@ -213,10 +214,10 @@ fn ball_correct_too_low_z(mut query: Query<&mut Velocity, With<ActiveBall>>) {
     for mut velo in &mut query {
         let v = velo.linvel.length();
 
-        if velo.linvel.z.abs() < 1.0 {
+        if velo.linvel.z.abs() < 30.0 {
             info!("Correcting Z velocity for more fun!");
 
-            velo.linvel.z = 3.0 * velo.linvel.z.signum();
+            velo.linvel.z = 35.0 * velo.linvel.z.signum();
 
             velo.linvel = velo.linvel.normalize() * v;
         }
@@ -255,6 +256,7 @@ fn ball_handle_collisions(
             CollidableKind::DeathTrigger => {
                 events.send(MatchEvent::BallLost);
 
+                info!("Despanw ball after losing it {:?}", ball);
                 commands.entity(ball)
                     .despawn_recursive();
             }
