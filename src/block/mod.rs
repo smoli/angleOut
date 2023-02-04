@@ -2,8 +2,8 @@ use std::f32::consts::TAU;
 use std::time::Duration;
 use bevy::utils::default;
 use bevy::app::App;
-use bevy::asset::{Assets, Handle};
-use bevy::gltf::{Gltf, GltfMesh};
+use bevy::asset::{Assets, AssetServer, Handle};
+use bevy::gltf::{Gltf, GltfMesh, GltfPrimitive};
 use bevy::hierarchy::BuildChildren;
 use bevy::log::info;
 use bevy::math::Vec2;
@@ -73,11 +73,13 @@ pub struct Block {
     pub asset_name: String,
     pub block_type: BlockType,
     pub behaviour: BlockBehaviour,
+    pub material: Option<Handle<BlockMaterial>>,
 }
 
 #[derive(Component, Debug)]
 pub struct Hittable {
     pub hit_points: u8,
+    pub original_hit_points: u8,
 }
 
 
@@ -88,6 +90,7 @@ impl Default for Block {
             asset_name: "003_SimpleBlock".to_string(),
             block_type: BlockType::Simple,
             behaviour: BlockBehaviour::SittingDuck,
+            material: None,
         }
     }
 }
@@ -110,8 +113,7 @@ impl Plugin for BlockPlugin {
                     .with_system(block_update_evader)
                     .with_system(block_handle_evader_collisions)
                     .with_system(block_shake.after(SystemLabels::UpdateWorld))
-                 .with_system(block_custom_material)
-                 .with_system(block_update_custom_material)
+                    .with_system(block_update_custom_material)
             )
 
             .add_system_set(
@@ -135,26 +137,45 @@ fn block_spawn(
     mut commands: Commands,
     my: Res<MyAssetPack>,
     empties: Query<(Entity, &Block), With<RequestTag>>,
+    asset_server: Res<AssetServer>,
     assets_gltf: Res<Assets<Gltf>>,
+    assets_gltf_meshes: Res<Assets<GltfMesh>>,
+    mut custom_materials: ResMut<Assets<BlockMaterial>>,
 ) {
     if let Some(gltf) = assets_gltf.get(&my.0) {
+        let mesh =
+            &assets_gltf_meshes.get(&gltf.named_meshes["SimpleBlock.001"]).unwrap()
+                .primitives.get(0).unwrap().mesh;
+
+
         for (entity, block) in &empties {
             let mut block_commands = commands.entity(entity);
+
+            let custom_material =
+                custom_materials.add(BlockMaterial {
+                    color1: Color::BLUE,
+                    color2: Color::GOLD,
+                    time: 0.0,
+                    damage: 0.0,
+                    color_texture: Some(asset_server.load("999_Wreckage_Diffuse.png")),
+                    alpha_mode: AlphaMode::Blend,
+                });
+
 
             block_commands
                 .remove::<RequestTag>()
 
-                .insert(SceneBundle {
-                    scene: gltf.named_scenes[&block.asset_name].clone(),
+                .insert(MaterialMeshBundle {
+                    mesh: mesh.clone(),
+                    material: custom_material,
                     ..default()
                 })
 
 
-                .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)))
+                .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)
+                    .with_scale(Vec3::new(BLOCK_WIDTH_H, BLOCK_HEIGHT / 4.0, BLOCK_DEPTH / 2.0))))
                 .insert(Collider::round_cuboid(
-                    BLOCK_WIDTH / 2.0 - 2.0 * BLOCK_ROUNDNESS,
-                    BLOCK_HEIGHT / 2.0 - 2.0 * BLOCK_ROUNDNESS,
-                    BLOCK_DEPTH / 2.0 - 2.0 * BLOCK_ROUNDNESS,
+                    1.0, 1.0, 1.0,
                     BLOCK_ROUNDNESS,
                 ))
 
@@ -229,18 +250,21 @@ fn block_spawn(
                 BlockType::Simple => {
                     block_commands.insert(Hittable {
                         hit_points: 1,
+                        original_hit_points: 1,
                     });
                 }
 
                 BlockType::Hardling => {
                     block_commands.insert(Hittable {
                         hit_points: 2,
+                        original_hit_points: 2,
                     });
                 }
 
                 BlockType::Concrete => {
                     block_commands.insert(Hittable {
                         hit_points: 3,
+                        original_hit_points: 3,
                     });
                 }
             }
@@ -250,66 +274,16 @@ fn block_spawn(
 
 
 fn block_update_custom_material(
+    hittables: Query<(&Hittable, &Handle<BlockMaterial>)>,
     mut materials: ResMut<Assets<BlockMaterial>>,
-    time: Res<Time>,
 ) {
-    for (_, mut mat) in materials.iter_mut() {
-        mat.time = time.elapsed_seconds();
-    }
+    for (hittable, block) in &hittables {
+        if let Some(mut mat) = materials.get_mut(&block) {
+            mat.damage = (hittable.original_hit_points - hittable.hit_points) as f32;
+        }
+    };
 }
 
-fn block_custom_material(
-    mut commands: Commands,
-    blocks: Query<(Entity, &Handle<Mesh>, &Name), Without<CustomMaterialApplied>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut custom_materials: ResMut<Assets<BlockMaterial>>,
-) {
-    for (block, handle, name) in &blocks {
-        commands.entity(block)
-            .insert(CustomMaterialApplied);
-
-        if name.as_ref() != "SimpleBlock.001" {
-            continue;
-        }
-
-        if let Some(mesh) = meshes.get_mut(handle) {
-            if let Some(VertexAttributeValues::Float32x3(
-                            positions,
-                        )) = mesh.attribute(Mesh::ATTRIBUTE_POSITION)
-            {
-                let colors: Vec<[f32; 4]> = positions
-                    .iter()
-                    .map(|[r, g, b]| {
-                        [
-                            (1. - *r) / 2.,
-                            (1. - *g) / 2.,
-                            (1. - *b) / 2.,
-                            1.,
-                        ]
-                    })
-                    .collect();
-                mesh.insert_attribute(
-                    Mesh::ATTRIBUTE_COLOR,
-                    colors,
-                );
-            }
-            let custom_material =
-                custom_materials.add(BlockMaterial {
-                    color1: Color::BLUE,
-                    color2: Color::GOLD,
-                    time: 0.0,
-                    /*                   color_texture: None,*/
-                    alpha_mode: AlphaMode::Blend,
-                });
-
-
-            commands
-                .entity(block)
-                .remove::<Handle<StandardMaterial>>();
-            commands.entity(block).insert(custom_material);
-        }
-    }
-}
 
 fn block_despawn(
     mut commands: Commands,
@@ -324,13 +298,10 @@ fn block_despawn(
 
 fn block_handle_collisions(
     mut commands: Commands,
-    mut blocks: Query<(Entity, &Handle<Scene>, &CollisionTag, &mut Hittable, &Block, &Transform)>,
-    mut scenes: Query<(Entity, &SceneInstance)>,
+    mut blocks: Query<(Entity, &CollisionTag, &mut Hittable, &Block, &Transform)>,
     mut events: EventWriter<MatchEvent>,
-    my: Res<MyAssetPack>,
-    assets_gltf: Res<Assets<Gltf>>
 ) {
-    for (entity, scene_handle, collision, mut hittable, block, trans) in &mut blocks {
+    for (entity, collision, mut hittable, block, trans) in &mut blocks {
         match collision.other {
             CollidableKind::Ball => {
                 hittable.hit_points -= 1;
@@ -341,27 +312,12 @@ fn block_handle_collisions(
                         .despawn_recursive();
                     events.send(MatchEvent::TargetHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
                 } else {
-                    if let Some(gltf) = assets_gltf.get(&my.0) {
-                        let scene_name = match hittable.hit_points {
-                            2 => "006_Block_CrackedOnce",
-                            1 => "007_Block_CrackedTwice",
-
-                            _ => "003_SimpleBlock"
-                        };
-
-                        let mut new_trans: Transform = trans.clone();
-
-
-                        commands.entity(entity)
-                            .insert( gltf.named_scenes[scene_name].clone())
-
-                            .insert(TransformBundle::from_transform(new_trans))
-                            .insert(Shaking {
-                                timer: Timer::from_seconds(Duration::from_millis(200).as_secs_f32(), TimerMode::Once),
-                                original_position: trans.translation.clone(),
-                                direction: if let Some(v) = collision.other_velocity { v.normalize() } else { Vec3::NEG_Z }
-                            });
-                    }
+                    commands.entity(entity)
+                        .insert(Shaking {
+                            timer: Timer::from_seconds(Duration::from_millis(200).as_secs_f32(), TimerMode::Once),
+                            original_position: trans.translation.clone(),
+                            direction: if let Some(v) = collision.other_velocity { v.normalize() } else { Vec3::NEG_Z },
+                        });
                     info!("still alive")
                 }
             }

@@ -32,15 +32,16 @@ fn voronoise( p: vec2<f32>, u: f32, v: f32 ) -> f32
 struct CustomMaterial {
     color1: vec4<f32>,
     color2: vec4<f32>,
+    damage: f32,
     time: f32
 };
 
 @group(1) @binding(0)
 var<uniform> material: CustomMaterial;
-/*@group(1) @binding(1)
-var base_color_texture: texture_2d<f32>;
+@group(1) @binding(1)
+var color_texture: texture_2d<f32>;
 @group(1) @binding(2)
-var base_color_sampler: sampler;*/
+var color_sampler: sampler;
 
 
 fn f5(x: f32) -> f32 {
@@ -81,6 +82,18 @@ fn fragment(
          + mix(col * 0.8, col * 1.0, sin(material.time + pix.x - pix.y) + cos(material.time + pix.x * pix.y));
 
 
-    return vec4<f32>(col, 1.0);
+
+
+//    return vec4<f32>(col, 1.0);
+
+    let damage = material.damage;
+
+    if (damage == 0.0) {
+        return material.color1;
+    } else {
+        let s = textureSample(color_texture, color_sampler, uv / (10.0 / damage));
+
+        return  vec4<f32>(material.color1.xyz, s.x);
+    }
     //return vec4<f32>(uv, 0.5 + 0.5 * sin(material.time), 1.0) * uv.y;
 }

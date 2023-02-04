@@ -1,3 +1,4 @@
+use bevy::asset::Handle;
 use bevy::pbr::{AlphaMode, Material};
 use bevy::render::render_resource::{AsBindGroup, AsBindGroupShaderType, ShaderRef, ShaderType};
 use bevy::reflect::TypeUuid;
@@ -13,12 +14,13 @@ use bevy::render::render_asset::RenderAssets;
 pub struct BlockMaterial {
     pub color1: Color,
     pub color2: Color,
+    pub damage: f32,
     pub time: f32,
 
-/*    #[texture(2)]
-    #[sampler(3)]
+    #[texture(1)]
+    #[sampler(2)]
     pub color_texture: Option<Handle<Image>>,
-*/
+
     pub alpha_mode: AlphaMode,
 }
 
@@ -26,6 +28,7 @@ pub struct BlockMaterial {
 pub struct BlockMaterialUniform {
     pub color1: Vec4,
     pub color2: Vec4,
+    pub damage: f32,
     pub time: f32
 
 }
@@ -36,6 +39,7 @@ impl AsBindGroupShaderType<BlockMaterialUniform> for BlockMaterial {
         BlockMaterialUniform {
             color1: self.color1.as_linear_rgba_f32().into(),
             color2: self.color2.as_linear_rgba_f32().into(),
+            damage: self.damage,
             time: self.time
         }
     }

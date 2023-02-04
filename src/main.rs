@@ -47,6 +47,14 @@ mod particles;
 mod powerups;
 mod pickups;
 
+const LEVEL1: &str = "AA AA AA AA AA AA AA
+ AA AA AA AA AA AA AA
+ AA AA AA AA AA AA AA
+ AA AA AA AA AA AA AA
+ AA AA AA AA AA AA AA
+ AA AA AA AA AA AA AA";
+
+
 const DEMO_MOVING: &str = "AA AA AA AA AA AA AA
  AA .. .. AE .. .. AA
  AA AG .. .. .. AH AA
@@ -97,6 +105,15 @@ fn main() {
 
 
     let levelDefinitions: Vec<LevelDefinition> = vec![
+
+        LevelDefinition {
+            simultaneous_balls: 1,
+            targets: TargetLayout::SparseGrid(DEMO_MOVING.to_string(), BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+            ..default()
+        },
+
         LevelDefinition {
             simultaneous_balls: 1,
             targets: TargetLayout::SparseGrid(DEMO_MOVING.to_string(), BLOCK_GAP),
