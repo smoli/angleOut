@@ -94,7 +94,7 @@ fn match_event_handler(
                 info!("Ball Lost");
                 player.ball_lost();
                 match_state.ball_lost();
-                if player.balls_available == 0 && match_state.blocks > 0 {
+                if player.balls_available == 0 && match_state.blocks > 0 && player.balls_in_play == 0 {
                     game_flow.send(GameFlowEvent::PlayerLooses);
                 }
             }
