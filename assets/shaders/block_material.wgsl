@@ -1,3 +1,13 @@
+#import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::mesh_bindings
+
+#import bevy_pbr::pbr_types
+#import bevy_pbr::utils
+#import bevy_pbr::clustered_forward
+#import bevy_pbr::lighting
+#import bevy_pbr::shadows
+#import bevy_pbr::pbr_functions
+
 fn hash3( p: vec2<f32> ) -> vec3<f32>
 {
     let q: vec3<f32> = vec3( dot(p,vec2(127.1,311.7)),
@@ -48,9 +58,16 @@ fn f5(x: f32) -> f32 {
     return floor(x * 2.0) * 0.25;
 }
 
+
+struct FragmentInput {
+    @builtin(front_facing) is_front: bool,
+    @builtin(position) frag_coord: vec4<f32>,
+    #import bevy_pbr::mesh_vertex_output
+};
+
 @fragment
 fn fragment(
-    #import bevy_pbr::mesh_vertex_output
+    in: FragmentInput
 ) -> @location(0) vec4<f32> {
 
 /*    let tempo: f32 = 0.5;
@@ -70,6 +87,7 @@ fn fragment(
          + col * 0.01 / (1.0 - uv.y);*/
 
 
+/*
 
     let pix = floor(uv * 5.0);
 
@@ -82,18 +100,45 @@ fn fragment(
          + mix(col * 0.8, col * 1.0, sin(material.time + pix.x - pix.y) + cos(material.time + pix.x * pix.y));
 
 
+*/
 
 
 //    return vec4<f32>(col, 1.0);
 
     let damage = material.damage;
+    var color: vec4<f32>;
 
     if (damage == 0.0) {
-        return material.color1;
+        color =  material.color1;
     } else {
-        let s = textureSample(color_texture, color_sampler, uv / (10.0 / damage));
+        let s = textureSample(color_texture, color_sampler, in.uv / (10.0 / damage));
 
-        return  vec4<f32>(material.color1.xyz, s.x);
+        color = vec4<f32>(material.color1.xyz, s.x);
     }
-    //return vec4<f32>(uv, 0.5 + 0.5 * sin(material.time), 1.0) * uv.y;
+
+
+        var pbr_input: PbrInput;
+
+        pbr_input.material.base_color = vec4<f32>(color);
+
+        pbr_input.material.reflectance = 1.0;
+        pbr_input.material.alpha_cutoff = 0.0;
+        pbr_input.material.flags = 4u;
+        pbr_input.material.emissive = vec4<f32>(0.0,0.0,0.0,1.0);
+        pbr_input.material.metallic = 1.0;
+        pbr_input.material.perceptual_roughness = 0.0;
+
+        pbr_input.occlusion = 1.0;
+        pbr_input.frag_coord = in.frag_coord;
+        pbr_input.world_position = in.world_position;
+        pbr_input.world_normal = in.world_normal;
+
+        pbr_input.is_orthographic = view.projection[3].w == 1.0;
+
+        pbr_input.N = prepare_world_normal(in.world_normal, false, in.is_front);
+        pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
+
+        let output_color = pbr(pbr_input);
+
+        return tone_mapping(pbr(pbr_input));
 }
