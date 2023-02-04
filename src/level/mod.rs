@@ -28,7 +28,6 @@ pub enum TargetLayout {
 }
 
 
-#[derive(Resource)]
 pub struct LevelDefinition {
     pub simultaneous_balls: i32,
     pub targets: TargetLayout,
@@ -37,6 +36,23 @@ pub struct LevelDefinition {
     pub distributed_global_pickups: HashMap<usize, PickupType>,
 }
 
+
+#[derive(Resource)]
+pub struct Levels {
+    pub definitions: Vec<LevelDefinition>,
+    pub current_level: usize
+}
+
+
+impl Levels {
+    pub fn get_current_level(&self) -> Option<&LevelDefinition> {
+        self.definitions.get(self.current_level)
+    }
+
+    pub fn get_current_level_mut(&mut self) -> Option<&mut LevelDefinition> {
+        self.definitions.get_mut(self.current_level)
+    }
+}
 
 impl Default for LevelDefinition {
     fn default() -> Self {
@@ -155,12 +171,14 @@ fn make_grid_from_string_layout(
 
 fn level_spawn(
     mut stats: ResMut<MatchState>,
-    mut level: ResMut<LevelDefinition>,
+    mut levels: ResMut<Levels>,
     mut commands: Commands) {
     commands
         .spawn(Ship::default())
         .insert(RequestTag);
 
+
+    let mut level = levels.get_current_level_mut().unwrap();
 
     let count = match &level.targets {
         FilledGrid(cols, rows, block_type, behaviour, gap) => {

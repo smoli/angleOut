@@ -10,7 +10,7 @@ use bevy_rapier3d::prelude::{ActiveEvents, Collider, CollisionGroups, RigidBody}
 use crate::config::{COLLIDER_GROUP_DEATH, COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_PICKUP, PICKUP_GENERIC_SCENE, PICKUP_SPEED};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
-use crate::level::{LevelDefinition, RequestTag};
+use crate::level::{LevelDefinition, Levels, RequestTag};
 use crate::MyAssetPack;
 use crate::physics::{Collidable, CollidableKind, CollisionTag};
 use crate::r#match::state::MatchState;
@@ -62,9 +62,11 @@ fn pickup_spawn_globals_on_event(
     mut commands: Commands,
     mut events: EventReader<MatchEvent>,
     mut match_state: ResMut<MatchState>,
-    mut level: ResMut<LevelDefinition>,
+    mut levels: ResMut<Levels>,
 ) {
   //  let (player_entity, mut player, mut bouncer) = players.get_single_mut().unwrap();
+
+    let level = levels.get_current_level().unwrap();
 
     for ev in events.iter() {
         match ev {

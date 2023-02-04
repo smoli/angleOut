@@ -15,7 +15,7 @@ use crate::block::BlockPlugin;
 use crate::config::{BLOCK_GAP, SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::events::EventsPlugin;
 use crate::game::GamePlugin;
-use crate::level::{LevelDefinition, LevelPlugin, TargetLayout};
+use crate::level::{LevelDefinition, LevelPlugin, Levels, TargetLayout};
 use crate::particles::ParticlePlugin;
 use crate::physics::PhysicsPlugin;
 use crate::pickups::{PickupsPlugin, PickupType};
@@ -95,7 +95,25 @@ fn main() {
 
     app.add_system(close_on_esc);
 
-    app.insert_resource(LevelDefinition {
+
+    let levelDefinitions: Vec<LevelDefinition> = vec![
+        LevelDefinition {
+            simultaneous_balls: 1,
+            targets: TargetLayout::SparseGrid(DEMO_MOVING.to_string(), BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+            ..default()
+        }
+    ];
+
+
+    app.insert_resource(Levels {
+        definitions: levelDefinitions,
+        current_level: 0,
+    });
+
+
+   /* app.insert_resource(LevelDefinition {
         simultaneous_balls: 1,
         // targets: TargetLayout::FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
         targets: TargetLayout::SparseGrid(DEMO_MOVING.to_string(), BLOCK_GAP),
@@ -103,7 +121,7 @@ fn main() {
         global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
         ..default()
     });
-
+*/
     app.run();
 }
 

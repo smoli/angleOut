@@ -4,7 +4,7 @@ use bevy::prelude::{Commands, Entity, EventReader, EventWriter, IntoSystemDescri
 use crate::ball::Ball;
 use crate::block::{BlockBehaviour, BlockType};
 use crate::labels::SystemLabels;
-use crate::level::{LevelDefinition, RequestTag};
+use crate::level::{LevelDefinition, Levels, RequestTag};
 use crate::pickups::{Pickup, PickupType};
 use crate::player::{Player, PlayerState};
 use crate::points::{PointsDisplay, PointsDisplayRequest};
@@ -62,10 +62,12 @@ fn match_event_handler(
     mut events: EventReader<MatchEvent>,
     mut match_state: ResMut<MatchState>,
     mut players: Query<(Entity, &mut Player, &mut Bouncer)>,
-    mut level: ResMut<LevelDefinition>,
+    mut levels: ResMut<Levels>,
     mut game_flow: EventWriter<GameFlowEvent>,
 ) {
     let (player_entity, mut player, mut bouncer) = players.get_single_mut().unwrap();
+
+    let mut level = levels.get_current_level().unwrap();
 
     for ev in events.iter() {
         match ev {
