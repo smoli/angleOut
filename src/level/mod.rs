@@ -52,6 +52,16 @@ impl Levels {
     pub fn get_current_level_mut(&mut self) -> Option<&mut LevelDefinition> {
         self.definitions.get_mut(self.current_level)
     }
+
+    pub fn next_level(&mut self) -> bool {
+        if self.current_level < self.definitions.len() - 1 {
+            self.current_level += 1;
+            true
+        } else {
+            false
+        }
+
+    }
 }
 
 impl Default for LevelDefinition {

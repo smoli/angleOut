@@ -108,7 +108,7 @@ fn main() {
 
         LevelDefinition {
             simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(DEMO_MOVING.to_string(), BLOCK_GAP),
+            targets: TargetLayout::SparseGrid(LEVEL1.to_string(), BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
             ..default()

@@ -6,12 +6,14 @@ use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::core_pipeline::fxaa::Fxaa;
 use bevy::log::info;
 use bevy::pbr::{MaterialMeshBundle, NotShadowReceiver, PbrBundle, StandardMaterial};
-use bevy::prelude::{AmbientLight, Assets, Camera, Camera3dBundle, Color, Commands, Component, default, DirectionalLight, DirectionalLightBundle, Entity, GamepadButtonType, IntoSystemDescriptor, MaterialPlugin, Mesh, OrthographicProjection, Plugin, Quat, Query, ResMut, shape, SystemSet, Transform, Vec3, With};
+use bevy::prelude::{AmbientLight, Assets, Camera, Camera3dBundle, Color, Commands, Component, default, DirectionalLight, DirectionalLightBundle, Entity, EventWriter, GamepadButtonType, IntoSystemDescriptor, MaterialPlugin, Mesh, OrthographicProjection, Plugin, Quat, Query, ResMut, shape, SystemSet, Transform, Vec3, With};
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::CameraActions;
 use crate::config::BLOOM_ENABLED;
+use crate::events::GameFlowEvent;
 use crate::labels::SystemLabels;
+use crate::level::Levels;
 use crate::materials::background::BackgroundMaterial;
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
@@ -49,7 +51,14 @@ impl Plugin for MatchPlugin {
             .add_system_set(
                 SystemSet::on_exit(GameState::PostMatch)
                     .with_system(tear_down_3d_environment)
-            );
+            )
+
+            .add_system_set(
+                SystemSet::on_enter(GameState::NextLevel)
+                    .with_system(match_next_level)
+            )
+        ;
+
     }
 }
 
@@ -69,6 +78,14 @@ fn match_despawn(mut commands: Commands, matches: Query<Entity, With<Match>>) {
     }
 }
 
+
+fn match_next_level(
+    mut levels: ResMut<Levels>,
+    mut game_event: EventWriter<GameFlowEvent>
+) {
+    levels.next_level();
+    game_event.send(GameFlowEvent::StartMatch);
+}
 
 fn setup_3d_environment(
     mut commands: Commands,

@@ -53,13 +53,21 @@ fn ui_despawn(
 
 fn ui_handle_action(
     mut actions: Query<&mut ActionState<GameFlowActions>, With<UITag>>,
+    players: Query<&Player>,
     mut game_event: EventWriter<GameFlowEvent>,
 ) {
+    let player = players.get_single().unwrap();
+
     for mut action in &mut actions {
         if action.just_released(GameFlowActions::StartMatch) {
             info!("Player requested Start!");
             action.consume(GameFlowActions::StartMatch);
-            game_event.send(GameFlowEvent::StartMatch);
+
+            match player.state {
+                PlayerState::Open => {}
+                PlayerState::HasWon => game_event.send(GameFlowEvent::NextLevel),
+                PlayerState::HasLost => game_event.send(GameFlowEvent::StartMatch)
+            }
         }
     }
 }

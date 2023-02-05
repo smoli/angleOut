@@ -4,5 +4,6 @@ pub enum GameState {
     InGame,
     InMatch,
     PostMatch,
+    NextLevel,
     MatchResult
 }

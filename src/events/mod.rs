@@ -20,6 +20,8 @@ pub enum GameFlowEvent {
     PlayerWins,
     PlayerLooses,
 
+    NextLevel,
+
     EndGame,
 }
 
@@ -161,12 +163,18 @@ fn game_flow_handler(
                 let _ = game_state.set(GameState::InMatch);
             }
 
+
+
             GameFlowEvent::PlayerWins => {
                 if let Ok(mut player) = players.get_single_mut() {
                     info!("Player wins!");
                     player.state = PlayerState::HasWon;
                     let _ = game_state.set(GameState::PostMatch);
                 };
+            }
+
+            GameFlowEvent::NextLevel => {
+                let _ = game_state.set(GameState::NextLevel);
             }
 
             GameFlowEvent::PlayerLooses => {
