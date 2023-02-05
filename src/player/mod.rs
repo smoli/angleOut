@@ -41,6 +41,7 @@ impl Default for Player {
 
 impl Player {
     pub fn reset(&mut self) {
+        info!("Player reset");
         self.state = PlayerState::Open;
         self.points = 0;
         self.balls_available = 0;

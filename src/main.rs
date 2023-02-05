@@ -47,6 +47,10 @@ mod particles;
 mod powerups;
 mod pickups;
 
+const LEVEL0: &str =
+"AA
+ AA";
+
 const LEVEL1: &str = "AA AA AA AA AA AA AA
  AA AA AA AA AA AA AA
  AA AA AA AA AA AA AA
@@ -105,6 +109,14 @@ fn main() {
 
 
     let levelDefinitions: Vec<LevelDefinition> = vec![
+
+        LevelDefinition {
+            simultaneous_balls: 1,
+            targets: TargetLayout::SparseGrid(LEVEL0.to_string(), BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1)],
+            ..default()
+        },
 
         LevelDefinition {
             simultaneous_balls: 1,

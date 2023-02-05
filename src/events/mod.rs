@@ -151,6 +151,7 @@ fn match_event_handler(
 fn game_flow_handler(
     mut players: Query<&mut Player>,
     mut events: EventReader<GameFlowEvent>,
+    mut match_state: ResMut<MatchState>,
     mut game_state: ResMut<State<GameState>>,
 ) {
     for ev in events.iter() {
@@ -169,6 +170,8 @@ fn game_flow_handler(
                 if let Ok(mut player) = players.get_single_mut() {
                     info!("Player wins!");
                     player.state = PlayerState::HasWon;
+                    player.player_has_won(match_state.points);
+                    info!("Player now has {} points", player.points);
                     let _ = game_state.set(GameState::PostMatch);
                 };
             }

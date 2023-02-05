@@ -19,7 +19,8 @@ struct UITag;
 
 #[derive(Component)]
 enum UIInfoTag {
-    Points,
+    MatchPoints,
+    PlayerPoints,
     Blocks,
     Bounces,
     WallHits,
@@ -79,11 +80,12 @@ fn ui_update_infos(
 
     for (mut text, tag) in &mut ui {
         match tag {
-            UIInfoTag::Points => text.sections[1].value = format!("{}", match_stats.points),
+            UIInfoTag::MatchPoints => text.sections[1].value = format!("{}", match_stats.points),
             UIInfoTag::Blocks => text.sections[1].value = format!("{}", match_stats.blocks),
             UIInfoTag::Bounces => text.sections[1].value = format!("{}", match_stats.paddle_bounces),
             UIInfoTag::WallHits => text.sections[1].value = format!("{}", match_stats.wall_hits),
             UIInfoTag::Combos => text.sections[1].value = format!("{}x, {}x", match_stats.paddle_bounce_combo, match_stats.single_bounce_combo),
+            UIInfoTag::PlayerPoints => text.sections[1].value = format!("{}", player.points),
             UIInfoTag::Balls => text.sections[1].value = format!("{}", player.balls_available),
             UIInfoTag::BlocksHit => text.sections[1].value = format!("{}", match_stats.blocks_hit),
             UIInfoTag::BlocksLost => text.sections[1].value = format!("{}", match_stats.blocks_lost),
@@ -133,10 +135,18 @@ fn ui_spawn(
             parent
                 .spawn(TextBundle::from_sections([
                     TextSection::new(
-                        "Points: ", style.clone(),
+                        "Level Points: ", style.clone(),
                     ),
                     TextSection::from_style(style.clone())
-                ])).insert(UIInfoTag::Points);
+                ])).insert(UIInfoTag::MatchPoints);
+
+            parent
+                .spawn(TextBundle::from_sections([
+                    TextSection::new(
+                        "Player Points: ", style.clone(),
+                    ),
+                    TextSection::from_style(style.clone())
+                ])).insert(UIInfoTag::PlayerPoints);
 
             parent
                 .spawn(TextBundle::from_sections([
