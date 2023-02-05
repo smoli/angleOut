@@ -24,6 +24,19 @@ pub struct BlockMaterial {
     pub alpha_mode: AlphaMode,
 }
 
+impl Default for BlockMaterial {
+    fn default() -> Self {
+        return BlockMaterial {
+            color1: Color::WHITE,
+            color2: Color::WHITE,
+            damage: 0.0,
+            time: 0.0,
+            color_texture: None,
+            alpha_mode: AlphaMode::Blend,
+        }
+    }
+}
+
 #[derive(ShaderType, Clone, Default)]
 pub struct BlockMaterialUniform {
     pub color1: Vec4,

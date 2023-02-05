@@ -151,29 +151,9 @@ fn block_spawn(
         for (entity, block) in &empties {
             let mut block_commands = commands.entity(entity);
 
-            let custom_material =
-                custom_materials.add(BlockMaterial {
-                    color1: Color::ORANGE,
-                    color2: Color::GOLD,
-                    time: 0.0,
-                    damage: 0.0,
-                    color_texture: Some(asset_server.load("999_Wreckage_Diffuse.png")),
-                    alpha_mode: AlphaMode::Blend,
-                });
-
 
             block_commands
                 .remove::<RequestTag>()
-
-                .insert(MaterialMeshBundle {
-                    mesh: mesh.clone(),
-                    material: custom_material,
-                    ..default()
-                })
-
-
-                .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)
-                    .with_scale(Vec3::new(BLOCK_WIDTH_H, BLOCK_HEIGHT / 4.0, BLOCK_DEPTH / 2.0))))
                 .insert(Collider::round_cuboid(
                     1.0, 1.0, 1.0,
                     BLOCK_ROUNDNESS,
@@ -246,6 +226,8 @@ fn block_spawn(
                 _ => {}
             }
 
+            let mut color = Color::ORANGE;
+
             match block.block_type {
                 BlockType::Simple => {
                     block_commands.insert(Hittable {
@@ -259,6 +241,7 @@ fn block_spawn(
                         hit_points: 2,
                         original_hit_points: 2,
                     });
+                    color = Color::GRAY;
                 }
 
                 BlockType::Concrete => {
@@ -266,8 +249,26 @@ fn block_spawn(
                         hit_points: 3,
                         original_hit_points: 3,
                     });
+                    color = Color::DARK_GRAY;
                 }
             }
+
+            let custom_material =
+                custom_materials.add(BlockMaterial {
+                    color1: color,
+                    color_texture: Some(asset_server.load("999_Wreckage_Diffuse.png")),
+                    ..default()
+                });
+
+            block_commands
+                .insert(MaterialMeshBundle {
+                    mesh: mesh.clone(),
+                    material: custom_material,
+                    ..default()
+                })
+                .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)
+                    .with_scale(Vec3::new(BLOCK_WIDTH_H, BLOCK_HEIGHT / 4.0, BLOCK_DEPTH / 2.0))))
+            ;
         }
     }
 }

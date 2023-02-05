@@ -47,16 +47,32 @@ mod particles;
 mod powerups;
 mod pickups;
 
-const LEVEL0: &str =
-"AA
- AA";
+const LEVEL1: &str = 
+"AA AA AA AA AA AA AA AA AA
+ AA AA AA AA AA AA AA AA AA
+ AA AA AA AA AA AA AA AA AA
+ AA AA AA AA AA AA AA AA AA
+ AA AA AA AA AA AA AA AA AA
+ AA AA AA AA AA AA AA AA AA";
 
-const LEVEL1: &str = "AA AA AA AA AA AA AA
- AA AA AA AA AA AA AA
- AA AA AA AA AA AA AA
- AA AA AA AA AA AA AA
- AA AA AA AA AA AA AA
- AA AA AA AA AA AA AA";
+
+const LEVEL2: &str = 
+"BA BA BA BA BA BA BA BA BA
+ AA AA AA AA AA AA AA AA AA
+ BA BA BA BA BA BA BA BA BA
+ AA AA AA AA AA AA AA AA AA
+ BA BA BA BA BA BA BA BA BA
+ AA AA AA AA AA AA AA AA AA";
+
+
+const LEVEL3: &str =
+"BA BA BA BA BA BA BA BA BA
+ AA AA AA AA .. AA AA AA AA
+ BA BA BA BA BB BA BA BA BA
+ AA AA AA AA .. AA AA AA AA
+ BA BA BA BA BB BA BA BA BA
+ AA AA AA AA .. AA AA AA AA";
+
 
 
 const DEMO_MOVING: &str = "AA AA AA AA AA AA AA
@@ -112,7 +128,7 @@ fn main() {
 
         LevelDefinition {
             simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL0.to_string(), BLOCK_GAP),
+            targets: TargetLayout::SparseGrid(LEVEL1.to_string(), BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![PickupType::MoreBalls(1)],
             ..default()
@@ -120,7 +136,7 @@ fn main() {
 
         LevelDefinition {
             simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL1.to_string(), BLOCK_GAP),
+            targets: TargetLayout::SparseGrid(LEVEL2.to_string(), BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
             ..default()
@@ -128,7 +144,7 @@ fn main() {
 
         LevelDefinition {
             simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(DEMO_MOVING.to_string(), BLOCK_GAP),
+            targets: TargetLayout::SparseGrid(LEVEL3. to_string(), BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
             ..default()
