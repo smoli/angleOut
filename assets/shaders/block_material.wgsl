@@ -113,7 +113,7 @@ fn fragment(
     } else {
         let s = textureSample(color_texture, color_sampler, in.uv / (10.0 / damage));
 
-        color = vec4<f32>(material.color1.xyz, s.x);
+        color = vec4<f32>(material.color1.xyz * s.x, 1.0);
     }
 
 
@@ -121,12 +121,12 @@ fn fragment(
 
         pbr_input.material.base_color = vec4<f32>(color);
 
-        pbr_input.material.reflectance = 1.0;
+        pbr_input.material.reflectance = 0.1;
         pbr_input.material.alpha_cutoff = 0.0;
         pbr_input.material.flags = 4u;
         pbr_input.material.emissive = vec4<f32>(0.0,0.0,0.0,1.0);
-        pbr_input.material.metallic = 1.0;
-        pbr_input.material.perceptual_roughness = 0.0;
+        pbr_input.material.metallic = 0.1;
+        pbr_input.material.perceptual_roughness = 1.0;
 
         pbr_input.occlusion = 1.0;
         pbr_input.frag_coord = in.frag_coord;
@@ -136,7 +136,8 @@ fn fragment(
         pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
         pbr_input.N = prepare_world_normal(in.world_normal, false, in.is_front);
-        pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
+        pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic)
+        ;
 
         let output_color = pbr(pbr_input);
 

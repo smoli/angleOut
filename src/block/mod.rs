@@ -153,7 +153,7 @@ fn block_spawn(
 
             let custom_material =
                 custom_materials.add(BlockMaterial {
-                    color1: Color::BLUE,
+                    color1: Color::ORANGE,
                     color2: Color::GOLD,
                     time: 0.0,
                     damage: 0.0,
