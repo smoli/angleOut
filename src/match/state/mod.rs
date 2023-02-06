@@ -121,7 +121,8 @@ impl MatchState {
         let mut base_points = match block_type {
             BlockType::Simple => 100,
             BlockType::Hardling => 150,
-            BlockType::Concrete => 200
+            BlockType::Concrete => 200,
+            _ => 0
         };
 
         base_points += match behaviour {

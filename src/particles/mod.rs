@@ -8,6 +8,7 @@ use bevy::prelude::{Assets, Commands, Entity, Plugin, Query, ResMut, SystemSet, 
 use bevy_hanabi::{BillboardModifier, ColorOverLifetimeModifier, EffectAsset, Gradient, HanabiPlugin, ParticleEffect, ParticleEffectBundle, PositionSphereModifier, ShapeDimension, SizeOverLifetimeModifier, Spawner, Value};
 
 use crate::ball::Ball;
+use crate::block::{Block, Hittable};
 use crate::physics::{CollidableKind, CollisionTag};
 use crate::state::GameState;
 
@@ -89,14 +90,14 @@ fn particles_setup_block_impact(
 
 
 fn particle_handle_block_ball(
-    balls: Query<(&CollisionTag, &Transform), With<Ball>>,
-    mut effect: Query<(&mut ParticleEffect, &mut Transform), (Without<Ball>, With<ImpactEffect>)>,
+    balls: Query<(&CollisionTag, &Transform), (With<Block>, With<Hittable>)>,
+    mut effect: Query<(&mut ParticleEffect, &mut Transform), (Without<Block>, With<ImpactEffect>)>,
 ) {
     let (mut effect, mut effect_transform) = effect.single_mut();
 
     for (collision, trans) in &balls {
-        if collision.other == CollidableKind::Block {
-            effect_transform.translation = trans.translation.clone();
+        if collision.other == CollidableKind::Ball {
+            effect_transform.translation = collision.other_pos.clone();
             effect.maybe_spawner().unwrap().reset();
         }
 

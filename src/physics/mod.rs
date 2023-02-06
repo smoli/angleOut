@@ -31,7 +31,8 @@ pub struct Collidable {
 pub struct CollisionTag {
     pub other: CollidableKind,
     pub pos: Vec3,
-    pub other_velocity: Option<Vec3>
+    pub other_velocity: Option<Vec3>,
+    pub other_pos: Vec3,
 }
 
 
@@ -84,7 +85,8 @@ fn handle_collision_events(
                             .insert(CollisionTag {
                                 other: col_b.kind.clone(),
                                 pos: trans_a.translation,
-                                other_velocity: vel_b
+                                other_velocity: vel_b,
+                                other_pos: trans_b.translation,
                             });
 
                         commands.entity(*b)
@@ -92,7 +94,8 @@ fn handle_collision_events(
                             .insert(CollisionTag {
                                 other: col_a.kind.clone(),
                                 pos: trans_b.translation,
-                                other_velocity: vel_a
+                                other_velocity: vel_a,
+                                other_pos: trans_a.translation
                             });
 
 
@@ -122,7 +125,8 @@ fn handle_contact_force_events(
                     .insert(CollisionTag {
                         other: col_b.kind.clone(),
                         pos: trans_a.translation,
-                        other_velocity: None
+                        other_velocity: None,
+                        other_pos: trans_b.translation
                     });
 
                 commands.entity(contact_force_event.collider2)
@@ -130,7 +134,8 @@ fn handle_contact_force_events(
                     .insert(CollisionTag {
                         other: col_a.kind.clone(),
                         pos: trans_b.translation,
-                        other_velocity: None
+                        other_velocity: None,
+                        other_pos: trans_a.translation
                     });
 
 

@@ -166,11 +166,14 @@ fn make_grid_from_string_layout(
     if let Some(res) = interpret_grid(layout, gap) {
         let mut c = 0;
         for b in res {
+            if b.block_type != BlockType::Obstacle {
+                c += 1;
+            }
+
             commands
                 .spawn(b)
                 .insert(RequestTag);
 
-            c += 1;
         }
 
         return c;

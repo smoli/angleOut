@@ -25,11 +25,12 @@ use crate::physics::{Collidable, CollidableKind, CollisionTag};
 use crate::state::GameState;
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BlockType {
     Simple,
     Hardling,
     Concrete,
+    Obstacle
 }
 
 #[derive(Debug, Clone)]
@@ -75,6 +76,9 @@ pub struct Block {
     pub behaviour: BlockBehaviour,
     pub material: Option<Handle<BlockMaterial>>,
 }
+
+#[derive(Component, Debug)]
+pub struct Obstacle;
 
 #[derive(Component, Debug)]
 pub struct Hittable {
@@ -250,6 +254,13 @@ fn block_spawn(
                         original_hit_points: 3,
                     });
                     color = Color::DARK_GRAY;
+                }
+
+                BlockType::Obstacle => {
+                    block_commands.insert({
+                        Obstacle
+                    });
+                    color = Color::WHITE;
                 }
             }
 

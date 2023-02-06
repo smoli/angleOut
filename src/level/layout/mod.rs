@@ -44,6 +44,7 @@ pub fn make_block(b_type: char, b_beh: char, pos: Vec2) -> Option<Block> {
         'A' => BlockType::Simple,
         'B' => BlockType::Hardling,
         'C' => BlockType::Concrete,
+        'Z' => BlockType::Obstacle,
 
         '.' => return None,
 
