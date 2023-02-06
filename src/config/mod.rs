@@ -12,7 +12,7 @@ pub const MIN_BALL_SPEED: f32 = 150.0;
 pub const MAX_RESTITUTION: f32 = 1.0;
 
 
-// This is basically a factor that the dispatcher vector between the ship an the ball is multiplied.
+// This is basically a factor that the distance vector between the ship an the ball is multiplied.
 pub const GRAB_FORCE_MAGNITUDE: f32 = 500.0;
 
 // Max Distance where grab force will be applied
