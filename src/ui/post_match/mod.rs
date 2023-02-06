@@ -66,7 +66,7 @@ fn ui_handle_action(
             match player.state {
                 PlayerState::Open => {}
                 PlayerState::HasWon => game_event.send(GameFlowEvent::NextLevel),
-                PlayerState::HasLost => game_event.send(GameFlowEvent::StartMatch)
+                PlayerState::HasLost => game_event.send(GameFlowEvent::StartGame)
             }
         }
     }
@@ -117,7 +117,11 @@ fn ui_spawn(
                         }
                     ),
                     TextSection::new(
-                        "Press A/X to play again",
+                        match player.state {
+                            PlayerState::Open => "You shouldn't be here!",
+                            PlayerState::HasWon => "Press A/X to got to next level!",
+                            PlayerState::HasLost => "Press A/X to got to start again!"
+                        },
                         TextStyle {
                             font: asset_server.load("BAUHS93.TTF"),
                             font_size: 30.0,
