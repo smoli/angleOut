@@ -9,7 +9,7 @@ use bevy_hanabi::{BillboardModifier, ColorOverLifetimeModifier, EffectAsset, Gra
 
 use crate::ball::Ball;
 use crate::block::{Block, Hittable};
-use crate::physics::{CollidableKind, CollisionTag};
+use crate::physics::{CollidableKind, Collision, COLLISION_EVENT_HANDLING, CollisionInfo, CollisionTag};
 use crate::state::GameState;
 
 #[derive(Component)]
@@ -22,7 +22,6 @@ pub struct ParticlePlugin;
 
 impl Plugin for ParticlePlugin {
     fn build(&self, app: &mut App) {
-
         let mut options = WgpuSettings::default();
         options
             .features
@@ -35,10 +34,7 @@ impl Plugin for ParticlePlugin {
                     .with_system(particles_setup_block_impact)
             )
 
-            .add_system_set(
-                SystemSet::on_update(GameState::InMatch)
-                    .with_system(particle_handle_block_ball)
-            )
+            .add_system_to_stage(COLLISION_EVENT_HANDLING, particle_handle_block_ball)
 
             .add_system_set(
                 SystemSet::on_exit(GameState::InMatch)
@@ -53,7 +49,6 @@ fn particles_setup_block_impact(
     mut commands: Commands,
     mut effects: ResMut<Assets<EffectAsset>>,
 ) {
-
     let mut gradient = Gradient::new();
     gradient.add_key(0.0, Vec4::new(1.0, 0.0, 0.0, 1.0));
     gradient.add_key(0.5, Vec4::new(1.0, 1.0, 0.0, 1.0));
@@ -78,8 +73,6 @@ fn particles_setup_block_impact(
             })
             .render(ColorOverLifetimeModifier { gradient })
             .render(BillboardModifier {})
-
-
     );
 
     commands
@@ -90,17 +83,24 @@ fn particles_setup_block_impact(
 
 
 fn particle_handle_block_ball(
-    balls: Query<(&CollisionTag, &Transform), (With<Block>, With<Hittable>)>,
+    blocks: Query<(Entity), (With<Block>, With<CollisionTag>, With<Hittable>)>,
     mut effect: Query<(&mut ParticleEffect, &mut Transform), (Without<Block>, With<ImpactEffect>)>,
+    collisions: Res<CollisionInfo>,
 ) {
+    if effect.is_empty() {
+        return
+    }
     let (mut effect, mut effect_transform) = effect.single_mut();
 
-    for (collision, trans) in &balls {
-        if collision.other == CollidableKind::Ball {
-            effect_transform.translation = collision.other_pos.clone();
-            effect.maybe_spawner().unwrap().reset();
+    for block in &blocks {
+        if let Some(collision) = collisions.collisions.get(&block) {
+            for collision in collision {
+                if collision.other == CollidableKind::Ball {
+                    effect_transform.translation = collision.other_pos.clone();
+                    effect.maybe_spawner().unwrap().reset();
+                }
+            }
         }
-
     }
 }
 
@@ -132,7 +132,6 @@ fn particles_setup_ball_trail(
             })
             .render(ColorOverLifetimeModifier { gradient })
             .render(BillboardModifier {})
-
     );
 
     commands
@@ -142,7 +141,6 @@ fn particles_setup_ball_trail(
 }
 
 
-
 fn particle_handle_ball_trail(
     balls: Query<(&Transform), With<Ball>>,
     mut effect: Query<(&mut ParticleEffect, &mut Transform), (Without<Ball>, With<TrailEffect>)>,
@@ -150,14 +148,14 @@ fn particle_handle_ball_trail(
     let (_, mut effect_transform) = effect.single_mut();
 
     for (trans) in &balls {
-            effect_transform.translation = trans.translation.clone();
+        effect_transform.translation = trans.translation.clone();
     }
 }
 
 
 fn particles_despawn_all(
     mut commands: Commands,
-    effects: Query<Entity, With<ImpactEffect>>
+    effects: Query<Entity, With<ImpactEffect>>,
 ) {
     for effect in &effects {
         info!("Despawn particle effect");

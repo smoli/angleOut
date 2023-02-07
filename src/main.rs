@@ -49,9 +49,7 @@ mod pickups;
 
 
 const LEVEL0: &str =
-"AA
- AA
- ZA";
+"AA";
 
 const LEVEL1: &str = 
 "AA AA AA AA AA AA AA AA AA
@@ -134,7 +132,7 @@ fn main() {
 
         LevelDefinition {
             simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL3.to_string(), BLOCK_GAP),
+            targets: TargetLayout::SparseGrid(LEVEL1.to_string(), BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![PickupType::MoreBalls(1)],
             ..default()

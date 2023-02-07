@@ -11,7 +11,7 @@ use crate::config::{BALL_RADIUS, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLL
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
-use crate::physics::{Collidable, CollidableKind, CollisionTag};
+use crate::physics::{Collidable, CollidableKind, COLLISION_EVENT_HANDLING, CollisionInfo, CollisionTag};
 use crate::ship::ShipState;
 
 #[derive(Component)]
@@ -46,10 +46,10 @@ impl Plugin for BallPlugin {
                     .with_system(ball_spin.label(SystemLabels::UpdateWorld))
                     .with_system(ball_update_inactive.label(SystemLabels::UpdateWorld))
                     .with_system(ball_correct_too_low_z.label(SystemLabels::UpdateWorld))
-                    .with_system(ball_handle_collisions.label(SystemLabels::UpdateWorld))
                     .with_system(ball_inactive_handle_events.label(SystemLabels::UpdateWorld))
             )
 
+            .add_system_to_stage(COLLISION_EVENT_HANDLING, ball_handle_collisions)
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(ball_limit_velocity
@@ -117,7 +117,7 @@ pub fn ball_spawn(
 
 fn ball_despawn(
     mut commands: Commands,
-    balls: Query<Entity, With<Ball>>
+    balls: Query<Entity, With<Ball>>,
 ) {
     for ball in &balls {
         info!("despawn ball {:?}", ball);
@@ -230,42 +230,47 @@ fn ball_handle_collisions(
     ship_state: Res<ShipState>,
     mut balls: Query<(Entity, &mut ExternalImpulse, &CollisionTag, &mut Velocity), With<ActiveBall>>,
     mut events: EventWriter<MatchEvent>,
+    collisions: Res<CollisionInfo>,
 ) {
-    for (ball, mut ext_imp, collision, mut velo) in &mut balls {
+    for (ball, mut ext_imp, _, mut velo) in &mut balls {
         let mut correct_ball_trans = false;
 
-        match collision.other {
-            CollidableKind::Ship => {
-                correct_ball_trans = true;
-                ext_imp.impulse = compute_launch_impulse(
-                    ship_state.ship_rotation, PADDLE_BOUNCE_IMPULSE,
-                );
+        if let Some(collision) = collisions.collisions.get(&ball) {
+            for collision in collision {
+                match collision.other {
+                    CollidableKind::Ship => {
+                        correct_ball_trans = true;
+                        ext_imp.impulse = compute_launch_impulse(
+                            ship_state.ship_rotation, PADDLE_BOUNCE_IMPULSE,
+                        );
 
-                commands.entity(ball)
-                    .remove::<CollisionTag>();
+                        commands.entity(ball)
+                            .remove::<CollisionTag>();
 
-                info!("Applied bounce impulse");
+                        info!("Applied bounce impulse");
 
-                events.send(MatchEvent::BounceOffPaddle);
+                        events.send(MatchEvent::BounceOffPaddle);
+                    }
+
+                    CollidableKind::Wall => {
+                        events.send(MatchEvent::BounceOffWall);
+                    }
+
+                    CollidableKind::DeathTrigger => {
+                        events.send(MatchEvent::BallLost);
+
+                        info!("Despanw ball after losing it {:?}", ball);
+                        commands.entity(ball)
+                            .despawn_recursive();
+                    }
+
+                    CollidableKind::Block => {
+                        correct_ball_trans = true;
+                    }
+
+                    _ => {}
+                }
             }
-
-            CollidableKind::Wall => {
-                events.send(MatchEvent::BounceOffWall);
-            }
-
-            CollidableKind::DeathTrigger => {
-                events.send(MatchEvent::BallLost);
-
-                info!("Despanw ball after losing it {:?}", ball);
-                commands.entity(ball)
-                    .despawn_recursive();
-            }
-
-            CollidableKind::Block => {
-                correct_ball_trans = true;
-            }
-
-            _ => {}
         }
 
         if correct_ball_trans {

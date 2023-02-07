@@ -21,7 +21,7 @@ use crate::level::RequestTag;
 use crate::materials::block::{BlockMaterial};
 use crate::materials::CustomMaterialApplied;
 use crate::MyAssetPack;
-use crate::physics::{Collidable, CollidableKind, CollisionTag};
+use crate::physics::{Collidable, CollidableKind, Collision, COLLISION_EVENT_HANDLING, CollisionInfo, CollisionTag};
 use crate::state::GameState;
 
 
@@ -30,7 +30,7 @@ pub enum BlockType {
     Simple,
     Hardling,
     Concrete,
-    Obstacle
+    Obstacle,
 }
 
 #[derive(Debug, Clone)]
@@ -112,13 +112,14 @@ impl Plugin for BlockPlugin {
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(block_spawn.label(SystemLabels::UpdateWorld))
-                    .with_system(block_handle_collisions.label(SystemLabels::UpdateWorld))
                     .with_system(block_repluse.label(SystemLabels::UpdateWorld))
                     .with_system(block_update_evader)
                     .with_system(block_handle_evader_collisions)
                     .with_system(block_shake.after(SystemLabels::UpdateWorld))
                     .with_system(block_update_custom_material)
             )
+
+            .add_system_to_stage(COLLISION_EVENT_HANDLING, block_handle_collisions)
 
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
@@ -310,31 +311,38 @@ fn block_despawn(
 
 fn block_handle_collisions(
     mut commands: Commands,
-    mut blocks: Query<(Entity, &CollisionTag, &mut Hittable, &Block, &Transform)>,
+    mut blocks: Query<(Entity, &mut Hittable, &Block, &Transform), With<CollisionTag>>,
     mut events: EventWriter<MatchEvent>,
+    collisions: Res<CollisionInfo>,
 ) {
-    for (entity, collision, mut hittable, block, trans) in &mut blocks {
-        match collision.other {
-            CollidableKind::Ball => {
-                hittable.hit_points -= 1;
+    for (entity, mut hittable, block, trans) in &mut blocks {
+        info!("Check collisions for {:?}", entity);
+        if let Some(collision) = collisions.collisions.get(&entity) {
+            info!("There are block collisions");
+            for collision in collision {
+                match collision.other {
+                    CollidableKind::Ball => {
+                        hittable.hit_points -= 1;
 
-                if hittable.hit_points == 0 {
-                    info!("despawn block after hit {:?}", entity);
-                    commands.entity(entity)
-                        .despawn_recursive();
-                    events.send(MatchEvent::TargetHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
-                } else {
-                    commands.entity(entity)
-                        .insert(Shaking {
-                            timer: Timer::from_seconds(Duration::from_millis(200).as_secs_f32(), TimerMode::Once),
-                            original_position: trans.translation.clone(),
-                            direction: if let Some(v) = collision.other_velocity { v.normalize() } else { Vec3::NEG_Z },
-                        });
-                    info!("still alive")
+                        if hittable.hit_points == 0 {
+                            info!("despawn block after hit {:?}", entity);
+                            commands.entity(entity)
+                                .despawn_recursive();
+                            events.send(MatchEvent::TargetHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
+                        } else {
+                            commands.entity(entity)
+                                .insert(Shaking {
+                                    timer: Timer::from_seconds(Duration::from_millis(200).as_secs_f32(), TimerMode::Once),
+                                    original_position: trans.translation.clone(),
+                                    direction: if let Some(v) = collision.other_velocity { v.normalize() } else { Vec3::NEG_Z },
+                                });
+                            info!("still alive")
+                        }
+                    }
+
+                    _ => {}
                 }
             }
-
-            _ => {}
         }
     }
 }
@@ -343,21 +351,26 @@ fn block_handle_evader_collisions(
     mut commands: Commands,
     mut blocks: Query<(Entity, &CollisionTag, &mut BlockEvader), With<Block>>,
     mut events: EventWriter<MatchEvent>,
+    collisions: Res<CollisionInfo>,
 ) {
-    for (block, collision, mut evader) in &mut blocks {
-        match collision.other {
-            CollidableKind::Block | CollidableKind::Wall => {
-                evader.velocity *= -1.0;
-            }
+    for (block, _, mut evader) in &mut blocks {
+        if let Some(collision) = collisions.collisions.get(&block) {
+            for collision in collision {
+                match collision.other {
+                    CollidableKind::Block | CollidableKind::Wall => {
+                        evader.velocity *= -1.0;
+                    }
 
-            CollidableKind::DeathTrigger => {
-                info!("Despawn block after losing it {:?}", block);
-                commands.entity(block)
-                    .despawn_recursive();
-                events.send(MatchEvent::BlockLost);
-            }
+                    CollidableKind::DeathTrigger => {
+                        info!("Despawn block after losing it {:?}", block);
+                        commands.entity(block)
+                            .despawn_recursive();
+                        events.send(MatchEvent::BlockLost);
+                    }
 
-            _ => {}
+                    _ => {}
+                }
+            }
         }
     }
 }

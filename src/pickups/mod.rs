@@ -12,7 +12,7 @@ use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::{LevelDefinition, Levels, RequestTag};
 use crate::MyAssetPack;
-use crate::physics::{Collidable, CollidableKind, CollisionTag};
+use crate::physics::{Collidable, CollidableKind, COLLISION_EVENT_HANDLING, CollisionInfo, CollisionTag};
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
 
@@ -25,9 +25,10 @@ impl Plugin for PickupsPlugin {
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(pickup_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(pickup_update.label(SystemLabels::UpdateWorld))
-                    .with_system(pickup_handle_collisions.label(SystemLabels::UpdateWorld))
                     .with_system(pickup_spawn_globals_on_event.label(SystemLabels::UpdateWorld))
             )
+
+            .add_system_to_stage(COLLISION_EVENT_HANDLING, pickup_handle_collisions)
 
             .add_system_set(
                 SystemSet::on_exit(GameState::PostMatch)
@@ -41,7 +42,7 @@ impl Plugin for PickupsPlugin {
 #[derive(Debug, Clone, Copy)]
 pub enum PickupType {
     MoreBalls(i32),
-    Grabber(i16)
+    Grabber(i16),
 }
 
 #[derive(Component, Debug)]
@@ -57,29 +58,25 @@ pub struct Fall {
 }
 
 
-
 fn pickup_spawn_globals_on_event(
     mut commands: Commands,
     mut events: EventReader<MatchEvent>,
     mut match_state: ResMut<MatchState>,
     mut levels: ResMut<Levels>,
 ) {
-  //  let (player_entity, mut player, mut bouncer) = players.get_single_mut().unwrap();
+    //  let (player_entity, mut player, mut bouncer) = players.get_single_mut().unwrap();
 
     let level = levels.get_current_level().unwrap();
 
     for ev in events.iter() {
         match ev {
-
             MatchEvent::TargetHit(p, block_type, behaviour) => {
-
                 if let Some(pickup_type) = level.pickup_at(match_state.blocks as usize) {
                     commands.spawn(Pickup {
                         spawn_position: p.clone(),
-                        pickup_type: pickup_type.clone()
+                        pickup_type: pickup_type.clone(),
                     })
                         .insert(RequestTag);
-
                 }
             }
 
@@ -149,19 +146,22 @@ fn pickup_update(
 fn pickup_handle_collisions(
     mut commands: Commands,
     pickups: Query<(Entity, &Pickup, &CollisionTag)>,
-    mut events: EventWriter<MatchEvent>
+    mut events: EventWriter<MatchEvent>,
+    collisions: Res<CollisionInfo>,
 ) {
-    for (entity, pickup, collision) in &pickups {
-        match collision.other {
-            CollidableKind::Ship => {
-                events.send(MatchEvent::PickedUp(pickup.pickup_type))
-            },
+    for (entity, pickup, _) in &pickups {
+        if let Some(collision) = collisions.collisions.get(&entity) {
+            for collision in collision {
+                match collision.other {
+                    CollidableKind::Ship => {
+                        events.send(MatchEvent::PickedUp(pickup.pickup_type))
+                    }
 
-            CollidableKind::DeathTrigger => {
+                    CollidableKind::DeathTrigger => {}
 
-            },
-
-            _ => {}
+                    _ => {}
+                }
+            }
         }
 
         info!("Despanw pickup regardless {:?}", entity);
