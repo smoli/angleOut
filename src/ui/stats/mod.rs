@@ -263,6 +263,8 @@ fn ui_spawn(
                     TextSection::from_style(style.clone())
                 ])).insert(UIInfoTag::BallSpeedZ);
 
+            }
+
             parent
                 .spawn(TextBundle::from_sections([
                     TextSection::new(
@@ -270,7 +272,6 @@ fn ui_spawn(
                     ),
                     TextSection::from_style(style.clone())
                 ])).insert(UIInfoTag::FPS);
-            }
         })
         .insert(UITag);
 
