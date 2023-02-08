@@ -2,6 +2,7 @@ extern crate core;
 
 use bevy::app::App;
 use bevy::DefaultPlugins;
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::gltf::Gltf;
 use bevy::prelude::{AssetServer, ClearColor, Color, Commands, Handle, Msaa, PluginGroup, Res, Resource, WindowDescriptor, WindowMode};
 use bevy::utils::default;
@@ -49,7 +50,8 @@ mod pickups;
 
 
 const LEVEL0: &str =
-"AA";
+"AE
+AA";
 
 const LEVEL1: &str = 
 "AA AA AA AA AA AA AA AA AA
@@ -132,7 +134,7 @@ fn main() {
 
         LevelDefinition {
             simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL1.to_string(), BLOCK_GAP),
+            targets: TargetLayout::SparseGrid(LEVEL0.to_string(), BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![PickupType::MoreBalls(1)],
             ..default()
@@ -185,6 +187,7 @@ fn load_gltf(
 
 fn setup_screen(app: &mut App) {
     app
+        .add_plugin(FrameTimeDiagnosticsPlugin)
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {

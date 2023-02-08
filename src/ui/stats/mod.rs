@@ -1,4 +1,5 @@
 use bevy::app::App;
+use bevy::diagnostic::{Diagnostic, Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::hierarchy::DespawnRecursiveExt;
 use bevy::log::info;
 use bevy::prelude::{AssetServer, BuildChildren, Commands, Component, Entity, NodeBundle, Plugin, Query, Res, Style, SystemSet, Text, TextBundle, With, Without};
@@ -32,7 +33,8 @@ enum UIInfoTag {
     BallsGrabbed,
     BallsLost,
     BallSpeed,
-    BallSpeedZ
+    BallSpeedZ,
+    FPS
 }
 
 
@@ -74,12 +76,25 @@ fn ui_update_infos(
     match_stats: Res<MatchState>,
     player_stats: Query<&Player>,
     mut ui: Query<(&mut Text, &UIInfoTag), Without<Ball>>,
-    balls: Query<&Velocity, With<Ball>>
+    balls: Query<&Velocity, With<Ball>>,
+    diagnostics: Res<Diagnostics>
 ) {
     let player = player_stats.get_single().unwrap();
 
     for (mut text, tag) in &mut ui {
         match tag {
+            UIInfoTag::FPS => text.sections[1].value = {
+
+                if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+                    if let Some(fps) = fps.smoothed() {
+                        format!("{:.1}", fps)
+                    } else {
+                        "no fps".to_string()
+                    }
+                } else {
+                    "no fps".to_string()
+                }
+            },
             UIInfoTag::MatchPoints => text.sections[1].value = format!("{}", match_stats.points),
             UIInfoTag::Blocks => text.sections[1].value = format!("{}", match_stats.blocks),
             UIInfoTag::Bounces => text.sections[1].value = format!("{}", match_stats.paddle_bounces),
@@ -247,6 +262,14 @@ fn ui_spawn(
                     ),
                     TextSection::from_style(style.clone())
                 ])).insert(UIInfoTag::BallSpeedZ);
+
+            parent
+                .spawn(TextBundle::from_sections([
+                    TextSection::new(
+                        "FPS: ", style.clone(),
+                    ),
+                    TextSection::from_style(style.clone())
+                ])).insert(UIInfoTag::FPS);
             }
         })
         .insert(UITag);
