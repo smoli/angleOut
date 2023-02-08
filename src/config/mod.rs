@@ -7,8 +7,8 @@ pub const SCREEN_WIDTH: f32 = 1600.0;
 pub const SCREEN_HEIGHT: f32 = 800.0;
 pub const BLOOM_ENABLED: bool = false && !DEBUG_PHYSICS_ENABLED;
 pub const BALL_RADIUS: f32 = 3.5 / 2.0;
-pub const MAX_BALL_SPEED: f32 = 150.0;
-pub const MIN_BALL_SPEED: f32 = 150.0;
+pub const MAX_BALL_SPEED: f32 = 130.0;
+pub const MIN_BALL_SPEED: f32 = 13-0.0;
 pub const MAX_RESTITUTION: f32 = 1.0;
 
 

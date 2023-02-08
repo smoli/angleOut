@@ -316,32 +316,28 @@ fn block_handle_collisions(
     collisions: Res<CollisionInfo>,
 ) {
     for (entity, mut hittable, block, trans) in &mut blocks {
-        info!("Check collisions for {:?}", entity);
-        if let Some(collision) = collisions.collisions.get(&entity) {
-            info!("There are block collisions");
-            for collision in collision {
-                match collision.other {
-                    CollidableKind::Ball => {
-                        hittable.hit_points -= 1;
+        let Some(collision) = collisions.collisions.get(&entity) else { continue; };
 
-                        if hittable.hit_points == 0 {
-                            info!("despawn block after hit {:?}", entity);
-                            commands.entity(entity)
-                                .despawn_recursive();
-                            events.send(MatchEvent::TargetHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
-                        } else {
-                            commands.entity(entity)
-                                .insert(Shaking {
-                                    timer: Timer::from_seconds(Duration::from_millis(200).as_secs_f32(), TimerMode::Once),
-                                    original_position: trans.translation.clone(),
-                                    direction: if let Some(v) = collision.other_velocity { v.normalize() } else { Vec3::NEG_Z },
-                                });
-                            info!("still alive")
-                        }
+        for collision in collision {
+            match collision.other {
+                CollidableKind::Ball => {
+                    hittable.hit_points -= 1;
+
+                    if hittable.hit_points == 0 {
+                        commands.entity(entity)
+                            .despawn_recursive();
+                        events.send(MatchEvent::TargetHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
+                    } else {
+                        commands.entity(entity)
+                            .insert(Shaking {
+                                timer: Timer::from_seconds(Duration::from_millis(200).as_secs_f32(), TimerMode::Once),
+                                original_position: trans.translation.clone(),
+                                direction: if let Some(v) = collision.other_velocity { v.normalize() } else { Vec3::NEG_Z },
+                            });
                     }
-
-                    _ => {}
                 }
+
+                _ => {}
             }
         }
     }
@@ -349,11 +345,11 @@ fn block_handle_collisions(
 
 fn block_handle_evader_collisions(
     mut commands: Commands,
-    mut blocks: Query<(Entity, &CollisionTag, &mut BlockEvader), With<Block>>,
+    mut blocks: Query<(Entity, &mut BlockEvader), (With<Block>, With<CollisionTag>)>,
     mut events: EventWriter<MatchEvent>,
     collisions: Res<CollisionInfo>,
 ) {
-    for (block, _, mut evader) in &mut blocks {
+    for (block, mut evader) in &mut blocks {
         if let Some(collision) = collisions.collisions.get(&block) {
             for collision in collision {
                 match collision.other {
@@ -362,7 +358,6 @@ fn block_handle_evader_collisions(
                     }
 
                     CollidableKind::DeathTrigger => {
-                        info!("Despawn block after losing it {:?}", block);
                         commands.entity(block)
                             .despawn_recursive();
                         events.send(MatchEvent::BlockLost);

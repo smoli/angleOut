@@ -228,11 +228,11 @@ fn ball_correct_too_low_z(mut query: Query<&mut Velocity, With<ActiveBall>>) {
 fn ball_handle_collisions(
     mut commands: Commands,
     ship_state: Res<ShipState>,
-    mut balls: Query<(Entity, &mut ExternalImpulse, &CollisionTag, &mut Velocity), With<ActiveBall>>,
+    mut balls: Query<(Entity, &mut ExternalImpulse, &mut Velocity), (With<ActiveBall>, With<CollisionTag>)>,
     mut events: EventWriter<MatchEvent>,
     collisions: Res<CollisionInfo>,
 ) {
-    for (ball, mut ext_imp, _, mut velo) in &mut balls {
+    for (ball, mut ext_imp, mut velo) in &mut balls {
         let mut correct_ball_trans = false;
 
         if let Some(collision) = collisions.collisions.get(&ball) {
@@ -246,9 +246,6 @@ fn ball_handle_collisions(
 
                         commands.entity(ball)
                             .remove::<CollisionTag>();
-
-                        info!("Applied bounce impulse");
-
                         events.send(MatchEvent::BounceOffPaddle);
                     }
 
@@ -259,7 +256,6 @@ fn ball_handle_collisions(
                     CollidableKind::DeathTrigger => {
                         events.send(MatchEvent::BallLost);
 
-                        info!("Despanw ball after losing it {:?}", ball);
                         commands.entity(ball)
                             .despawn_recursive();
                     }
