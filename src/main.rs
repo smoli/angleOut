@@ -49,9 +49,47 @@ mod powerups;
 mod pickups;
 
 
+
+/*
+    Each 2 to 4 character tuple describes one block
+
+    1st Character
+        How many hits can a block take:
+        A = 1,
+        B = 2,
+        C = 3,
+        Z = unbreakable
+
+        Z are used for obstacles and do not count as blocks when determining of the
+        player has finished the level
+
+    2nd Character
+        What behaviour does the block have
+        A - Nothing
+        B - Spinner - which is kinda useless I guess
+        C - Vanisher - questionable as well
+        D - Repulsor
+        E - Evader first movement to the right
+        F - Evader first movement to the left
+        G - Evader first movement up
+        H - Evader first movement down
+
+    3rd Character (optional)
+        Triggertype:
+        A - Start Trigger
+        B - Stop Trigger
+        C - StartStop Trigger
+        R - Receiver that starts stopped
+        S - Receiver that starts started
+
+        4th Character (mandatory if char 3 exists)
+        Triggergroup 0..=9
+
+ */
+
 const LEVEL0: &str =
-"AE
-AA";
+"AER1
+ZAC1";
 
 const LEVEL1: &str = 
 "AA AA AA AA AA AA AA AA AA

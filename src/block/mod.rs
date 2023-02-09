@@ -1,29 +1,30 @@
+pub mod trigger;
+
 use std::f32::consts::TAU;
 use std::time::Duration;
-use bevy::utils::default;
+
 use bevy::app::App;
 use bevy::asset::{Assets, AssetServer, Handle};
-use bevy::gltf::{Gltf, GltfMesh, GltfPrimitive};
-use bevy::hierarchy::BuildChildren;
+use bevy::gltf::{Gltf, GltfMesh};
 use bevy::log::info;
 use bevy::math::Vec2;
-use bevy::pbr::{AlphaMode, MaterialMeshBundle};
-use bevy::prelude::{Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, MaterialPlugin, Mesh, Name, Plugin, Query, Res, ResMut, Scene, SceneBundle, StandardMaterial, SystemSet, Time, Timer, TimerMode, Transform, TransformBundle, Vec3, Visibility, With, Without};
-use bevy::render::mesh::VertexAttributeValues;
-use bevy::scene::{SceneInstance, SceneSpawner};
+use bevy::pbr::MaterialMeshBundle;
+use bevy::prelude::{Bundle, Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, MaterialPlugin, Plugin, Query, Res, ResMut, SystemSet, Time, Timer, TimerMode, Transform, TransformBundle, Vec3, Visibility, With, Without};
 use bevy::time::FixedTimestep;
+use bevy::utils::default;
+use bevy::utils::hashbrown::HashMap;
 use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, ExternalForce, Friction, LockedAxes, Restitution, RigidBody, Sensor};
+
 use crate::ball::Ball;
-use crate::config::{BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH, BLOCK_WIDTH_H, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
+use crate::block::trigger::{BlockTrigger, BlockTriggerTarget, BlockTriggerTargetInactive, TriggerGroup, TriggerStates, TriggerType};
+use crate::config::{BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH_H, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
-use crate::materials::block::{BlockMaterial};
-use crate::materials::CustomMaterialApplied;
+use crate::materials::block::BlockMaterial;
 use crate::MyAssetPack;
-use crate::physics::{Collidable, CollidableKind, Collision, COLLISION_EVENT_HANDLING, CollisionInfo, CollisionTag};
+use crate::physics::{Collidable, CollidableKind, COLLISION_EVENT_HANDLING, CollisionInfo, CollisionTag};
 use crate::state::GameState;
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BlockType {
@@ -75,6 +76,8 @@ pub struct Block {
     pub block_type: BlockType,
     pub behaviour: BlockBehaviour,
     pub material: Option<Handle<BlockMaterial>>,
+    pub trigger_type: Option<TriggerType>,
+    pub trigger_group: Option<TriggerGroup>,
 }
 
 #[derive(Component, Debug)]
@@ -95,6 +98,8 @@ impl Default for Block {
             block_type: BlockType::Simple,
             behaviour: BlockBehaviour::SittingDuck,
             material: None,
+            trigger_type: None,
+            trigger_group: None,
         }
     }
 }
@@ -109,17 +114,21 @@ impl Plugin for BlockPlugin {
                 MaterialPlugin::<BlockMaterial>::default(),
             )
 
+            .insert_resource(TriggerStates::new())
+
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(block_spawn.label(SystemLabels::UpdateWorld))
                     .with_system(block_repluse.label(SystemLabels::UpdateWorld))
                     .with_system(block_update_evader)
-                    .with_system(block_handle_evader_collisions)
                     .with_system(block_shake.after(SystemLabels::UpdateWorld))
                     .with_system(block_update_custom_material)
+                    .with_system(block_update_trigger_targets)
             )
 
             .add_system_to_stage(COLLISION_EVENT_HANDLING, block_handle_collisions)
+            .add_system_to_stage(COLLISION_EVENT_HANDLING, block_handle_evader_collisions)
+            .add_system_to_stage(COLLISION_EVENT_HANDLING, block_handle_obstacle_trigger_collisions)
 
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
@@ -180,6 +189,11 @@ fn block_spawn(
             ;
 
 
+            let group: TriggerGroup = match &block.trigger_group {
+                None => 0,
+                Some(g) => *g
+            };
+
             match block.behaviour {
                 BlockBehaviour::Spinner => {
                     block_commands.insert(BlockSpinner);
@@ -224,12 +238,36 @@ fn block_spawn(
                     block_commands.insert(BlockEvader {
                         velocity: Vec3::new(0.0, 0.0, 50.0),
                     });
+
                     block_commands.insert(RigidBody::Dynamic);
                     block_commands.insert(LockedAxes::from(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED | LockedAxes::TRANSLATION_LOCKED_X));
                 }
 
                 _ => {}
             }
+
+
+            match &block.trigger_type {
+                None => {}
+                Some(t) => match t {
+                    TriggerType::ReceiverStartingInactive => {
+                        block_commands.insert(BlockTriggerTarget { group });
+                        block_commands.insert(BlockTriggerTargetInactive);
+                    }
+
+                    TriggerType::ReceiverStartingActive => {
+                        block_commands.insert(BlockTriggerTarget { group });
+                    }
+
+                    _ => {
+                        block_commands.insert(BlockTrigger {
+                            group,
+                            trigger_type: t.clone(),
+                        });
+                    }
+                }
+            };
+
 
             let mut color = Color::ORANGE;
 
@@ -309,11 +347,40 @@ fn block_despawn(
     }
 }
 
+fn block_handle_obstacle_trigger_collisions(
+    blocks: Query<(Entity, &BlockTrigger), With<Obstacle>>,
+    collisions: Res<CollisionInfo>,
+    mut triggerStates: ResMut<TriggerStates>,
+) {
+    for (block, trigger) in &blocks {
+        let Some(collision) = collisions.collisions.get(&block) else { continue; };
+
+        for collision in collision {
+            match collision.other {
+                CollidableKind::Ball => {
+                    match trigger.trigger_type {
+                        TriggerType::Start => triggerStates.start(trigger.group),
+                        TriggerType::Stop => triggerStates.stop(trigger.group),
+                        TriggerType::StartStop => triggerStates.flip(trigger.group),
+                        TriggerType::ReceiverStartingInactive => {}
+                        TriggerType::ReceiverStartingActive => {}
+                    }
+                }
+
+                _ => {}
+            }
+        }
+    }
+}
+
+
 fn block_handle_collisions(
     mut commands: Commands,
     mut blocks: Query<(Entity, &mut Hittable, &Block, &Transform), With<CollisionTag>>,
+    mut triggers: Query<&BlockTrigger>,
     mut events: EventWriter<MatchEvent>,
     collisions: Res<CollisionInfo>,
+    mut triggerStates: ResMut<TriggerStates>,
 ) {
     for (entity, mut hittable, block, trans) in &mut blocks {
         let Some(collision) = collisions.collisions.get(&entity) else { continue; };
@@ -335,6 +402,18 @@ fn block_handle_collisions(
                                 direction: if let Some(v) = collision.other_velocity { v.normalize() } else { Vec3::NEG_Z },
                             });
                     }
+
+                    if let Ok(t) = triggers.get(entity) {
+                        info!("This was a trigger {:?}", t);
+                        match t.trigger_type {
+                            TriggerType::Start => triggerStates.start(t.group),
+                            TriggerType::Stop => triggerStates.stop(t.group),
+                            TriggerType::StartStop => triggerStates.flip(t.group),
+
+                            TriggerType::ReceiverStartingInactive => {}
+                            TriggerType::ReceiverStartingActive => {}
+                        }
+                    }
                 }
 
                 _ => {}
@@ -342,6 +421,7 @@ fn block_handle_collisions(
         }
     }
 }
+
 
 fn block_handle_evader_collisions(
     mut commands: Commands,
@@ -355,14 +435,17 @@ fn block_handle_evader_collisions(
                 match collision.other {
                     CollidableKind::Block | CollidableKind::Wall => {
                         evader.velocity *= -1.0;
+                        info!("Flipping direction");
                     }
 
-                    CollidableKind::DeathTrigger => {
-                        commands.entity(block)
-                            .despawn_recursive();
-                        events.send(MatchEvent::BlockLost);
-                    }
+                    /* CollidableKind::DeathTrigger => {
+                         commands.entity(block)
+                             .despawn_recursive();
+                         events.send(MatchEvent::BlockLost);
 
+                         info!("Oh no! I died! {:?}", collision.other_pos);
+                     }
+ */
                     _ => {}
                 }
             }
@@ -472,9 +555,32 @@ fn block_repluse(
 
 fn block_update_evader(
     time: Res<Time>,
-    mut ball: Query<(&mut Transform, &mut BlockEvader)>,
+    mut ball: Query<(&mut Transform, &mut BlockEvader), Without<BlockTriggerTargetInactive>>,
 ) {
     for (mut trans, mut evader) in &mut ball {
         trans.translation += evader.velocity * time.delta().as_secs_f32();
+    }
+}
+
+fn block_update_trigger_targets(
+    mut commands: Commands,
+    mut targets: Query<(Entity, &BlockTriggerTarget)>,
+    mut triggerStates: ResMut<TriggerStates>,
+) {
+    for (entity, target) in &targets {
+        if triggerStates.is_started(target.group) &&
+            !triggerStates.is_consumed(target.group) {
+            info!("Starting receiver {:?}", target);
+            commands.entity(entity)
+                .remove::<BlockTriggerTargetInactive>();
+            triggerStates.consume(target.group);
+        } else if triggerStates.is_stopped(target.group) &&
+            !triggerStates.is_consumed(target.group) {
+            info!("Stopping receiver {:?}", target);
+            commands.entity(entity)
+                .insert(BlockTriggerTargetInactive);
+
+            triggerStates.consume(target.group);
+        }
     }
 }
