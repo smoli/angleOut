@@ -348,7 +348,7 @@ fn block_despawn(
 }
 
 fn block_handle_obstacle_trigger_collisions(
-    blocks: Query<(Entity, &BlockTrigger), With<Obstacle>>,
+    blocks: Query<(Entity, &BlockTrigger)>,
     collisions: Res<CollisionInfo>,
     mut triggerStates: ResMut<TriggerStates>,
 ) {
@@ -401,18 +401,6 @@ fn block_handle_collisions(
                                 original_position: trans.translation.clone(),
                                 direction: if let Some(v) = collision.other_velocity { v.normalize() } else { Vec3::NEG_Z },
                             });
-                    }
-
-                    if let Ok(t) = triggers.get(entity) {
-                        info!("This was a trigger {:?}", t);
-                        match t.trigger_type {
-                            TriggerType::Start => triggerStates.start(t.group),
-                            TriggerType::Stop => triggerStates.stop(t.group),
-                            TriggerType::StartStop => triggerStates.flip(t.group),
-
-                            TriggerType::ReceiverStartingInactive => {}
-                            TriggerType::ReceiverStartingActive => {}
-                        }
                     }
                 }
 

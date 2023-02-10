@@ -88,8 +88,10 @@ mod pickups;
  */
 
 const LEVEL0: &str =
-"AER1
-ZAC1";
+"ZA ZA ZA
+ ZA AA ZA
+ AA ZER1 AA
+.. ZEC1 ..";
 
 const LEVEL1: &str = 
 "AA AA AA AA AA AA AA AA AA
