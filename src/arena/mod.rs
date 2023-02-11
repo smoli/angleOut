@@ -7,7 +7,7 @@ use bevy_rapier3d::na::inf;
 use bevy_rapier3d::prelude::{Collider, Friction, Restitution, RigidBody};
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, BACKGROUND_LENGTH, BACKGROUND_SPEED, MAX_RESTITUTION};
 use crate::labels::SystemLabels;
-use crate::level::Levels;
+use crate::level::{LevelObstacle, Levels};
 use crate::materials::arena::ArenaMaterial;
 use crate::materials::background::BackgroundMaterial;
 use crate::materials::CustomMaterialApplied;
@@ -164,6 +164,32 @@ fn arena_spawn(
             Arena
         )
     ;
+
+
+    for o in &level.obstacles {
+        match o {
+            LevelObstacle::Box(pos, w, h) => {
+                commands
+                    .spawn(RigidBody::Fixed)
+                    .insert(Collider::cuboid(w / 2.0, 100.0, h / 2.0))
+                    .insert(TransformBundle::from(Transform::from_translation(pos.clone())))
+                    .insert(Restitution {
+                        coefficient: MAX_RESTITUTION,
+                        combine_rule: CoefficientCombineRule::Max,
+                    })
+                    .insert(Friction::coefficient(0.0))
+                    .insert(Collidable {
+                        kind: CollidableKind::Wall,
+                    })
+                    .insert(
+                        Arena
+                    );
+
+
+
+            }
+        };
+    }
 }
 
 fn arena_despawn(

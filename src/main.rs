@@ -4,7 +4,7 @@ use bevy::app::App;
 use bevy::DefaultPlugins;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::gltf::Gltf;
-use bevy::prelude::{AssetServer, ClearColor, Color, Commands, Handle, Msaa, PluginGroup, Res, Resource, WindowDescriptor, WindowMode};
+use bevy::prelude::{AssetServer, ClearColor, Color, Commands, Handle, Msaa, PluginGroup, Res, Resource, Vec3, WindowDescriptor, WindowMode};
 use bevy::utils::default;
 use bevy::window::{close_on_esc, MonitorSelection, WindowPlugin, WindowPosition};
 use leafwing_input_manager::prelude::InputManagerPlugin;
@@ -16,7 +16,7 @@ use crate::block::BlockPlugin;
 use crate::config::{BLOCK_GAP, SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::events::EventsPlugin;
 use crate::game::GamePlugin;
-use crate::level::{LevelDefinition, LevelPlugin, Levels, TargetLayout};
+use crate::level::{LevelDefinition, LevelObstacle, LevelPlugin, Levels, TargetLayout};
 use crate::particles::ParticlePlugin;
 use crate::physics::PhysicsPlugin;
 use crate::pickups::{PickupsPlugin, PickupType};
@@ -190,6 +190,7 @@ fn main() {
             targets: TargetLayout::SparseGrid(LEVEL2.to_string(), BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+            obstacles: vec![LevelObstacle::Box(Vec3::ZERO, 20.0, 20.0)],
             ..default()
         },
 
