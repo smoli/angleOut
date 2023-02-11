@@ -166,10 +166,11 @@ fn block_spawn(
             let mut block_commands = commands.entity(entity);
 
 
+                    // .with_scale(Vec3::new(BLOCK_WIDTH_H, BLOCK_HEIGHT / 4.0, BLOCK_DEPTH / 2.0))))
             block_commands
                 .remove::<RequestTag>()
                 .insert(Collider::round_cuboid(
-                    1.0, 1.0, 1.0,
+                    BLOCK_WIDTH_H, BLOCK_HEIGHT / 4.0, BLOCK_DEPTH / 2.0,
                     BLOCK_ROUNDNESS,
                 ))
 
@@ -306,7 +307,7 @@ fn block_spawn(
             let custom_material =
                 custom_materials.add(BlockMaterial {
                     color1: color,
-                    color_texture: Some(asset_server.load("999_Wreckage_Diffuse.png")),
+                    color_texture: Some(asset_server.load("wreckage3.png")),
                     ..default()
                 });
 
@@ -316,8 +317,7 @@ fn block_spawn(
                     material: custom_material,
                     ..default()
                 })
-                .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)
-                    .with_scale(Vec3::new(BLOCK_WIDTH_H, BLOCK_HEIGHT / 4.0, BLOCK_DEPTH / 2.0))))
+                .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)))
             ;
         }
     }

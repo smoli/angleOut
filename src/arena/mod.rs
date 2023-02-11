@@ -1,4 +1,5 @@
 use bevy::log::info;
+use bevy::math::Vec3;
 use bevy::pbr::{NotShadowReceiver, StandardMaterial};
 use bevy::prelude::{Component, App, AssetServer, Commands, default, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor, Entity, DespawnRecursiveExt, Assets, ResMut, MaterialPlugin, MaterialMeshBundle, shape, Mesh, Color, AlphaMode, SceneBundle, Handle, Without, Name};
 use bevy_rapier3d::dynamics::CoefficientCombineRule;
@@ -6,6 +7,7 @@ use bevy_rapier3d::na::inf;
 use bevy_rapier3d::prelude::{Collider, Friction, Restitution, RigidBody};
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, BACKGROUND_LENGTH, BACKGROUND_SPEED, MAX_RESTITUTION};
 use crate::labels::SystemLabels;
+use crate::level::Levels;
 use crate::materials::arena::ArenaMaterial;
 use crate::materials::background::BackgroundMaterial;
 use crate::materials::CustomMaterialApplied;
@@ -51,11 +53,14 @@ impl Plugin for ArenaPlugin {
 fn arena_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ArenaMaterial>>,
+    levels: Res<Levels>
 ) {
+
+    let level = levels.get_current_level().unwrap();
+
    commands
-        .spawn(SceneBundle {            scene: asset_server.load("ship3_003.glb#Scene10"),
+        .spawn(SceneBundle {
+            scene: asset_server.load(level.background_asset.clone()),
             ..default()
         })
         .insert(
@@ -63,13 +68,13 @@ fn arena_spawn(
         )
         .insert(TransformBundle::from(Transform::from_xyz(0.0, -4.0, 0.0)))
         .insert(Scrollable {
-            speed: BACKGROUND_SPEED,
+            speed: level.background_scroll_velocity.clone(),
         })
        ;
 
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("ship3_003.glb#Scene10"),
+            scene: asset_server.load(level.background_asset.clone()),
             ..default()
         })
         .insert(
@@ -77,7 +82,7 @@ fn arena_spawn(
         )
         .insert(TransformBundle::from(Transform::from_xyz(0.0, -4.0, -BACKGROUND_LENGTH)))
         .insert(Scrollable {
-            speed: BACKGROUND_SPEED,
+            speed: level.background_scroll_velocity,
         })
     ;
 

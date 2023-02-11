@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bevy::app::App;
 use bevy::log::{error, info, warn};
-use bevy::prelude::{Commands, Component, IntoSystemDescriptor, Plugin, ResMut, Resource, SystemSet};
+use bevy::prelude::{Commands, Component, IntoSystemDescriptor, Plugin, ResMut, Resource, SystemSet, Vec3};
 use bevy::utils::{default, HashMap};
 use rand::{Rng, thread_rng};
 
@@ -27,13 +27,35 @@ pub enum TargetLayout {
     SparseGrid(String, f32),
 }
 
+pub enum LevelObstacle {
+    Box(Vec3, f32, f32)
+}
+
 
 pub struct LevelDefinition {
+    pub background_asset: String,
+    pub background_scroll_velocity: f32,
     pub simultaneous_balls: i32,
     pub targets: TargetLayout,
     pub time_limit: Option<Duration>,
     pub global_pickups: Vec<PickupType>,
     pub distributed_global_pickups: HashMap<usize, PickupType>,
+    pub obstacles: Vec<LevelObstacle>
+}
+
+impl Default for LevelDefinition {
+    fn default() -> Self {
+        return LevelDefinition {
+            background_asset: "ship3_003.glb#Scene10".to_string(),
+            background_scroll_velocity: 0.0,
+            simultaneous_balls: 1,
+            targets: FilledGrid(5, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![],
+            distributed_global_pickups: Default::default(),
+            obstacles: vec![],
+        }
+    }
 }
 
 
@@ -61,18 +83,6 @@ impl Levels {
             false
         }
 
-    }
-}
-
-impl Default for LevelDefinition {
-    fn default() -> Self {
-        LevelDefinition {
-            targets: FilledGrid(10, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
-            simultaneous_balls: 1,
-            time_limit: None,
-            global_pickups: Vec::new(),
-            distributed_global_pickups: HashMap::new(),
-        }
     }
 }
 

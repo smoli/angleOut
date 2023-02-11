@@ -111,9 +111,18 @@ fn fragment(
     if (damage == 0.0) {
         color =  material.color1;
     } else {
-        let s = textureSample(color_texture, color_sampler, in.uv / (10.0 / damage));
+        var s:vec4<f32> = vec4<f32>(0.0);
+        var uv = vec2<f32>(in.uv);
 
-        color = vec4<f32>(material.color1.xyz * s.x, 1.0);
+        s = s +textureSample(color_texture, color_sampler,uv / 2.0);
+
+        if (damage > 1.0) {
+            uv = vec2<f32>(in.uv.y, in.uv.x);
+            s = s * 0.5 + textureSample(color_texture, color_sampler, uv / 2.0) * 0.5;
+        }
+
+
+        color = vec4<f32>(material.color1.xyz * step(0.1, s.x), 1.0);
     }
 
 

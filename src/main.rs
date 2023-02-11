@@ -87,11 +87,14 @@ mod pickups;
 
  */
 
+const SIMPLE1: &str =
+"AA";
+
 const LEVEL0: &str =
 "ZA ZA ZA
  ZA AA ZA
  AA ZER1 AA
-.. ZEC1 ..";
+.. CAC1 ..";
 
 const LEVEL1: &str = 
 "AA AA AA AA AA AA AA AA AA
@@ -109,6 +112,7 @@ const LEVEL2: &str =
  AA AA AA AA AA AA AA AA AA
  BA BA BA BA BA BA BA BA BA
  AA AA AA AA AA AA AA AA AA";
+
 
 
 const LEVEL3: &str =
@@ -174,13 +178,14 @@ fn main() {
 
         LevelDefinition {
             simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL0.to_string(), BLOCK_GAP),
+            targets: TargetLayout::SparseGrid(SIMPLE1.to_string(), BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![PickupType::MoreBalls(1)],
             ..default()
         },
 
         LevelDefinition {
+            background_asset: "ship3_003.glb#Scene11".to_string(),
             simultaneous_balls: 1,
             targets: TargetLayout::SparseGrid(LEVEL2.to_string(), BLOCK_GAP),
             time_limit: None,
