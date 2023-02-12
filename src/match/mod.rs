@@ -6,7 +6,7 @@ use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::core_pipeline::fxaa::Fxaa;
 use bevy::log::info;
 use bevy::pbr::{MaterialMeshBundle, NotShadowReceiver, PbrBundle, StandardMaterial};
-use bevy::prelude::{AmbientLight, Assets, Camera, Camera3dBundle, Color, Commands, Component, default, DirectionalLight, DirectionalLightBundle, Entity, EventWriter, GamepadButtonType, IntoSystemDescriptor, MaterialPlugin, Mesh, OrthographicProjection, Plugin, Quat, Query, ResMut, shape, SystemSet, Transform, Vec3, With};
+use bevy::prelude::{AmbientLight, Assets, Camera, Camera3dBundle, Color, Commands, Component, default, DirectionalLight, DirectionalLightBundle, Entity, EventWriter, GamepadButtonType, IntoSystemDescriptor, MaterialPlugin, Mesh, OrthographicProjection, Plugin, Quat, Query, Res, ResMut, shape, SystemSet, Transform, Vec3, With};
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::CameraActions;
@@ -16,11 +16,15 @@ use crate::labels::SystemLabels;
 use crate::level::Levels;
 use crate::materials::background::BackgroundMaterial;
 use crate::r#match::state::MatchState;
+use crate::ship::ShipState;
 use crate::state::GameState;
 use crate::ui::{Environment3d, tear_down_3d_environment};
 
 #[derive(Component)]
 pub struct Match;
+
+#[derive(Component)]
+pub struct PlayerCamera;
 
 pub struct MatchPlugin;
 
@@ -42,6 +46,7 @@ impl Plugin for MatchPlugin {
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(camera_update_position)
+                    // .with_system(camera_follow_ship)
             )
 
             .add_system_set(
@@ -122,7 +127,8 @@ fn setup_3d_environment(
                 .build(),
         })
         .insert(Fxaa::default())
-        .insert(Environment3d);
+        .insert(Environment3d)
+        .insert(PlayerCamera);
 
     // Directional Light
     const HALF_SIZE: f32 = 300.0;
@@ -199,6 +205,16 @@ fn setup_3d_environment(
         .insert(NotShadowReceiver)
 */
     ;
+}
+
+
+fn camera_follow_ship(
+    mut camera: Query<&mut Transform, With<PlayerCamera>>,
+    ship_state: Res<ShipState>
+) {
+    for mut trans in &mut camera {
+        trans.translation.x = ship_state.ship_position.x / 10.0;
+    }
 }
 
 
