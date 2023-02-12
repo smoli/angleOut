@@ -58,6 +58,7 @@ mod pickups;
         A = 1,
         B = 2,
         C = 3,
+        D = 1 only top
         Z = unbreakable
 
         Z are used for obstacles and do not count as blocks when determining of the
@@ -88,7 +89,7 @@ mod pickups;
  */
 
 const SIMPLE1: &str =
-"AA";
+"DA";
 
 const LEVEL0: &str =
 "ZA ZA ZA
@@ -178,7 +179,7 @@ fn main() {
 
         LevelDefinition {
             simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(SIMPLE1.to_string(), BLOCK_GAP),
+            targets: TargetLayout::SparseGrid(LEVEL3.to_string(), BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![PickupType::MoreBalls(1)],
             ..default()

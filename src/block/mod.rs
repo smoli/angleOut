@@ -32,6 +32,7 @@ pub enum BlockType {
     Hardling,
     Concrete,
     Obstacle,
+    SimpleTop
 }
 
 #[derive(Debug, Clone)]
@@ -87,8 +88,19 @@ pub struct Obstacle;
 pub struct Hittable {
     pub hit_points: u8,
     pub original_hit_points: u8,
+    pub only_top: bool
 }
 
+
+impl Default for Hittable {
+    fn default() -> Self {
+        return Hittable {
+            hit_points: 1,
+            original_hit_points: 1,
+            only_top: false,
+        }
+    }
+}
 
 impl Default for Block {
     fn default() -> Self {
@@ -270,13 +282,16 @@ fn block_spawn(
             };
 
 
-            let mut color = Color::ORANGE;
+            let mut color1 = Color::ORANGE;
+            let mut color2 = Color::ORANGE;
+            let mut top_bottom_split = false;
 
             match block.block_type {
                 BlockType::Simple => {
                     block_commands.insert(Hittable {
                         hit_points: 1,
                         original_hit_points: 1,
+                        ..default()
                     });
                 }
 
@@ -284,29 +299,44 @@ fn block_spawn(
                     block_commands.insert(Hittable {
                         hit_points: 2,
                         original_hit_points: 2,
+                        ..default()
                     });
-                    color = Color::GRAY;
+                    color1 = Color::GRAY;
                 }
 
                 BlockType::Concrete => {
                     block_commands.insert(Hittable {
                         hit_points: 3,
                         original_hit_points: 3,
+                        ..default()
                     });
-                    color = Color::DARK_GRAY;
+                    color1 = Color::DARK_GRAY;
+                }
+
+                BlockType::SimpleTop => {
+                    block_commands.insert(Hittable {
+                        hit_points: 1,
+                        original_hit_points: 1,
+                        only_top: true,
+                    });
+                    top_bottom_split = true;
+                    color1 = Color::ORANGE;
+                    color2 = Color::WHITE;
                 }
 
                 BlockType::Obstacle => {
                     block_commands.insert({
                         Obstacle
                     });
-                    color = Color::WHITE;
+                    color1 = Color::WHITE;
                 }
             }
 
             let custom_material =
                 custom_materials.add(BlockMaterial {
-                    color1: color,
+                    color1,
+                    color2,
+                    top_bottom_split,
                     color_texture: Some(asset_server.load("wreckage3.png")),
                     ..default()
                 });
@@ -388,7 +418,14 @@ fn block_handle_collisions(
         for collision in collision {
             match collision.other {
                 CollidableKind::Ball => {
-                    hittable.hit_points -= 1;
+
+                    info!("{} {}", collision.other_pos.z, trans.translation.z);
+
+                    if hittable.only_top == true && collision.other_pos.z < trans.translation.z
+                    || hittable.only_top == false {
+                        hittable.hit_points -= 1;
+                    }
+
 
                     if hittable.hit_points == 0 {
                         commands.entity(entity)

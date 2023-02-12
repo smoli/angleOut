@@ -46,6 +46,7 @@ pub fn make_block(b_type: char, b_beh: char, b_trigger: Option<char>, b_trigger_
         'A' => BlockType::Simple,
         'B' => BlockType::Hardling,
         'C' => BlockType::Concrete,
+        'D' => BlockType::SimpleTop,
         'Z' => BlockType::Obstacle,
 
         '.' => return None,

@@ -43,7 +43,8 @@ struct CustomMaterial {
     color1: vec4<f32>,
     color2: vec4<f32>,
     damage: f32,
-    time: f32
+    time: f32,
+    top_bottom_split: i32
 };
 
 @group(1) @binding(0)
@@ -70,47 +71,16 @@ fn fragment(
     in: FragmentInput
 ) -> @location(0) vec4<f32> {
 
-/*    let tempo: f32 = 0.5;
-    let x = material.time * tempo;
-    let p: f32 =  sin(x) * 0.5 + 0.5;
-    return material.color1 * vec4<f32>(1.0, 1.0, 1.0, p);*/
-//
-//    let col = vec3<f32>(1.0, 0.5, 0.5);
-//
-//    return vec4<f32>(col * uv.x, 1.0);
-
-    var col = vec3<f32>(material.color1.xyz);
-/*
-    col = col * 0.01 / uv.x
-         + col * 0.01 / (1.0 - uv.x)
-         + col * 0.01 / uv.y
-         + col * 0.01 / (1.0 - uv.y);*/
-
-
-/*
-
-    let pix = floor(uv * 5.0);
-
- let thickness = 0.05;
-     col = col * smoothstep(1.0 - thickness, 1.0, uv.x)
-         + col * smoothstep(1.0 - thickness, 1.0, uv.y)
-         + col * smoothstep(1.0 - thickness, 1.0, 1.0 - uv.x)
-         + col * smoothstep(1.0 - thickness, 1.0, 1.0 - uv.y)
-
-         + mix(col * 0.8, col * 1.0, sin(material.time + pix.x - pix.y) + cos(material.time + pix.x * pix.y));
-
-
-*/
-
-
-//    return vec4<f32>(col, 1.0);
-
     let damage = material.damage;
     var color: vec4<f32>;
 
-    if (damage == 0.0) {
-        color =  material.color1;
+    if (material.top_bottom_split == 1 && in.uv.y > 0.5) {
+        color = material.color2;
     } else {
+        color = material.color1;
+    }
+
+    if (damage != 0.0) {
         var s:vec4<f32> = vec4<f32>(0.0);
         var uv = vec2<f32>(in.uv);
 
@@ -122,7 +92,7 @@ fn fragment(
         }
 
 
-        color = vec4<f32>(material.color1.xyz * step(0.1, s.x), 1.0);
+        color = vec4<f32>(color.xyz * step(0.1, s.x), 1.0);
     }
 
 

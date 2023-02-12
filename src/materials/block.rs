@@ -1,11 +1,10 @@
 use bevy::asset::Handle;
-use bevy::pbr::{AlphaMode, Material};
-use bevy::render::render_resource::{AsBindGroup, AsBindGroupShaderType, ShaderRef, ShaderType};
-use bevy::reflect::TypeUuid;
-use bevy::prelude::{Color, Component, Image};
 use bevy::math::Vec4;
+use bevy::pbr::{AlphaMode, Material};
+use bevy::prelude::{Color, Image};
+use bevy::reflect::TypeUuid;
 use bevy::render::render_asset::RenderAssets;
-
+use bevy::render::render_resource::{AsBindGroup, AsBindGroupShaderType, ShaderRef, ShaderType};
 
 // This is the struct that will be passed to your shader
 #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
@@ -16,6 +15,7 @@ pub struct BlockMaterial {
     pub color2: Color,
     pub damage: f32,
     pub time: f32,
+    pub top_bottom_split: bool,
 
     #[texture(1)]
     #[sampler(2)]
@@ -31,6 +31,7 @@ impl Default for BlockMaterial {
             color2: Color::WHITE,
             damage: 0.0,
             time: 0.0,
+            top_bottom_split: false,
             color_texture: None,
             alpha_mode: AlphaMode::Blend,
         }
@@ -42,8 +43,8 @@ pub struct BlockMaterialUniform {
     pub color1: Vec4,
     pub color2: Vec4,
     pub damage: f32,
-    pub time: f32
-
+    pub time: f32,
+    pub top_bottom_split: u32
 }
 
 
@@ -53,7 +54,9 @@ impl AsBindGroupShaderType<BlockMaterialUniform> for BlockMaterial {
             color1: self.color1.as_linear_rgba_f32().into(),
             color2: self.color2.as_linear_rgba_f32().into(),
             damage: self.damage,
-            time: self.time
+            time: self.time,
+            top_bottom_split: if self.top_bottom_split { 1 } else { 0 }
+
         }
     }
 }
