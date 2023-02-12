@@ -106,13 +106,23 @@ const LEVEL1: &str =
  AA AA AA AA AA AA AA AA AA";
 
 
-const LEVEL2: &str = 
-"BA BA BA BA BA BA BA BA BA
- AA AA AA AA AA AA AA AA AA
- BA BA BA BA BA BA BA BA BA
- AA AA AA AA AA AA AA AA AA
- BA BA BA BA BA BA BA BA BA
- AA AA AA AA AA AA AA AA AA";
+// For 011_Factory
+const LEVEL4: &str =
+"AA AA AA AA AA .. AA AA AA AA AA
+ AA AA AA AA AA .. AA AA AA AA AA
+ AA AA AA AA AA .. AA AA AA AA AA
+ AA AA AA AA AA .. AA AA AA AA AA
+ AA AA AA AA AA .. AA AA AA AA AA
+ AA AA AA AA AA .. AA AA AA AA AA";
+
+// For 012_Factory
+const LEVEL5: &str =
+"AA AA AA .. AA AA AA .. AA AA AA
+ AA AA AA .. AA AA AA .. AA AA AA
+ AA AA AA .. AA AA AA .. AA AA AA
+ AA AA AA .. AA AA AA .. AA AA AA
+ AA AA AA .. AA AA AA .. AA AA AA
+ AA AA AA .. AA AA AA .. AA AA AA";
 
 
 
@@ -177,21 +187,37 @@ fn main() {
 
     let levelDefinitions: Vec<LevelDefinition> = vec![
 
-        LevelDefinition {
+/*        LevelDefinition {
             simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL3.to_string(), BLOCK_GAP),
+            targets: TargetLayout::SparseGrid(LEVEL1.to_string(), BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![PickupType::MoreBalls(1)],
             ..default()
         },
-
+*/
         LevelDefinition {
             background_asset: "ship3_003.glb#Scene11".to_string(),
             simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL2.to_string(), BLOCK_GAP),
+            targets: TargetLayout::SparseGrid(LEVEL4.to_string(), BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
-            obstacles: vec![LevelObstacle::Box(Vec3::ZERO, 20.0, 20.0)],
+            obstacles: vec![
+                LevelObstacle::Box(Vec3::new(0.0, 0.0, -70.0), 15.0, 200.0),
+            ],
+            ..default()
+        },
+
+        LevelDefinition {
+            background_asset: "ship3_003.glb#Scene12".to_string(),
+            simultaneous_balls: 1,
+            targets: TargetLayout::SparseGrid(LEVEL5.to_string(), BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+            obstacles: vec![
+                LevelObstacle::Box(Vec3::new(34.0, 0.0, -70.0), 15.0, 200.0),
+                LevelObstacle::Box(Vec3::new(-34.0, 0.0, -70.0), 15.0, 200.0),
+
+            ],
             ..default()
         },
 
