@@ -240,9 +240,9 @@ fn ball_handle_collisions(
                 match collision.other {
                     CollidableKind::Ship => {
                         correct_ball_trans = true;
-                        ext_imp.impulse = compute_launch_impulse(
+                 /*       ext_imp.impulse = compute_launch_impulse(
                             ship_state.ship_rotation, PADDLE_BOUNCE_IMPULSE,
-                        );
+                        );*/
 
                         commands.entity(ball)
                             .remove::<CollisionTag>();

@@ -187,14 +187,14 @@ fn main() {
 
     let levelDefinitions: Vec<LevelDefinition> = vec![
 
-/*        LevelDefinition {
+        LevelDefinition {
             simultaneous_balls: 1,
             targets: TargetLayout::SparseGrid(LEVEL1.to_string(), BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![PickupType::MoreBalls(1)],
             ..default()
         },
-*/
+
         LevelDefinition {
             background_asset: "ship3_003.glb#Scene11".to_string(),
             simultaneous_balls: 1,
