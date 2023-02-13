@@ -7,7 +7,7 @@ use bevy::scene::SceneBundle;
 use bevy::utils::default;
 use bevy_prototype_lyon::prelude::ShapePlugin;
 use bevy_rapier3d::geometry::CollisionGroups;
-use bevy_rapier3d::prelude::{ActiveEvents, Collider, ExternalForce};
+use bevy_rapier3d::prelude::{ActiveEvents, Collider, ExternalForce, Velocity};
 use leafwing_input_manager::axislike::DualAxisData;
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, DualAxis, InputMap};
@@ -320,7 +320,7 @@ fn ship_grab_ball(
     mut commands: Commands,
     mut players: Query<(&mut Grabber, &Player), (Without<Ball>, Without<Ship>)>,
     mut ship: Query<(&ActionState<MatchActions>, &Transform), (With<Ship>, Without<Ball>)>,
-    mut balls: Query<(Entity, &mut Transform, &mut ExternalForce), (With<Ball>, Without<Ship>)>,
+    mut balls: Query<(Entity, &mut Transform, &mut ExternalForce, &mut Velocity), (With<Ball>, Without<Ship>)>,
     mut events: EventWriter<MatchEvent>,
 ) {
     if let Ok((mut grabber, player)) = players.get_single_mut() {
@@ -333,7 +333,7 @@ fn ship_grab_ball(
 
         for (action, ship_trans) in &mut ship {
             if action.pressed(MatchActions::GrabTheBall) {
-                for (ball, mut ball_trans, mut ball_force) in &mut balls {
+                for (ball, mut ball_trans, mut ball_force, mut ball_velo) in &mut balls {
                     let target = ship_trans.translation + Vec3::new(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS);
                     let v = target - ball_trans.translation;
                     let d = v.length();
@@ -343,6 +343,7 @@ fn ship_grab_ball(
                                 .remove::<ActiveBall>();
                             events.send(MatchEvent::BallGrabbed);
                             ball_trans.translation = target;
+                            ball_velo.linvel = Vec3::ZERO;
                             grabber.use_one();
                             info!("{} grabs left", grabber.grabs);
                         } else {
