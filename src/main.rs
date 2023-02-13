@@ -97,7 +97,12 @@ const LEVEL0: &str =
  AA ZER1 AA
 .. CAC1 ..";
 
-const LEVEL1: &str = 
+const LEVEL1: &str =
+"AA AA AA AA AA AA AA AA AA
+ AA AA AA AA AA AA AA AA AA
+ AA AA AA AA AA AA AA AA AA";
+
+const LEVEL2: &str =
 "AA AA AA AA AA AA AA AA AA
  AA AA AA AA AA AA AA AA AA
  AA AA AA AA AA AA AA AA AA
@@ -105,9 +110,26 @@ const LEVEL1: &str =
  AA AA AA AA AA AA AA AA AA
  AA AA AA AA AA AA AA AA AA";
 
+const LEVEL3: &str =
+"AA AA AA AA AA AA AA AA AA
+ BA BA BA BA BA BA BA BA AA
+ AA AA AA AA AA AA AA AA AA
+ BA BA BA BA BA BA BA BA AA
+ AA AA AA AA AA AA AA AA AA
+ BA BA BA BA BA BA BA BA AA";
+
+
+const LEVEL4: &str =
+"BA BA BA BA CA BA BA BA BA
+ AA AA AA AA CA AA AA AA AA
+ BA BA BA BA CA BA BA BA BA
+ ZA AA AA AA CA AA AA AA ZA
+ ZA BA BA BA CA BA BA BA ZA
+ ZA ZA ZA ZA ZA ZA ZA ZA ZA";
+
 
 // For 011_Factory
-const LEVEL4: &str =
+const LEVEL5: &str =
 "AA AA AA AA AA .. AA AA AA AA AA
  AA AA AA AA AA .. AA AA AA AA AA
  AA AA AA AA AA .. AA AA AA AA AA
@@ -116,7 +138,7 @@ const LEVEL4: &str =
  AA AA AA AA AA .. AA AA AA AA AA";
 
 // For 012_Factory
-const LEVEL5: &str =
+const LEVEL6: &str =
 "AA AA AA .. AA AA AA .. AA AA AA
  AA AA AA .. AA AA AA .. AA AA AA
  AA AA AA .. AA AA AA .. AA AA AA
@@ -126,13 +148,6 @@ const LEVEL5: &str =
 
 
 
-const LEVEL3: &str =
-"BA BA BA BA BA BA BA BA BA
- AA AA AA AA BA AA AA AA AA
- BA BA BA BA BA BA BA BA BA
- ZA AA AA AA BA AA AA AA ZA
- ZA BA BA BA BA BA BA BA ZA
- ZA ZA ZA ZA ZA ZA ZA ZA ZA";
 
 
 
@@ -196,11 +211,35 @@ fn main() {
         },
 
         LevelDefinition {
-            background_asset: "ship3_003.glb#Scene11".to_string(),
+            simultaneous_balls: 1,
+            targets: TargetLayout::SparseGrid(LEVEL2.to_string(), BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+            ..default()
+        },
+
+        LevelDefinition {
+            simultaneous_balls: 1,
+            targets: TargetLayout::SparseGrid(LEVEL3.to_string(), BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+            ..default()
+        },
+
+        LevelDefinition {
             simultaneous_balls: 1,
             targets: TargetLayout::SparseGrid(LEVEL4.to_string(), BLOCK_GAP),
             time_limit: None,
-            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+            ..default()
+        },
+
+        LevelDefinition {
+            background_asset: "ship3_003.glb#Scene11".to_string(),
+            simultaneous_balls: 1,
+            targets: TargetLayout::SparseGrid(LEVEL5.to_string(), BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
             obstacles: vec![
                 LevelObstacle::Box(Vec3::new(0.0, 0.0, -70.0), 15.0, 200.0),
             ],
@@ -210,22 +249,14 @@ fn main() {
         LevelDefinition {
             background_asset: "ship3_003.glb#Scene12".to_string(),
             simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL5.to_string(), BLOCK_GAP),
+            targets: TargetLayout::SparseGrid(LEVEL6.to_string(), BLOCK_GAP),
             time_limit: None,
-            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
             obstacles: vec![
                 LevelObstacle::Box(Vec3::new(34.0, 0.0, -70.0), 15.0, 200.0),
                 LevelObstacle::Box(Vec3::new(-34.0, 0.0, -70.0), 15.0, 200.0),
 
             ],
-            ..default()
-        },
-
-        LevelDefinition {
-            simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL3. to_string(), BLOCK_GAP),
-            time_limit: None,
-            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
             ..default()
         }
     ];
