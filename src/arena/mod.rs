@@ -1,16 +1,17 @@
 use bevy::log::info;
-use bevy::math::Vec3;
+use bevy::math::{Vec2, Vec3};
 use bevy::pbr::{NotShadowReceiver, StandardMaterial};
 use bevy::prelude::{Component, App, AssetServer, Commands, default, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor, Entity, DespawnRecursiveExt, Assets, ResMut, MaterialPlugin, MaterialMeshBundle, shape, Mesh, Color, AlphaMode, SceneBundle, Handle, Without, Name};
 use bevy_rapier3d::dynamics::CoefficientCombineRule;
 use bevy_rapier3d::na::inf;
 use bevy_rapier3d::prelude::{Collider, Friction, Restitution, RigidBody};
-use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH_H, BACKGROUND_LENGTH, BACKGROUND_SPEED, MAX_RESTITUTION};
+use crate::config::{ARENA_HEIGHT, ARENA_HEIGHT_H, ARENA_WIDTH, ARENA_WIDTH_H, BACKGROUND_LENGTH, BACKGROUND_SPEED, MAX_RESTITUTION};
 use crate::labels::SystemLabels;
 use crate::level::{LevelObstacle, Levels};
 use crate::materials::arena::ArenaMaterial;
 use crate::materials::background::BackgroundMaterial;
 use crate::materials::CustomMaterialApplied;
+use crate::materials::force_field::ForceFieldMaterial;
 use crate::physics::{Collidable, CollidableKind};
 use crate::state::GameState;
 
@@ -28,7 +29,7 @@ impl Plugin for ArenaPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_plugin(
-                MaterialPlugin::<ArenaMaterial>::default(),
+                MaterialPlugin::<ForceFieldMaterial>::default(),
             )
 
             .add_system_set(
@@ -37,7 +38,6 @@ impl Plugin for ArenaPlugin {
             )
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
-                    // .with_system(arena_set_custom_material.label(SystemLabels::UpdateWorld))
                     .with_system(arena_scroll.label(SystemLabels::UpdateWorld))
                     .with_system(arena_update_background_material.label(SystemLabels::UpdateWorld))
             )
@@ -53,7 +53,9 @@ impl Plugin for ArenaPlugin {
 fn arena_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    levels: Res<Levels>
+    levels: Res<Levels>,
+    mut force_field_mat: ResMut<Assets<ForceFieldMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
 
     let level = levels.get_current_level().unwrap();
@@ -87,21 +89,6 @@ fn arena_spawn(
     ;
 
 
-/*    commands
-        .spawn(MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane{ size: ARENA_WIDTH_H * 2.0 })),
-            material: materials.add(ArenaMaterial {
-                color1: Color::rgb(0.0, 1.0, 1.0),
-                color2: Default::default(),
-                time: 0.0,
-                alpha_mode: AlphaMode::Blend,
-            }),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        })
-        .insert(NotShadowReceiver)
-        .insert(Arena);*/
-
     let wall_thickness = 100.0;
     // Left
     commands.spawn(Collider::cuboid(wall_thickness, 60.0, 200.0))
@@ -134,6 +121,28 @@ fn arena_spawn(
             Arena
         )
     ;
+
+
+    // Top Barrier
+    commands
+        .spawn(MaterialMeshBundle {
+            mesh: meshes.add(Mesh::from(shape::Quad {
+                size: Vec2::new(ARENA_WIDTH, 20.0),
+                flip: false,
+            })),
+            material: force_field_mat.add(ForceFieldMaterial {
+                color1: Color::BLUE,
+                color_texture: Some(asset_server.load("hexagon2.png")),
+                ..default()
+            }),
+            transform: Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - 13.0),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+        })
+        .insert(Arena);
+
+
 
     // Top
     commands
@@ -244,7 +253,7 @@ fn arena_scroll(
 }
 
 fn arena_update_background_material(
-    mut materials: ResMut<Assets<BackgroundMaterial>>,
+    mut materials: ResMut<Assets<ForceFieldMaterial>>,
     time: Res<Time>,
 ) {
     for (_, mut mat) in materials.iter_mut() {

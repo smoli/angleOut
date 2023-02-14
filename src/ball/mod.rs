@@ -50,12 +50,13 @@ impl Plugin for BallPlugin {
             )
 
             .add_system_to_stage(COLLISION_EVENT_HANDLING, ball_handle_collisions)
-            .add_system_set(
+
+/*            .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(ball_limit_velocity
                         .after(SystemLabels::UpdateWorld))
             )
-
+*/
             .add_system_set(
                 SystemSet::on_exit(GameState::PostMatch)
                     .with_system(ball_despawn)
