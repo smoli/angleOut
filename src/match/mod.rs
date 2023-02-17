@@ -10,7 +10,7 @@ use bevy::prelude::{AmbientLight, Assets, Camera, Camera3dBundle, Color, Command
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::CameraActions;
-use crate::config::BLOOM_ENABLED;
+use crate::config::{BLOOM_ENABLED, CAMERA_TILT};
 use crate::events::GameFlowEvent;
 use crate::labels::SystemLabels;
 use crate::level::Levels;
@@ -99,8 +99,17 @@ fn setup_3d_environment(
 ) {
     // commands.spawn(Camera2dBundle::default());
     // camera
+
+    let mut p = Vec3::new(0.0, 200.0, 0.00001);
+
+    if CAMERA_TILT {
+        let q = Quat::from_rotation_x(CAMERA_TILT );
+        p = q * p;
+    }
+
+
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 200.0, 0.00001).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(p.x, p.y, p.z).looking_at(Vec3::ZERO, Vec3::Y),
         // transform: Transform::from_xyz(0.0, 0.0, -100.00001).looking_at(Vec3::ZERO, Vec3::Y),
         camera: Camera {
             hdr: BLOOM_ENABLED,
