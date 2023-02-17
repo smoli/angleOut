@@ -1,3 +1,4 @@
+use bevy::hierarchy::{BuildChildren, Parent};
 use bevy::log::info;
 use bevy::math::{Vec2, Vec3};
 use bevy::pbr::{NotShadowReceiver, StandardMaterial};
@@ -12,11 +13,14 @@ use crate::materials::arena::ArenaMaterial;
 use crate::materials::background::BackgroundMaterial;
 use crate::materials::CustomMaterialApplied;
 use crate::materials::force_field::ForceFieldMaterial;
-use crate::physics::{Collidable, CollidableKind};
+use crate::physics::{Collidable, CollidableKind, COLLISION_EVENT_HANDLING, CollisionInfo, CollisionTag};
 use crate::state::GameState;
 
 #[derive(Component)]
 pub struct Arena;
+
+#[derive(Component)]
+pub struct ForceField;
 
 #[derive(Component)]
 pub struct Scrollable {
@@ -39,8 +43,11 @@ impl Plugin for ArenaPlugin {
             .add_system_set(
                 SystemSet::on_update(GameState::InMatch)
                     .with_system(arena_scroll.label(SystemLabels::UpdateWorld))
-                    .with_system(arena_update_background_material.label(SystemLabels::UpdateWorld))
+                    .with_system(arena_update_force_field_material.label(SystemLabels::UpdateWorld))
             )
+
+
+            .add_system_to_stage(COLLISION_EVENT_HANDLING, arena_handle_collisions)
 
             .add_system_set(
                 SystemSet::on_exit(GameState::PostMatch)
@@ -139,11 +146,30 @@ fn arena_spawn(
             global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
+
         })
-        .insert(Arena);
+
+        .insert(ForceField)
+        .with_children(|parent| {
+           parent
+               .spawn(RigidBody::Fixed)
+               .insert(Collider::cuboid(ARENA_WIDTH_H, 60.0, wall_thickness))
+               .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - 25.0)))
+               .insert(Restitution {
+                   coefficient: MAX_RESTITUTION,
+                   combine_rule: CoefficientCombineRule::Max,
+               })
+               .insert(Friction::coefficient(0.0))
+        .insert(Collidable {
+            kind: CollidableKind::Wall,
+        })
+               .insert(
+                   Arena
+               );
+        });
 
 
-
+/*
     // Top
     commands
         .spawn(RigidBody::Fixed)
@@ -160,7 +186,7 @@ fn arena_spawn(
         .insert(
             Arena
         )
-    ;
+    ;*/
 
     // Bottom
     commands.spawn(Collider::cuboid(ARENA_WIDTH_H, 60.0, wall_thickness))
@@ -252,11 +278,48 @@ fn arena_scroll(
     }
 }
 
-fn arena_update_background_material(
+fn arena_update_force_field_material(
     mut materials: ResMut<Assets<ForceFieldMaterial>>,
     time: Res<Time>,
 ) {
     for (_, mut mat) in materials.iter_mut() {
         mat.time = time.elapsed_seconds();
     }
+}
+
+
+fn arena_handle_collisions(
+    mut commands: Commands,
+    mut wall: Query<(Entity, &Parent), (With<Arena>, With<CollisionTag>)>,
+    forceFields: Query<(&ForceField, &Handle<ForceFieldMaterial>)>,
+    collisions: Res<CollisionInfo>,
+    mut materials: ResMut<Assets<ForceFieldMaterial>>,
+    time: Res<Time>
+) {
+    for (wall, parent) in &wall {
+        if let Some(collisions) = collisions.collisions.get(&wall) {
+            for collision in collisions {
+
+                match collision.other {
+                    CollidableKind::Ball => {
+                        let p = forceFields.get(parent.get());
+
+                        if let Ok(forceField) = p {
+                            if let Some(mat) = materials.get_mut(forceField.1) {
+                                mat.hit_time = time.elapsed_seconds();
+                                let h_x = (collision.other_pos.x + ARENA_WIDTH_H) / ARENA_WIDTH;
+                                mat.hit_position = Vec3::new(h_x, 0.0, 0.0);
+                            info!("You hit that wall at {}!", h_x);
+                            }
+                        }
+
+                    }
+
+                    _ => {}
+                }
+
+            }
+        }
+    }
+
 }

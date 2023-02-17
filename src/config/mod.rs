@@ -1,6 +1,7 @@
+use std::f32::consts::PI;
 use bevy_rapier3d::geometry::Group;
 
-pub const DEBUG_INFO_ENABLED: bool = false;
+pub const DEBUG_INFO_ENABLED: bool = true;
 pub const DEBUG_PHYSICS_ENABLED: bool = true && DEBUG_INFO_ENABLED;
 
 pub const SCREEN_WIDTH: f32 = 1600.0;
@@ -11,6 +12,8 @@ pub const MAX_BALL_SPEED: f32 = 130.0;
 pub const MIN_BALL_SPEED: f32 = 130.0;
 pub const MAX_RESTITUTION: f32 = 1.0;
 
+pub const TILTED_CAMERA: bool = true;
+pub const CAMERA_TILT: f32 = PI / 5.0;
 
 // This is basically a factor that the distance vector between the ship an the ball is multiplied.
 pub const GRAB_FORCE_MAGNITUDE: f32 = 500.0;

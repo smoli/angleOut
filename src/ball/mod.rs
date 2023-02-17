@@ -173,7 +173,7 @@ fn ball_inactive_handle_events(
             match ev {
                 MatchEvent::BallSpawned => {}
                 MatchEvent::BallLaunched => {
-                    velo.linvel = compute_launch_impulse(ship_state.ship_rotation, 100.0);
+                    velo.linvel = compute_launch_impulse(ship_state.ship_rotation, MIN_BALL_SPEED);
                     commands.entity(ball)
                         .insert(ActiveBall);
                     col.filters = col.filters | COLLIDER_GROUP_PADDLE | COLLIDER_GROUP_BLOCK;
