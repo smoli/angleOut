@@ -10,7 +10,7 @@ use bevy::prelude::{AmbientLight, Assets, Camera, Camera3dBundle, Color, Command
 use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::CameraActions;
-use crate::config::{BLOOM_ENABLED, CAMERA_TILT};
+use crate::config::{BLOOM_ENABLED, CAMERA_TILT, TILTED_CAMERA};
 use crate::events::GameFlowEvent;
 use crate::labels::SystemLabels;
 use crate::level::Levels;
@@ -102,7 +102,7 @@ fn setup_3d_environment(
 
     let mut p = Vec3::new(0.0, 200.0, 0.00001);
 
-    if CAMERA_TILT {
+    if TILTED_CAMERA {
         let q = Quat::from_rotation_x(CAMERA_TILT );
         p = q * p;
     }
