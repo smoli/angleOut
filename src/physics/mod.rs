@@ -17,6 +17,7 @@ pub enum CollidableKind {
     Ball,
     Wall,
     DeathTrigger,
+    DirectionalDeathTrigger(Vec3),
     Ship,
     Block,
     Pickup,
@@ -99,15 +100,17 @@ impl Plugin for PhysicsPlugin {
 fn handle_collision_events(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    mut collidables: Query<(&Collidable, &Transform), Without<Sensor>>,
+    mut collidables: Query<(&Collidable, &Transform)>,
     mut collisions: ResMut<CollisionInfo>,
     velocity: Query<&Velocity>,
 ) {
     for collision_event in collision_events.iter() {
         match collision_event {
-            CollisionEvent::Started(a, b, _) => {
+            CollisionEvent::Started(a, b, flags) => {
+
                 if let Ok((col_a, trans_a)) = collidables.get(*a) {
                     if let Ok((col_b, trans_b)) = collidables.get(*b) {
+
                         let vel_a = if let Ok(va) = velocity.get(*a) {
                             Some(va.linvel.clone())
                         } else { None };

@@ -149,7 +149,7 @@ fn fragment(
 
     pbr_input.material.reflectance = 1.0;
     pbr_input.material.alpha_cutoff = 0.0;
-    pbr_input.material.flags = 2u | 4u;
+    pbr_input.material.flags = 2u + 4u + 16u;
     pbr_input.material.emissive = color;
     pbr_input.material.metallic = 0.1;
     pbr_input.material.perceptual_roughness = 1.0;

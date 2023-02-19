@@ -10,6 +10,7 @@ use bevy::log::info;
 use bevy::math::Vec2;
 use bevy::pbr::MaterialMeshBundle;
 use bevy::prelude::{Bundle, Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, MaterialPlugin, Plugin, Query, Res, ResMut, SystemSet, Time, Timer, TimerMode, Transform, TransformBundle, Vec3, Visibility, With, Without};
+use bevy::prelude::KeyCode::C;
 use bevy::time::FixedTimestep;
 use bevy::utils::default;
 use bevy::utils::hashbrown::HashMap;
@@ -17,7 +18,7 @@ use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, Col
 
 use crate::ball::Ball;
 use crate::block::trigger::{BlockTrigger, BlockTriggerTarget, BlockTriggerTargetInactive, TriggerGroup, TriggerStates, TriggerType};
-use crate::config::{BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH_H, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, MAX_RESTITUTION};
+use crate::config::{BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH_H, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_DEATH, MAX_RESTITUTION};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
 use crate::level::RequestTag;
@@ -32,7 +33,7 @@ pub enum BlockType {
     Hardling,
     Concrete,
     Obstacle,
-    SimpleTop
+    SimpleTop,
 }
 
 #[derive(Debug, Clone)]
@@ -41,10 +42,10 @@ pub enum BlockBehaviour {
     Spinner,
     Vanisher,
     Repuslor,
-    EvaderR,
-    EvaderL,
-    EvaderU,
-    EvaderD,
+    EvaderR(f32),
+    EvaderL(f32),
+    EvaderU(f32),
+    EvaderD(f32),
 }
 
 
@@ -88,7 +89,7 @@ pub struct Obstacle;
 pub struct Hittable {
     pub hit_points: u8,
     pub original_hit_points: u8,
-    pub only_top: bool
+    pub only_top: bool,
 }
 
 
@@ -98,7 +99,7 @@ impl Default for Hittable {
             hit_points: 1,
             original_hit_points: 1,
             only_top: false,
-        }
+        };
     }
 }
 
@@ -178,7 +179,7 @@ fn block_spawn(
             let mut block_commands = commands.entity(entity);
 
 
-                    // .with_scale(Vec3::new(BLOCK_WIDTH_H, BLOCK_HEIGHT / 4.0, BLOCK_DEPTH / 2.0))))
+            // .with_scale(Vec3::new(BLOCK_WIDTH_H, BLOCK_HEIGHT / 4.0, BLOCK_DEPTH / 2.0))))
             block_commands
                 .remove::<RequestTag>()
                 .insert(Collider::round_cuboid(
@@ -194,7 +195,7 @@ fn block_spawn(
                     coefficient: 0.0,
                     combine_rule: CoefficientCombineRule::Min,
                 })
-                .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL | COLLIDER_GROUP_BLOCK | COLLIDER_GROUP_ARENA))
+                .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_DEATH | COLLIDER_GROUP_BALL | COLLIDER_GROUP_BLOCK | COLLIDER_GROUP_ARENA))
                 .insert(ActiveEvents::COLLISION_EVENTS)
                 .insert(Collidable {
                     kind: CollidableKind::Block
@@ -223,33 +224,33 @@ fn block_spawn(
                     block_commands.insert(RigidBody::Fixed);
                 }
 
-                BlockBehaviour::EvaderR => {
+                BlockBehaviour::EvaderR(s) => {
                     block_commands.insert(BlockEvader {
-                        velocity: Vec3::new(50.0, 0.0, 0.0),
+                        velocity: Vec3::new(s, 0.0, 0.0),
                     });
                     block_commands.insert(RigidBody::Dynamic);
                     block_commands.insert(LockedAxes::from(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED | LockedAxes::TRANSLATION_LOCKED_Z));
                 }
 
-                BlockBehaviour::EvaderL => {
+                BlockBehaviour::EvaderL(s) => {
                     block_commands.insert(BlockEvader {
-                        velocity: Vec3::new(-50.0, 0.0, 0.0),
+                        velocity: Vec3::new(-s, 0.0, 0.0),
                     });
                     block_commands.insert(RigidBody::Dynamic);
                     block_commands.insert(LockedAxes::from(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED | LockedAxes::TRANSLATION_LOCKED_Z));
                 }
 
-                BlockBehaviour::EvaderU => {
+                BlockBehaviour::EvaderU(s) => {
                     block_commands.insert(BlockEvader {
-                        velocity: Vec3::new(0.0, 0.0, -50.0),
+                        velocity: Vec3::new(0.0, 0.0, -s),
                     });
                     block_commands.insert(RigidBody::Dynamic);
                     block_commands.insert(LockedAxes::from(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED | LockedAxes::TRANSLATION_LOCKED_X));
                 }
 
-                BlockBehaviour::EvaderD => {
+                BlockBehaviour::EvaderD(s) => {
                     block_commands.insert(BlockEvader {
-                        velocity: Vec3::new(0.0, 0.0, 50.0),
+                        velocity: Vec3::new(0.0, 0.0, s),
                     });
 
                     block_commands.insert(RigidBody::Dynamic);
@@ -407,10 +408,8 @@ fn block_handle_obstacle_trigger_collisions(
 fn block_handle_collisions(
     mut commands: Commands,
     mut blocks: Query<(Entity, &mut Hittable, &Block, &Transform), With<CollisionTag>>,
-    mut triggers: Query<&BlockTrigger>,
     mut events: EventWriter<MatchEvent>,
     collisions: Res<CollisionInfo>,
-    mut triggerStates: ResMut<TriggerStates>,
 ) {
     for (entity, mut hittable, block, trans) in &mut blocks {
         let Some(collision) = collisions.collisions.get(&entity) else { continue; };
@@ -418,11 +417,10 @@ fn block_handle_collisions(
         for collision in collision {
             match collision.other {
                 CollidableKind::Ball => {
-
                     info!("{} {}", collision.other_pos.z, trans.translation.z);
 
                     if hittable.only_top == true && collision.other_pos.z < trans.translation.z
-                    || hittable.only_top == false {
+                        || hittable.only_top == false {
                         hittable.hit_points -= 1;
                     }
 
@@ -438,6 +436,15 @@ fn block_handle_collisions(
                                 original_position: trans.translation.clone(),
                                 direction: if let Some(v) = collision.other_velocity { v.normalize() } else { Vec3::NEG_Z },
                             });
+                    }
+                }
+
+                CollidableKind::DirectionalDeathTrigger(normal) => {
+                    let dir = normal.dot(collision.pos - collision.other_pos);
+                    if dir > 0.0 {
+                        commands.entity(entity)
+                            .despawn_recursive();
+                        events.send(MatchEvent::BlockLost);
                     }
                 }
 

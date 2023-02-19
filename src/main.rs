@@ -13,10 +13,11 @@ use crate::actions::{CameraActions, GameFlowActions, MatchActions};
 use crate::arena::ArenaPlugin;
 use crate::ball::BallPlugin;
 use crate::block::BlockPlugin;
-use crate::config::{BLOCK_GAP, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::config::{ARENA_HEIGHT, ARENA_WIDTH_H, BLOCK_GAP, SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::events::EventsPlugin;
 use crate::game::GamePlugin;
 use crate::level::{LevelDefinition, LevelObstacle, LevelPlugin, Levels, TargetLayout};
+use crate::level::TargetLayout::Custom;
 use crate::particles::ParticlePlugin;
 use crate::physics::PhysicsPlugin;
 use crate::pickups::{PickupsPlugin, PickupType};
@@ -89,7 +90,12 @@ mod pickups;
  */
 
 const SIMPLE1: &str =
-"DA";
+"AA
+ AA
+ AA
+ AF
+ AE
+ AA";
 
 const LEVEL0: &str =
 "ZA ZA ZA
@@ -201,6 +207,30 @@ fn main() {
 
 
     let levelDefinitions: Vec<LevelDefinition> = vec![
+
+
+        LevelDefinition {
+            background_asset: "ship3_003.glb#Scene13".to_string(),
+            simultaneous_balls: 1,
+            targets: Custom("Conveyor".to_string()),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+            obstacles: vec![
+                LevelObstacle::ForceField(Vec3::new(100.0, 0.0, (-18.39 - 48.39) / 2.0), Vec3::NEG_X, (48.39 - 18.39), true),
+                LevelObstacle::DirectionalDeathTrigger(Vec3::new(160.0, 0.0, (-18.39 - 48.39) / 2.0), Vec3::NEG_X, (48.39 - 18.39)),
+
+                LevelObstacle::ForceField(Vec3::new(-100.0, 0.0, (-18.39 - 48.39) / 2.0), Vec3::X, (48.39 - 18.39), false),
+                LevelObstacle::DirectionalDeathTrigger(Vec3::new(-160.0, 0.0, (-18.39 - 48.39) / 2.0), Vec3::X, (48.39 - 18.39)),
+
+                LevelObstacle::Box(Vec3::new(-ARENA_WIDTH_H - 20.0, 0.0, 100.0 - 18.95), 40.0, 200.0),
+                LevelObstacle::Box(Vec3::new(-ARENA_WIDTH_H - 20.0, 0.0, -48.39 - 50.0), 40.0, 100.0),
+                LevelObstacle::Box(Vec3::new(ARENA_WIDTH_H + 20.0, 0.0, 100.0 - 18.95), 40.0, 200.0),
+                LevelObstacle::Box(Vec3::new(ARENA_WIDTH_H + 20.0, 0.0, -48.39 - 50.0), 40.0, 100.0),
+            ],
+            default_wall_l: false,
+            default_wall_r: false,
+            ..default()
+        },
 
         LevelDefinition {
             simultaneous_balls: 1,

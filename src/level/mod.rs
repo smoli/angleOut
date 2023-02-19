@@ -2,15 +2,16 @@ use std::time::Duration;
 
 use bevy::app::App;
 use bevy::log::{error, info, warn};
+use bevy::math::Vec2;
 use bevy::prelude::{Commands, Component, IntoSystemDescriptor, Plugin, ResMut, Resource, SystemSet, Vec3};
 use bevy::utils::{default, HashMap};
 use rand::{Rng, thread_rng};
 
 use crate::block::{Block, BlockBehaviour, BlockType};
-use crate::config::BLOCK_GAP;
+use crate::config::{ARENA_WIDTH_H, BLOCK_GAP, BLOCK_WIDTH};
 use crate::labels::SystemLabels;
 use crate::level::layout::{generate_block_grid, interpret_grid};
-use crate::level::TargetLayout::FilledGrid;
+use crate::level::TargetLayout::{FilledGrid, SparseGrid};
 use crate::pickups::PickupType;
 use crate::r#match::state::MatchState;
 use crate::ship::Ship;
@@ -25,12 +26,18 @@ pub struct RequestTag;
 pub enum TargetLayout {
     FilledGrid(usize, usize, BlockType, BlockBehaviour, f32),
     SparseGrid(String, f32),
+    Custom(String)
 }
 
 pub enum LevelObstacle {
-    Box(Vec3, f32, f32)
-}
+    // Center position, width, height
+    Box(Vec3, f32, f32),
 
+    // Center position, Normal, width, flip normal when rotating in place (hacky)
+    ForceField(Vec3, Vec3, f32, bool),
+
+    DirectionalDeathTrigger(Vec3, Vec3, f32)
+}
 
 pub struct LevelDefinition {
     pub background_asset: String,
@@ -40,7 +47,9 @@ pub struct LevelDefinition {
     pub time_limit: Option<Duration>,
     pub global_pickups: Vec<PickupType>,
     pub distributed_global_pickups: HashMap<usize, PickupType>,
-    pub obstacles: Vec<LevelObstacle>
+    pub obstacles: Vec<LevelObstacle>,
+    pub default_wall_l: bool,
+    pub default_wall_r: bool,
 }
 
 impl Default for LevelDefinition {
@@ -54,6 +63,8 @@ impl Default for LevelDefinition {
             global_pickups: vec![],
             distributed_global_pickups: Default::default(),
             obstacles: vec![],
+            default_wall_l: true,
+            default_wall_r: true
         }
     }
 }
@@ -90,6 +101,10 @@ impl Levels {
 impl LevelDefinition {
     pub fn pickup_at(&self, remaining_block_count: usize) -> Option<&PickupType> {
         self.distributed_global_pickups.get(&remaining_block_count)
+    }
+
+    pub fn clear_pickups(&mut self) {
+        self.distributed_global_pickups.clear();
     }
 
     pub fn distribute_global_pickups(&mut self, block_count: usize) {
@@ -203,18 +218,71 @@ fn level_spawn(
 
     let mut level = levels.get_current_level_mut().unwrap();
 
-    let count = match &level.targets {
+    match &level.targets {
         FilledGrid(cols, rows, block_type, behaviour, gap) => {
-            make_filled_grid(&mut commands, *cols, *rows, block_type, behaviour, *gap)
+            let count = make_filled_grid(&mut commands, *cols, *rows, block_type, behaviour, *gap);
+            level.distribute_global_pickups(count as usize);
+            stats.set_block_count(count);
+
         }
-        TargetLayout::SparseGrid(layout, gap) => {
-            make_grid_from_string_layout(&mut commands, layout, *gap)
+
+        SparseGrid(layout, gap) => {
+            let count = make_grid_from_string_layout(&mut commands, layout, *gap);
+            level.distribute_global_pickups(count as usize);
+            stats.set_block_count(count);
+        }
+
+        TargetLayout::Custom(name) => {
+
+            match name.as_str() {
+                "Conveyor" => {
+                    level_span_conveyor(stats, level, commands);
+                }
+
+                _ => {
+                    error!("Unknown custom level definition {}", name);
+                }
+            };
+
         }
     };
 
-    level.distribute_global_pickups(count as usize);
+}
 
-    stats.set_block_count(count);
+fn level_span_conveyor(
+    mut stats: ResMut<MatchState>,
+    mut level: &mut LevelDefinition,
+    mut commands: Commands
+) {
+    let speed = 10.0;
+    let mut pos = Vec2::new(ARENA_WIDTH_H + 3.0, -25.0);
+    for i in 0..10 {
+        commands.
+            spawn(Block {
+                position: pos.clone(),
+                behaviour: BlockBehaviour::EvaderL(speed),
+                block_type: BlockType::Simple,
+                ..default()
+            })
+            .insert(RequestTag);
+        pos.x += 2.0 * BLOCK_WIDTH + BLOCK_GAP;
+    }
+
+    let mut pos = Vec2::new(-ARENA_WIDTH_H - 3.0, -35.0);
+    for i in 0..10 {
+        commands.
+            spawn(Block {
+                position: pos.clone(),
+                behaviour: BlockBehaviour::EvaderR(speed),
+                block_type: BlockType::Simple,
+                ..default()
+            })
+            .insert(RequestTag);
+        pos.x -= 2.0 * BLOCK_WIDTH + BLOCK_GAP;
+    }
+
+    level.clear_pickups();
+    stats.set_block_count(20);
 }
 
 

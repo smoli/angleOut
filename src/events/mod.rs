@@ -129,6 +129,11 @@ fn match_event_handler(
 
             MatchEvent::BlockLost => {
                 match_state.block_lost();
+                if match_state.blocks == 0 && match_state.blocks_hit > 0 {
+                    game_flow.send(GameFlowEvent::PlayerWins);
+                } else if match_state.blocks == 0 && match_state.blocks_hit == 0 {
+                    game_flow.send(GameFlowEvent::PlayerLooses);
+                }
             }
 
             MatchEvent::BallGrabbed => {

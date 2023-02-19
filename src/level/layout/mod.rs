@@ -59,10 +59,10 @@ pub fn make_block(b_type: char, b_beh: char, b_trigger: Option<char>, b_trigger_
         'B' => BlockBehaviour::Spinner,
         'C' => BlockBehaviour::Vanisher,
         'D' => BlockBehaviour::Repuslor,
-        'E' => BlockBehaviour::EvaderR,
-        'F' => BlockBehaviour::EvaderL,
-        'G' => BlockBehaviour::EvaderU,
-        'H' => BlockBehaviour::EvaderD,
+        'E' => BlockBehaviour::EvaderR(50.0),
+        'F' => BlockBehaviour::EvaderL(50.0),
+        'G' => BlockBehaviour::EvaderU(50.0),
+        'H' => BlockBehaviour::EvaderD(50.0),
 
         '.' => return None,
 

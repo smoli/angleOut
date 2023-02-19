@@ -130,7 +130,7 @@ impl MatchState {
             BlockBehaviour::Spinner => 50,
             BlockBehaviour::Vanisher => 100,
             BlockBehaviour::Repuslor => 150,
-            BlockBehaviour::EvaderR | BlockBehaviour::EvaderL | BlockBehaviour::EvaderD | BlockBehaviour::EvaderU => 150,
+            BlockBehaviour::EvaderR(_) | BlockBehaviour::EvaderL(_) | BlockBehaviour::EvaderD(_) | BlockBehaviour::EvaderU(_) => 150,
         };
 
         base_points

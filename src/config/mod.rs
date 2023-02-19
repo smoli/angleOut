@@ -54,6 +54,7 @@ pub const COLLIDER_GROUP_BLOCK:Group  = Group::GROUP_3;
 pub const COLLIDER_GROUP_ARENA:Group  = Group::GROUP_4;
 pub const COLLIDER_GROUP_DEATH:Group  = Group::GROUP_5;
 pub const COLLIDER_GROUP_PICKUP:Group  = Group::GROUP_6;
+pub const COLLIDER_GROUP_FORCE_FIELD:Group  = Group::GROUP_7;
 
 pub const BLOCK_WIDTH: f32 = 15.0;
 pub const BLOCK_WIDTH_H: f32 = BLOCK_WIDTH / 2.0;

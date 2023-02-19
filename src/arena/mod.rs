@@ -1,12 +1,14 @@
+use std::f32::consts::PI;
 use bevy::hierarchy::{BuildChildren, Parent};
 use bevy::log::info;
-use bevy::math::{Vec2, Vec3};
+use bevy::math::{Quat, Vec2, Vec3};
 use bevy::pbr::{NotShadowReceiver, StandardMaterial};
 use bevy::prelude::{Component, App, AssetServer, Commands, default, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor, Entity, DespawnRecursiveExt, Assets, ResMut, MaterialPlugin, MaterialMeshBundle, shape, Mesh, Color, AlphaMode, SceneBundle, Handle, Without, Name};
 use bevy_rapier3d::dynamics::CoefficientCombineRule;
 use bevy_rapier3d::na::inf;
-use bevy_rapier3d::prelude::{Collider, Friction, Restitution, RigidBody};
-use crate::config::{ARENA_HEIGHT, ARENA_HEIGHT_H, ARENA_WIDTH, ARENA_WIDTH_H, BACKGROUND_LENGTH, BACKGROUND_SPEED, MAX_RESTITUTION};
+use bevy_rapier3d::prelude::{ActiveEvents, Collider, CollisionEvent, CollisionGroups, Friction, Restitution, RigidBody, Sensor};
+
+use crate::config::{ARENA_HEIGHT, ARENA_HEIGHT_H, ARENA_WIDTH, ARENA_WIDTH_H, BACKGROUND_LENGTH, BACKGROUND_SPEED, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_DEATH, MAX_RESTITUTION};
 use crate::labels::SystemLabels;
 use crate::level::{LevelObstacle, Levels};
 use crate::materials::arena::ArenaMaterial;
@@ -21,6 +23,7 @@ pub struct Arena;
 
 #[derive(Component)]
 pub struct ForceField;
+
 
 #[derive(Component)]
 pub struct Scrollable {
@@ -64,10 +67,9 @@ fn arena_spawn(
     mut force_field_mat: ResMut<Assets<ForceFieldMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-
     let level = levels.get_current_level().unwrap();
 
-   commands
+    commands
         .spawn(SceneBundle {
             scene: asset_server.load(level.background_asset.clone()),
             ..default()
@@ -79,7 +81,7 @@ fn arena_spawn(
         .insert(Scrollable {
             speed: level.background_scroll_velocity.clone(),
         })
-       ;
+    ;
 
     commands
         .spawn(SceneBundle {
@@ -98,36 +100,40 @@ fn arena_spawn(
 
     let wall_thickness = 100.0;
     // Left
-    commands.spawn(Collider::cuboid(wall_thickness, 60.0, 200.0))
-        .insert(TransformBundle::from(Transform::from_xyz(-ARENA_WIDTH_H - wall_thickness, 0.0, 0.0)))
-        .insert(Restitution {
-            coefficient: MAX_RESTITUTION,
-            combine_rule: CoefficientCombineRule::Max,
-        })
-        .insert(Friction::coefficient(0.0))
-        .insert(Collidable {
-            kind: CollidableKind::Wall,
-        })
-        .insert(
-            Arena
-        )
-    ;
+    if level.default_wall_l {
+        commands.spawn(Collider::cuboid(wall_thickness, 60.0, 200.0))
+            .insert(TransformBundle::from(Transform::from_xyz(-ARENA_WIDTH_H - wall_thickness, 0.0, 0.0)))
+            .insert(Restitution {
+                coefficient: MAX_RESTITUTION,
+                combine_rule: CoefficientCombineRule::Max,
+            })
+            .insert(Friction::coefficient(0.0))
+            .insert(Collidable {
+                kind: CollidableKind::Wall,
+            })
+            .insert(
+                Arena
+            )
+        ;
+    }
 
     // Right
-    commands.spawn(Collider::cuboid(wall_thickness, 60.0, 200.0))
-        .insert(TransformBundle::from(Transform::from_xyz(ARENA_WIDTH_H + wall_thickness, 0.0, 0.0)))
-        .insert(Restitution {
-            coefficient: MAX_RESTITUTION,
-            combine_rule: CoefficientCombineRule::Max,
-        })
-        .insert(Friction::coefficient(0.0))
-        .insert(Collidable {
-            kind: CollidableKind::Wall,
-        })
-        .insert(
-            Arena
-        )
-    ;
+    if level.default_wall_r {
+        commands.spawn(Collider::cuboid(wall_thickness, 60.0, 200.0))
+            .insert(TransformBundle::from(Transform::from_xyz(ARENA_WIDTH_H + wall_thickness, 0.0, 0.0)))
+            .insert(Restitution {
+                coefficient: MAX_RESTITUTION,
+                combine_rule: CoefficientCombineRule::Max,
+            })
+            .insert(Friction::coefficient(0.0))
+            .insert(Collidable {
+                kind: CollidableKind::Wall,
+            })
+            .insert(
+                Arena
+            )
+        ;
+    }
 
 
     // Top Barrier
@@ -151,42 +157,22 @@ fn arena_spawn(
 
         .insert(ForceField)
         .with_children(|parent| {
-           parent
-               .spawn(RigidBody::Fixed)
-               .insert(Collider::cuboid(ARENA_WIDTH_H, 60.0, wall_thickness))
-               .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - 25.0)))
-               .insert(Restitution {
-                   coefficient: MAX_RESTITUTION,
-                   combine_rule: CoefficientCombineRule::Max,
-               })
-               .insert(Friction::coefficient(0.0))
-        .insert(Collidable {
-            kind: CollidableKind::Wall,
-        })
-               .insert(
-                   Arena
-               );
+            parent
+                .spawn(RigidBody::Fixed)
+                .insert(Collider::cuboid(ARENA_WIDTH_H, 60.0, wall_thickness))
+                .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - 25.0)))
+                .insert(Restitution {
+                    coefficient: MAX_RESTITUTION,
+                    combine_rule: CoefficientCombineRule::Max,
+                })
+                .insert(Friction::coefficient(0.0))
+                .insert(Collidable {
+                    kind: CollidableKind::Wall,
+                })
+                .insert(
+                    Arena
+                );
         });
-
-
-/*
-    // Top
-    commands
-        .spawn(RigidBody::Fixed)
-        .insert(Collider::cuboid(ARENA_WIDTH_H, 60.0, wall_thickness))
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - 13.0 - wall_thickness)))
-        .insert(Restitution {
-            coefficient: MAX_RESTITUTION,
-            combine_rule: CoefficientCombineRule::Max,
-        })
-        .insert(Friction::coefficient(0.0))
-        .insert(Collidable {
-            kind: CollidableKind::Wall,
-        })
-        .insert(
-            Arena
-        )
-    ;*/
 
     // Bottom
     commands.spawn(Collider::cuboid(ARENA_WIDTH_H, 60.0, wall_thickness))
@@ -203,6 +189,52 @@ fn arena_spawn(
 
     for o in &level.obstacles {
         match o {
+            LevelObstacle::ForceField(origin, normal, size, flip) => {
+                let angle = Vec3::Z.angle_between(*normal) * if *flip { -1.0 } else { 1.0 };
+                let rot = Quat::from_rotation_y(-angle);
+                let collider_move_vec = rot * *normal;
+
+                commands
+                    .spawn(MaterialMeshBundle {
+                        mesh: meshes.add(Mesh::from(shape::Quad {
+                            size: Vec2::new(*size, 20.0),
+                            flip: false,
+                        })),
+                        material: force_field_mat.add(ForceFieldMaterial {
+                            color1: Color::BLUE,
+                            color_texture: Some(asset_server.load("hexagon2.png")),
+                            ..default()
+                        }),
+                        transform: Transform::from_translation(origin.clone()).with_rotation(Quat::from_rotation_y(angle)),
+                        global_transform: Default::default(),
+                        visibility: Default::default(),
+                        computed_visibility: Default::default(),
+
+                    })
+
+                    .insert(ForceField)
+                    .insert(Arena)
+                    .with_children(|parent| {
+                        parent
+                            .spawn(RigidBody::Fixed)
+                            .insert(Collider::cuboid(size / 2.0, size / 2.0, size / 2.0))
+                            .insert(TransformBundle::from(Transform::from_translation(-*size * 0.5 * collider_move_vec)))
+                            .insert(Restitution {
+                                coefficient: MAX_RESTITUTION,
+                                combine_rule: CoefficientCombineRule::Max,
+                            })
+                            .insert(Friction::coefficient(0.0))
+                            .insert(Collidable {
+                                kind: CollidableKind::Wall,
+                            })
+                            .insert(CollisionGroups::new(COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_BALL))
+
+                            .insert(
+                                Arena
+                            );
+                    });
+            }
+
             LevelObstacle::Box(pos, w, h) => {
                 commands
                     .spawn(RigidBody::Fixed)
@@ -219,9 +251,25 @@ fn arena_spawn(
                     .insert(
                         Arena
                     );
+            }
+
+            LevelObstacle::DirectionalDeathTrigger(origin, normal, size) => {
+                let angle = Vec3::Z.angle_between(*normal);
+                let rot = Quat::from_rotation_y(angle);
 
 
+                commands
+                    .spawn(RigidBody::Fixed)
+                    .insert(Collider::cuboid(size / 2.0, size / 2.0, size / 2.0))
+                    .insert(TransformBundle::from(Transform::from_translation(origin.clone()).with_rotation(rot)))
+                    .insert(Collidable {
+                        kind: CollidableKind::DirectionalDeathTrigger(normal.clone()),
+                    })
+                    .insert(CollisionGroups::new(COLLIDER_GROUP_DEATH, COLLIDER_GROUP_BLOCK))
+                    .insert(ActiveEvents::COLLISION_EVENTS)
+                    .insert(Sensor)
 
+                ;
             }
         };
     }
@@ -229,7 +277,7 @@ fn arena_spawn(
 
 fn arena_despawn(
     mut commands: Commands,
-    arena_parts: Query<Entity, With<Arena>>
+    arena_parts: Query<Entity, With<Arena>>,
 ) {
     for part in &arena_parts {
         info!("Despawn arena");
@@ -240,11 +288,10 @@ fn arena_despawn(
 
 fn arena_set_custom_material(
     mut commands: Commands,
-    arena: Query<(Entity, &Name), Without<CustomMaterialApplied> >,
-    mut materials: ResMut<Assets<ArenaMaterial>>
+    arena: Query<(Entity, &Name), Without<CustomMaterialApplied>>,
+    mut materials: ResMut<Assets<ArenaMaterial>>,
 ) {
     for (entity, name) in &arena {
-
         commands.entity(entity)
             .insert(CustomMaterialApplied);
 
@@ -255,14 +302,13 @@ fn arena_set_custom_material(
 
         commands.entity(entity)
             .remove::<Handle<StandardMaterial>>()
-            .insert(materials.add(ArenaMaterial{
+            .insert(materials.add(ArenaMaterial {
                 color1: Default::default(),
                 color2: Default::default(),
                 time: 0.0,
-                alpha_mode: AlphaMode::Blend
+                alpha_mode: AlphaMode::Blend,
             }))
         ;
-
     }
 }
 
@@ -287,19 +333,17 @@ fn arena_update_force_field_material(
     }
 }
 
-
 fn arena_handle_collisions(
     mut commands: Commands,
     mut wall: Query<(Entity, &Parent), (With<Arena>, With<CollisionTag>)>,
     forceFields: Query<(&ForceField, &Handle<ForceFieldMaterial>)>,
     collisions: Res<CollisionInfo>,
     mut materials: ResMut<Assets<ForceFieldMaterial>>,
-    time: Res<Time>
+    time: Res<Time>,
 ) {
     for (wall, parent) in &wall {
         if let Some(collisions) = collisions.collisions.get(&wall) {
             for collision in collisions {
-
                 match collision.other {
                     CollidableKind::Ball => {
                         let p = forceFields.get(parent.get());
@@ -309,17 +353,14 @@ fn arena_handle_collisions(
                                 mat.hit_time = time.elapsed_seconds();
                                 let h_x = (collision.other_pos.x + ARENA_WIDTH_H) / ARENA_WIDTH;
                                 mat.hit_position = Vec3::new(h_x, 0.0, 0.0);
-                            info!("You hit that wall at {}!", h_x);
+                                info!("You hit that wall at {}!", h_x);
                             }
                         }
-
                     }
 
                     _ => {}
                 }
-
             }
         }
     }
-
 }
