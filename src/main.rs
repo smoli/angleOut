@@ -210,6 +210,22 @@ fn main() {
 
 
         LevelDefinition {
+            simultaneous_balls: 1,
+            targets: TargetLayout::SparseGrid(LEVEL1.to_string(), BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1)],
+            ..default()
+        },
+
+        LevelDefinition {
+            simultaneous_balls: 1,
+            targets: TargetLayout::SparseGrid(LEVEL2.to_string(), BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+            ..default()
+        },
+
+        LevelDefinition {
             background_asset: "ship3_003.glb#Scene13".to_string(),
             simultaneous_balls: 1,
             targets: Custom("Conveyor".to_string()),
@@ -229,22 +245,6 @@ fn main() {
             ],
             default_wall_l: false,
             default_wall_r: false,
-            ..default()
-        },
-
-        LevelDefinition {
-            simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL1.to_string(), BLOCK_GAP),
-            time_limit: None,
-            global_pickups: vec![PickupType::MoreBalls(1)],
-            ..default()
-        },
-
-        LevelDefinition {
-            simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL2.to_string(), BLOCK_GAP),
-            time_limit: None,
-            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
             ..default()
         },
 
@@ -329,7 +329,7 @@ fn setup_screen(app: &mut App) {
                 height: SCREEN_HEIGHT,
                 position: WindowPosition::Centered,
                 monitor: MonitorSelection::Current,
-                // mode: WindowMode::SizedFullscreen,
+                mode: WindowMode::SizedFullscreen,
                 title: "Angle Out".to_string(),
                 cursor_visible: false,
                 ..default()

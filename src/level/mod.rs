@@ -255,8 +255,9 @@ fn level_span_conveyor(
     mut commands: Commands
 ) {
     let speed = 10.0;
+    let count_per_row = 20;
     let mut pos = Vec2::new(ARENA_WIDTH_H + 3.0, -25.0);
-    for i in 0..10 {
+    for i in 0..count_per_row {
         commands.
             spawn(Block {
                 position: pos.clone(),
@@ -269,7 +270,7 @@ fn level_span_conveyor(
     }
 
     let mut pos = Vec2::new(-ARENA_WIDTH_H - 3.0, -35.0);
-    for i in 0..10 {
+    for i in 0..count_per_row {
         commands.
             spawn(Block {
                 position: pos.clone(),
@@ -282,7 +283,7 @@ fn level_span_conveyor(
     }
 
     level.clear_pickups();
-    stats.set_block_count(20);
+    stats.set_block_count(2 * count_per_row);
 }
 
 
