@@ -34,7 +34,7 @@ enum UIInfoTag {
     BallsLost,
     BallSpeed,
     BallSpeedZ,
-    FPS
+    FPS,
 }
 
 
@@ -60,10 +60,9 @@ impl Plugin for UIStatsPlugin {
 }
 
 
-
 fn ui_despawn(
     mut commands: Commands,
-    ui: Query<Entity, With<UIInfoTag>>
+    ui: Query<Entity, With<UIInfoTag>>,
 ) {
     for ui in &ui {
         info!("Despawn stats ui {:?}", ui);
@@ -77,14 +76,13 @@ fn ui_update_infos(
     player_stats: Query<&Player>,
     mut ui: Query<(&mut Text, &UIInfoTag), Without<Ball>>,
     balls: Query<&Velocity, With<Ball>>,
-    diagnostics: Res<Diagnostics>
+    diagnostics: Res<Diagnostics>,
 ) {
     let player = player_stats.get_single().unwrap();
 
     for (mut text, tag) in &mut ui {
         match tag {
             UIInfoTag::FPS => text.sections[1].value = {
-
                 if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
                     if let Some(fps) = fps.smoothed() {
                         format!("{:.1}", fps)
@@ -119,11 +117,9 @@ fn ui_update_infos(
                     Err(_) => text.sections[1].value = format!("No Ball")
                 }
             }
-
         }
     }
 }
-
 
 
 fn ui_spawn(
@@ -147,13 +143,6 @@ fn ui_spawn(
             ..default()
         })
         .with_children(|parent| {
-            parent
-                .spawn(TextBundle::from_sections([
-                    TextSection::new(
-                        "Level Points: ", style.clone(),
-                    ),
-                    TextSection::from_style(style.clone())
-                ])).insert(UIInfoTag::MatchPoints);
 
             parent
                 .spawn(TextBundle::from_sections([
@@ -162,6 +151,14 @@ fn ui_spawn(
                     ),
                     TextSection::from_style(style.clone())
                 ])).insert(UIInfoTag::PlayerPoints);
+
+            parent
+                .spawn(TextBundle::from_sections([
+                    TextSection::new(
+                        "Level Points: ", style.clone(),
+                    ),
+                    TextSection::from_style(style.clone())
+                ])).insert(UIInfoTag::MatchPoints);
 
             parent
                 .spawn(TextBundle::from_sections([
@@ -179,57 +176,6 @@ fn ui_spawn(
                     TextSection::from_style(style.clone())
                 ])).insert(UIInfoTag::Balls);
 
-            if DEBUG_INFO_ENABLED {
-            parent
-                .spawn(TextBundle::from_sections([
-                    TextSection::new(
-                        "Blocks: ", style.clone(),
-                    ),
-                    TextSection::from_style(style.clone())
-                ])).insert(UIInfoTag::Blocks);
-
-            parent
-                .spawn(TextBundle::from_sections([
-                    TextSection::new(
-                        "Bounces: ", style.clone(),
-                    ),
-                    TextSection::from_style(style.clone())
-                ])).insert(UIInfoTag::Bounces);
-
-            parent
-                .spawn(TextBundle::from_sections([
-                    TextSection::new(
-                        "Wall Hits: ", style.clone(),
-                    ),
-                    TextSection::from_style(style.clone())
-                ])).insert(UIInfoTag::WallHits);
-
-
-
-
-            parent
-                .spawn(TextBundle::from_sections([
-                    TextSection::new(
-                        "Balls in Play: ", style.clone(),
-                    ),
-                    TextSection::from_style(style.clone())
-                ])).insert(UIInfoTag::BallsInPLay);
-
-            parent
-                .spawn(TextBundle::from_sections([
-                    TextSection::new(
-                        "Balls Lost: ", style.clone(),
-                    ),
-                    TextSection::from_style(style.clone())
-                ])).insert(UIInfoTag::BallsLost);
-
-            parent
-                .spawn(TextBundle::from_sections([
-                    TextSection::new(
-                        "Balls Grabbed: ", style.clone(),
-                    ),
-                    TextSection::from_style(style.clone())
-                ])).insert(UIInfoTag::BallsGrabbed);
 
             parent
                 .spawn(TextBundle::from_sections([
@@ -247,22 +193,73 @@ fn ui_spawn(
                     TextSection::from_style(style.clone())
                 ])).insert(UIInfoTag::BlocksLost);
 
-            parent
-                .spawn(TextBundle::from_sections([
-                    TextSection::new(
-                        "Ball Speed: ", style.clone(),
-                    ),
-                    TextSection::from_style(style.clone())
-                ])).insert(UIInfoTag::BallSpeed);
+            if DEBUG_INFO_ENABLED {
 
-            parent
-                .spawn(TextBundle::from_sections([
-                    TextSection::new(
-                        "Ball Z: ", style.clone(),
-                    ),
-                    TextSection::from_style(style.clone())
-                ])).insert(UIInfoTag::BallSpeedZ);
+                parent
+                    .spawn(TextBundle::from_sections([
+                        TextSection::new(
+                            "Balls Grabbed: ", style.clone(),
+                        ),
+                        TextSection::from_style(style.clone())
+                    ])).insert(UIInfoTag::BallsGrabbed);
 
+                parent
+                    .spawn(TextBundle::from_sections([
+                        TextSection::new(
+                            "Blocks: ", style.clone(),
+                        ),
+                        TextSection::from_style(style.clone())
+                    ])).insert(UIInfoTag::Blocks);
+
+                parent
+                    .spawn(TextBundle::from_sections([
+                        TextSection::new(
+                            "Bounces: ", style.clone(),
+                        ),
+                        TextSection::from_style(style.clone())
+                    ])).insert(UIInfoTag::Bounces);
+
+                parent
+                    .spawn(TextBundle::from_sections([
+                        TextSection::new(
+                            "Wall Hits: ", style.clone(),
+                        ),
+                        TextSection::from_style(style.clone())
+                    ])).insert(UIInfoTag::WallHits);
+
+
+                parent
+                    .spawn(TextBundle::from_sections([
+                        TextSection::new(
+                            "Balls in Play: ", style.clone(),
+                        ),
+                        TextSection::from_style(style.clone())
+                    ])).insert(UIInfoTag::BallsInPLay);
+
+                parent
+                    .spawn(TextBundle::from_sections([
+                        TextSection::new(
+                            "Balls Lost: ", style.clone(),
+                        ),
+                        TextSection::from_style(style.clone())
+                    ])).insert(UIInfoTag::BallsLost);
+
+
+                parent
+                    .spawn(TextBundle::from_sections([
+                        TextSection::new(
+                            "Ball Speed: ", style.clone(),
+                        ),
+                        TextSection::from_style(style.clone())
+                    ])).insert(UIInfoTag::BallSpeed);
+
+                parent
+                    .spawn(TextBundle::from_sections([
+                        TextSection::new(
+                            "Ball Z: ", style.clone(),
+                        ),
+                        TextSection::from_style(style.clone())
+                    ])).insert(UIInfoTag::BallSpeedZ);
             }
 
             parent
@@ -274,7 +271,6 @@ fn ui_spawn(
                 ])).insert(UIInfoTag::FPS);
         })
         .insert(UITag);
-
 }
 
 
