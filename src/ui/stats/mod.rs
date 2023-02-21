@@ -52,7 +52,7 @@ impl Plugin for UIStatsPlugin {
                     .with_system(ui_update_infos)
             )
             .add_system_set(
-                SystemSet::on_exit(GameState::InMatch)
+                SystemSet::on_exit(GameState::PostMatch)
                     .with_system(ui_despawn)
             )
         ;
