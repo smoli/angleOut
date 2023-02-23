@@ -1,10 +1,11 @@
+use std::os::macos::raw::stat;
 use bevy::app::{App, Plugin};
 use bevy::log::info;
 use bevy::prelude::{Commands, Entity, EventReader, EventWriter, IntoSystemDescriptor, Query, ResMut, State, SystemSet, Vec3};
 use crate::ball::Ball;
 use crate::block::{BlockBehaviour, BlockType};
 use crate::labels::SystemLabels;
-use crate::level::{LevelDefinition, Levels, RequestTag};
+use crate::level::{LevelDefinition, Levels, RequestTag, WinCriteria};
 use crate::pickups::{Pickup, PickupType};
 use crate::player::{Player, PlayerState};
 use crate::points::{PointsDisplay, PointsDisplayRequest};
@@ -34,7 +35,7 @@ pub enum MatchEvent {
     BlockLost,
     BounceOffPaddle,
     BounceOffWall,
-    TargetHit(Vec3, BlockType, BlockBehaviour),
+    BlockHit(Vec3, BlockType, BlockBehaviour),
     PickedUp(PickupType),
 }
 
@@ -58,6 +59,39 @@ impl Plugin for EventsPlugin {
     }
 }
 
+
+#[derive(PartialEq)]
+enum LevelEndState {
+    Won,
+    Lost,
+    Undecided,
+}
+
+
+fn check_win_criteria(
+    win_criteria: &WinCriteria,
+    player: &Player,
+    stats: &MatchState,
+) -> LevelEndState {
+
+    if stats.blocks == 0 {
+        match win_criteria {
+            WinCriteria::BlockHitPercentage(pct) => {
+                if (stats.blocks_hit as f32) / (stats.blocks_hit as f32 + stats.blocks_lost as f32) >= *pct {
+                    return LevelEndState::Won;
+                } else {
+                    return LevelEndState::Lost;
+                }
+            }
+        };
+    }
+
+    if player.balls_available == 0 && stats.blocks > 0 && player.balls_in_play == 0 {
+        return LevelEndState::Lost;
+    }
+
+    LevelEndState::Undecided
+}
 
 fn match_event_handler(
     mut commands: Commands,
@@ -96,9 +130,6 @@ fn match_event_handler(
                 info!("Ball Lost");
                 player.ball_lost();
                 match_state.ball_lost();
-                if player.balls_available == 0 && match_state.blocks > 0 && player.balls_in_play == 0 {
-                    game_flow.send(GameFlowEvent::PlayerLooses);
-                }
             }
 
             MatchEvent::BounceOffPaddle => {
@@ -114,26 +145,17 @@ fn match_event_handler(
                 match_state.add_wall_hit();
             }
 
-            MatchEvent::TargetHit(p, block_type, behaviour) => {
+            MatchEvent::BlockHit(p, block_type, behaviour) => {
                 let (_, awarded) = match_state.add_block_hit(block_type, behaviour);
 
                 commands.spawn(PointsDisplay {
                     text: awarded.to_string(),
                     position: p.clone(),
                 }).insert(PointsDisplayRequest);
-
-                if match_state.blocks == 0 {
-                    game_flow.send(GameFlowEvent::PlayerWins);
-                }
             }
 
             MatchEvent::BlockLost => {
                 match_state.block_lost();
-                if match_state.blocks == 0 && match_state.blocks_hit > 0 {
-                    game_flow.send(GameFlowEvent::PlayerWins);
-                } else if match_state.blocks == 0 && match_state.blocks_hit == 0 {
-                    game_flow.send(GameFlowEvent::PlayerLooses);
-                }
             }
 
             MatchEvent::BallGrabbed => {
@@ -149,6 +171,12 @@ fn match_event_handler(
 
                 info!("Player picked up {:?}", pt)
             }
+        }
+
+        match check_win_criteria(&level.win_criteria, &player, &match_state) {
+            LevelEndState::Won => game_flow.send(GameFlowEvent::PlayerWins),
+            LevelEndState::Lost => game_flow.send(GameFlowEvent::PlayerLooses),
+            LevelEndState::Undecided => {}
         }
     }
 }
@@ -168,8 +196,6 @@ fn game_flow_handler(
             GameFlowEvent::StartMatch => {
                 let _ = game_state.set(GameState::InMatch);
             }
-
-
 
             GameFlowEvent::PlayerWins => {
                 if let Ok(mut player) = players.get_single_mut() {
@@ -196,4 +222,35 @@ fn game_flow_handler(
             GameFlowEvent::EndGame => {}
         }
     };
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::check_win_criteria;
+
+    use bevy::utils::default;
+    use crate::level::WinCriteria;
+    use crate::player::{Player, PlayerState};
+    use crate::r#match::state::MatchState;
+
+    #[test]
+    fn just_loosing_a_ball() {
+        let stats = MatchState {
+            blocks: 1,
+            blocks_hit: 1,
+            blocks_lost: 1,
+            ..default()
+        };
+
+        let player = Player {
+            balls_available: 1,
+            balls_lost: 1,
+            ..default()
+        };
+
+        let crit = WinCriteria::BlockHitPercentage(1.0);
+
+        assert_eq!(check_win_criteria(&crit, &player, &stats), false);
+    }
 }

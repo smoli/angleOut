@@ -70,7 +70,7 @@ fn pickup_spawn_globals_on_event(
 
     for ev in events.iter() {
         match ev {
-            MatchEvent::TargetHit(p, block_type, behaviour) => {
+            MatchEvent::BlockHit(p, block_type, behaviour) => {
                 if let Some(pickup_type) = level.pickup_at(match_state.blocks as usize) {
                     commands.spawn(Pickup {
                         spawn_position: p.clone(),

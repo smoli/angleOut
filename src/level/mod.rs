@@ -39,10 +39,15 @@ pub enum LevelObstacle {
     DirectionalDeathTrigger(Vec3, Vec3, f32)
 }
 
+pub enum WinCriteria {
+    BlockHitPercentage(f32)
+}
+
 pub struct LevelDefinition {
     pub background_asset: String,
     pub background_scroll_velocity: f32,
     pub simultaneous_balls: i32,
+    pub win_criteria: WinCriteria,
     pub targets: TargetLayout,
     pub time_limit: Option<Duration>,
     pub global_pickups: Vec<PickupType>,
@@ -50,6 +55,7 @@ pub struct LevelDefinition {
     pub obstacles: Vec<LevelObstacle>,
     pub default_wall_l: bool,
     pub default_wall_r: bool,
+
 }
 
 impl Default for LevelDefinition {
@@ -58,6 +64,7 @@ impl Default for LevelDefinition {
             background_asset: "ship3_003.glb#Scene10".to_string(),
             background_scroll_velocity: 0.0,
             simultaneous_balls: 1,
+            win_criteria: WinCriteria::BlockHitPercentage(1.0),
             targets: FilledGrid(5, 5, BlockType::Simple, BlockBehaviour::SittingDuck, BLOCK_GAP),
             time_limit: None,
             global_pickups: vec![],

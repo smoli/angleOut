@@ -428,7 +428,7 @@ fn block_handle_collisions(
                     if hittable.hit_points == 0 {
                         commands.entity(entity)
                             .despawn_recursive();
-                        events.send(MatchEvent::TargetHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
+                        events.send(MatchEvent::BlockHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
                     } else {
                         commands.entity(entity)
                             .insert(Shaking {

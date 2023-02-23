@@ -32,7 +32,7 @@ pub struct MatchState {
 
     // Number of times at least one block hit after a paddle bounce
     pub paddle_bounce_combo: i32,
-    paddle_bounce_combo_possible: bool,
+    pub paddle_bounce_combo_possible: bool,
 
     // Number of blocks after one paddle bounce
     pub single_bounce_combo: i32,
