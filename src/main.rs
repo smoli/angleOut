@@ -16,7 +16,7 @@ use crate::block::BlockPlugin;
 use crate::config::{ARENA_HEIGHT, ARENA_WIDTH_H, BLOCK_GAP, SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::events::EventsPlugin;
 use crate::game::GamePlugin;
-use crate::level::{LevelDefinition, LevelObstacle, LevelPlugin, Levels, TargetLayout};
+use crate::level::{LevelDefinition, LevelObstacle, LevelPlugin, Levels, TargetLayout, WinCriteria};
 use crate::level::TargetLayout::Custom;
 use crate::particles::ParticlePlugin;
 use crate::physics::PhysicsPlugin;
@@ -210,22 +210,6 @@ fn main() {
 
 
         LevelDefinition {
-            simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL1.to_string(), BLOCK_GAP),
-            time_limit: None,
-            global_pickups: vec![PickupType::MoreBalls(1)],
-            ..default()
-        },
-
-        LevelDefinition {
-            simultaneous_balls: 1,
-            targets: TargetLayout::SparseGrid(LEVEL2.to_string(), BLOCK_GAP),
-            time_limit: None,
-            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
-            ..default()
-        },
-
-        LevelDefinition {
             background_asset: "ship3_003.glb#Scene13".to_string(),
             simultaneous_balls: 1,
             targets: Custom("Conveyor".to_string()),
@@ -245,6 +229,23 @@ fn main() {
             ],
             default_wall_l: false,
             default_wall_r: false,
+            win_criteria: WinCriteria::BlockHitPercentage(0.5),
+            ..default()
+        },
+
+        LevelDefinition {
+            simultaneous_balls: 1,
+            targets: TargetLayout::SparseGrid(LEVEL1.to_string(), BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1)],
+            ..default()
+        },
+
+        LevelDefinition {
+            simultaneous_balls: 1,
+            targets: TargetLayout::SparseGrid(LEVEL2.to_string(), BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
             ..default()
         },
 

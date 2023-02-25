@@ -262,7 +262,7 @@ fn level_span_conveyor(
     mut commands: Commands
 ) {
     let speed = 10.0;
-    let count_per_row = 20;
+    let count_per_row = 2;
     let mut pos = Vec2::new(ARENA_WIDTH_H + 3.0, -25.0);
     for i in 0..count_per_row {
         commands.

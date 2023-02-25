@@ -77,10 +77,12 @@ fn check_win_criteria(
     if stats.blocks == 0 {
         match win_criteria {
             WinCriteria::BlockHitPercentage(pct) => {
-                if (stats.blocks_hit as f32) / (stats.blocks_hit as f32 + stats.blocks_lost as f32) >= *pct {
-                    return LevelEndState::Won;
+
+                let result = (stats.blocks_hit as f32) / (stats.blocks_hit as f32 + stats.blocks_lost as f32);
+                return if result >= *pct {
+                    LevelEndState::Won
                 } else {
-                    return LevelEndState::Lost;
+                    LevelEndState::Lost
                 }
             }
         };
