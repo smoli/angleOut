@@ -62,7 +62,7 @@ mod pickups;
         D = 1 only top
         Z = unbreakable
 
-        Z are used for obstacles and do not count as blocks when determining of the
+        Z is used for obstacles and do not count as blocks when determining of the
         player has finished the level
 
     2nd Character
@@ -75,6 +75,7 @@ mod pickups;
         F - Evader first movement to the left
         G - Evader first movement up
         H - Evader first movement down
+        I - Portal - Use this as a trigger target. Teleports the ball from the trigger to itself, preserving momentum
 
     3rd Character (optional)
         Triggertype:
@@ -98,10 +99,13 @@ const SIMPLE1: &str =
  AA";
 
 const LEVEL0: &str =
-"ZA ZA ZA
- ZA AA ZA
- AA ZER1 AA
-.. CAC1 ..";
+"ZIR1 .. .. .. CA .. .. .. ZAA1
+ ..   .. .. .. CA .. .. .. ..
+ ..   .. .. .. CA .. .. .. ..
+ ..   .. .. .. CA .. .. .. ..
+ ..   .. .. .. CA .. .. .. ..
+ ..   .. .. .. CA .. .. .. ..
+";
 
 const LEVEL1: &str =
 "AA AA AA AA AA AA AA AA AA
@@ -207,6 +211,14 @@ fn main() {
 
 
     let levelDefinitions: Vec<LevelDefinition> = vec![
+
+        LevelDefinition {
+            simultaneous_balls: 1,
+            targets: TargetLayout::SparseGrid(LEVEL0.to_string(), BLOCK_GAP),
+            time_limit: None,
+            global_pickups: vec![PickupType::MoreBalls(1)],
+            ..default()
+        },
 
 
         LevelDefinition {
@@ -330,7 +342,7 @@ fn setup_screen(app: &mut App) {
                 height: SCREEN_HEIGHT,
                 position: WindowPosition::Centered,
                 monitor: MonitorSelection::Current,
-                mode: WindowMode::SizedFullscreen,
+                // mode: WindowMode::SizedFullscreen,
                 title: "Angle Out".to_string(),
                 cursor_visible: false,
                 ..default()

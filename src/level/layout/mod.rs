@@ -63,6 +63,7 @@ pub fn make_block(b_type: char, b_beh: char, b_trigger: Option<char>, b_trigger_
         'F' => BlockBehaviour::EvaderL(50.0),
         'G' => BlockBehaviour::EvaderU(50.0),
         'H' => BlockBehaviour::EvaderD(50.0),
+        'I' => BlockBehaviour::Portal,
 
         '.' => return None,
 

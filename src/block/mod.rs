@@ -16,8 +16,8 @@ use bevy::utils::default;
 use bevy::utils::hashbrown::HashMap;
 use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, ExternalForce, Friction, LockedAxes, Restitution, RigidBody, Sensor};
 
-use crate::ball::Ball;
-use crate::block::trigger::{BlockTrigger, BlockTriggerTarget, BlockTriggerTargetInactive, TriggerGroup, TriggerStates, TriggerType};
+use crate::ball::{ActiveBall, Ball};
+use crate::block::trigger::{BlockTrigger, BlockTriggerTarget, BlockTriggerTargetInactive, TriggerGroup, TriggerState, TriggerStates, TriggerType};
 use crate::config::{BALL_RADIUS, BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_ROUNDNESS, BLOCK_WIDTH_H, COLLIDER_GROUP_ARENA, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_DEATH, MAX_RESTITUTION};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
@@ -46,6 +46,7 @@ pub enum BlockBehaviour {
     EvaderL(f32),
     EvaderU(f32),
     EvaderD(f32),
+    Portal,
 }
 
 
@@ -59,6 +60,9 @@ struct BlockVanisher;
 struct BlockEvader {
     velocity: Vec3,
 }
+
+#[derive(Component)]
+struct BlockPortal;
 
 #[derive(Component)]
 struct BlockRepulsor;
@@ -137,6 +141,8 @@ impl Plugin for BlockPlugin {
                     .with_system(block_shake.after(SystemLabels::UpdateWorld))
                     .with_system(block_update_custom_material)
                     .with_system(block_update_trigger_targets)
+                    .with_system(block_update_portals)
+
             )
 
             .add_system_to_stage(COLLISION_EVENT_HANDLING, block_handle_collisions)
@@ -257,6 +263,11 @@ fn block_spawn(
                     block_commands.insert(LockedAxes::from(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED | LockedAxes::TRANSLATION_LOCKED_X));
                 }
 
+                BlockBehaviour::Portal => {
+                    block_commands.insert(BlockPortal);
+                    block_commands.insert(RigidBody::Fixed);
+                }
+
                 _ => {}
             }
 
@@ -265,12 +276,12 @@ fn block_spawn(
                 None => {}
                 Some(t) => match t {
                     TriggerType::ReceiverStartingInactive => {
-                        block_commands.insert(BlockTriggerTarget { group });
+                        block_commands.insert(BlockTriggerTarget { group, auto_stop: false });
                         block_commands.insert(BlockTriggerTargetInactive);
                     }
 
                     TriggerType::ReceiverStartingActive => {
-                        block_commands.insert(BlockTriggerTarget { group });
+                        block_commands.insert(BlockTriggerTarget { group , auto_stop: false });
                     }
 
                     _ => {
@@ -390,9 +401,9 @@ fn block_handle_obstacle_trigger_collisions(
             match collision.other {
                 CollidableKind::Ball => {
                     match trigger.trigger_type {
-                        TriggerType::Start => triggerStates.start(trigger.group),
+                        TriggerType::Start => triggerStates.start(trigger.group, collision.clone()),
                         TriggerType::Stop => triggerStates.stop(trigger.group),
-                        TriggerType::StartStop => triggerStates.flip(trigger.group),
+                        TriggerType::StartStop => triggerStates.flip(trigger.group, collision.clone()),
                         TriggerType::ReceiverStartingInactive => {}
                         TriggerType::ReceiverStartingActive => {}
                     }
@@ -400,6 +411,8 @@ fn block_handle_obstacle_trigger_collisions(
 
                 _ => {}
             }
+
+
         }
     }
 }
@@ -594,6 +607,26 @@ fn block_update_evader(
     }
 }
 
+
+fn block_update_portals(
+    mut commands: Commands,
+    portals: Query<(Entity, &BlockTriggerTarget, &Transform), (With<BlockPortal>, Without<Ball>, Without<BlockTriggerTargetInactive>)>,
+    mut balls: Query<&mut Transform, (With<Ball>, With<ActiveBall>)>,
+    mut triggerStates: ResMut<TriggerStates>,
+) {
+    for (portal, target, block_trans) in &portals {
+        if let Some(TriggerState::Started(col)) = triggerStates.get_state(target.group) {
+            if let Ok(mut ball_trans) = balls.get_mut(col.other_entity) {
+                info!("Portaling");
+                let d = block_trans.translation - col.pos;
+                ball_trans.translation += d;
+
+                commands.entity(portal).insert(BlockTriggerTargetInactive);
+            }
+        }
+    }
+}
+
 fn block_update_trigger_targets(
     mut commands: Commands,
     mut targets: Query<(Entity, &BlockTriggerTarget)>,
@@ -606,6 +639,11 @@ fn block_update_trigger_targets(
             commands.entity(entity)
                 .remove::<BlockTriggerTargetInactive>();
             triggerStates.consume(target.group);
+
+            if target.auto_stop {
+                triggerStates.stop(target.group);
+            }
+
         } else if triggerStates.is_stopped(target.group) &&
             !triggerStates.is_consumed(target.group) {
             info!("Stopping receiver {:?}", target);

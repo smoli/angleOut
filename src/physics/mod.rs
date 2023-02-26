@@ -31,8 +31,9 @@ pub struct Collidable {
 #[derive(Component)]
 pub struct CollisionTag;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Collision {
+    pub other_entity: Entity,
     pub other: CollidableKind,
     pub pos: Vec3,
     pub other_velocity: Option<Vec3>,
@@ -49,8 +50,9 @@ impl CollisionInfo {
         self.collisions.clear();
     }
 
-    pub fn insert(&mut self, entity: Entity, other: CollidableKind, pos: Vec3, other_velocity: Option<Vec3>, other_pos: Vec3) {
+    pub fn insert(&mut self, entity: Entity, other_entity: Entity, other: CollidableKind, pos: Vec3, other_velocity: Option<Vec3>, other_pos: Vec3) {
         let info = Collision {
+            other_entity,
             other,
             pos,
             other_velocity,
@@ -125,6 +127,7 @@ fn handle_collision_events(
 
                         collisions.insert(
                             *a,
+                            *b,
                             col_b.kind.clone(),
                             trans_a.translation,
                             vel_b,
@@ -136,6 +139,7 @@ fn handle_collision_events(
 
                         collisions.insert(
                             *b,
+                            *a,
                             col_a.kind.clone(),
                             trans_b.translation,
                             vel_a,
