@@ -97,6 +97,20 @@ fn arena_spawn(
         })
     ;
 
+    commands
+        .spawn(SceneBundle {
+            scene: asset_server.load(level.background_asset.clone()),
+            ..default()
+        })
+        .insert(
+            Arena
+        )
+        .insert(TransformBundle::from(Transform::from_xyz(0.0, -4.0, - 2.0 * BACKGROUND_LENGTH)))
+        .insert(Scrollable {
+            speed: level.background_scroll_velocity,
+        })
+    ;
+
 
     let wall_thickness = 100.0;
     // Left
@@ -319,7 +333,7 @@ fn arena_scroll(
         trans.translation.z += scrollable.speed * time.delta_seconds();
 
         if trans.translation.z > BACKGROUND_LENGTH {
-            trans.translation.z -= 2.0 * BACKGROUND_LENGTH;
+            trans.translation.z -= 3.0 * BACKGROUND_LENGTH;
         }
     }
 }

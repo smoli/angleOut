@@ -100,20 +100,17 @@ fn fragment(
     let ar = vec2<f32>(1.0, 0.1);
     let uv_ar = in.uv * ar;
 
-    var offx = sin(material.time) * 0.01 * sin(in.uv.x * 50.0) * 0.2;
-    var offy = cos(material.time) * 0.01 * sin(in.uv.y * 50.0) * 0.2;
-
     let impact_center = vec2<f32>(material.hit_position.x, 0.05);
     let impact_distance = distance(uv_ar, impact_center);
 
-        if (abs(material.time - material.hit_time) < 2.0 &&
-            impact_distance < 0.02
-        ) {
-            offx *= 20.0;
-            offy *= 20.0;
+    var offsetSpeed = 1.0;
+    var offsetScale = 0.02;
 
-        }
+    var timeScale = smoothstep(2.0, 0.0, abs(material.time - material.hit_time));
+    offsetScale = smoothstep(0.10, 0.0, impact_distance) * 0.05 * timeScale + 0.01;
 
+    var offx = sin(material.time * 1.0) * offsetScale * cos(in.uv.x * 50.0) * 0.2;
+    var offy = cos(material.time * 1.0) * offsetScale * sin(in.uv.y * 50.0) * 0.2;
 
     let t = textureSample(color_texture, color_sampler, ((in.uv + vec2<f32>(offx, offy)) *  ar * 5.5) % 1.0);
 
@@ -134,14 +131,13 @@ fn fragment(
 
     color = mix(color, white, left + right + 0.3 * (1.0 - noise(in.uv * sin(material.time))));
 
-
+/*
     if (abs(material.time - material.hit_time) < 2.0 &&
             impact_distance < 0.02
     ) {
         color = white;
         alpha = smoothstep(0.75, alpha, impact_distance / 0.02);
-
-    }
+    }*/
 
     var pbr_input: PbrInput;
 

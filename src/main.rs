@@ -7,6 +7,7 @@ use bevy::gltf::Gltf;
 use bevy::prelude::{AssetServer, ClearColor, Color, Commands, Handle, Msaa, PluginGroup, Res, Resource, Vec3, WindowDescriptor, WindowMode};
 use bevy::utils::default;
 use bevy::window::{close_on_esc, MonitorSelection, WindowPlugin, WindowPosition};
+use bevy_framepace::FramepacePlugin;
 use leafwing_input_manager::prelude::InputManagerPlugin;
 
 use crate::actions::{CameraActions, GameFlowActions, MatchActions};
@@ -186,7 +187,7 @@ fn main() {
     setup_screen(&mut app);
     setup_ui(&mut app);
     app.add_plugin(EventsPlugin);
-
+    // app.add_plugin(FramepacePlugin);
     app.add_state(GameState::InGame);
 
     app.add_plugin(PhysicsPlugin);
@@ -221,7 +222,7 @@ fn main() {
         },
 
 
-        LevelDefinition {
+/*        LevelDefinition {
             background_asset: "ship3_003.glb#Scene13".to_string(),
             simultaneous_balls: 1,
             targets: Custom("Conveyor".to_string()),
@@ -243,12 +244,13 @@ fn main() {
             default_wall_r: false,
             win_criteria: WinCriteria::BlockHitPercentage(0.5),
             ..default()
-        },
+        },*/
 
         LevelDefinition {
             simultaneous_balls: 1,
             targets: TargetLayout::SparseGrid(LEVEL1.to_string(), BLOCK_GAP),
             time_limit: None,
+            background_scroll_velocity: 20.0,
             global_pickups: vec![PickupType::MoreBalls(1)],
             ..default()
         },
