@@ -45,7 +45,7 @@ fn ui_despawn(
     ui: Query<Entity, With<UITag>>
 ) {
     for ui in &ui {
-        info!("Despawn post match ui {:?}", ui);
+        //info!("Despawn post match ui {:?}", ui);
         commands.entity(ui)
             .despawn_recursive();
     }
@@ -60,7 +60,7 @@ fn ui_handle_action(
 
     for mut action in &mut actions {
         if action.just_released(GameFlowActions::StartMatch) {
-            info!("Player requested Start!");
+            //info!("Player requested Start!");
             action.consume(GameFlowActions::StartMatch);
 
             match player.state {

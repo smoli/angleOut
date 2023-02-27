@@ -121,7 +121,7 @@ fn ball_despawn(
     balls: Query<Entity, With<Ball>>,
 ) {
     for ball in &balls {
-        info!("despawn ball {:?}", ball);
+        //info!("despawn ball {:?}", ball);
         commands.entity(ball)
             .despawn_recursive();
     }
@@ -190,7 +190,7 @@ fn ball_limit_velocity(mut query: Query<(&mut Velocity, &ExternalForce), With<Ac
         let v = velo.linvel.length();
 
         if v == 0.0 {
-            info!("No speed");
+            //info!("No speed");
             continue;
         }
 
@@ -216,7 +216,7 @@ fn ball_correct_too_low_z(mut query: Query<&mut Velocity, With<ActiveBall>>) {
         let v = velo.linvel.length();
 
         if velo.linvel.z.abs() < 30.0 {
-            info!("Correcting Z velocity for more fun!");
+            //info!("Correcting Z velocity for more fun!");
 
             velo.linvel.z = 35.0 * velo.linvel.z.signum();
 
@@ -274,7 +274,7 @@ fn ball_handle_collisions(
             let v = velo.linvel.length();
 
             if velo.linvel.z.abs() < 1.0 {
-                info!("Correcting Z velocity for more fun!");
+                //info!("Correcting Z velocity for more fun!");
 
                 velo.linvel.z = 3.0 * velo.linvel.z.signum();
 
@@ -283,12 +283,12 @@ fn ball_handle_collisions(
 
 
             let v = velo.linvel.length();
-            info!("Exit speed {}", v);
+            //info!("Exit speed {}", v);
             if v > MAX_BALL_SPEED {
                 velo.linvel = velo.linvel * MAX_BALL_SPEED / v;
             } else if v < MIN_BALL_SPEED {
                 velo.linvel = velo.linvel * MIN_BALL_SPEED / v;
-                info!("Prevented too slow of a ball for more fun! New speed {}", velo.linvel.length());
+                //info!("Prevented too slow of a ball for more fun! New speed {}", velo.linvel.length());
             }
         }
     }

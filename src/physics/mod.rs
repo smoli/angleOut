@@ -146,7 +146,7 @@ fn handle_collision_events(
                             trans_a.translation);
 
 
-                        info!("Collision {:?}::{:?} - {:?}::{:?}", col_a.kind, a, col_b.kind, b);
+                        //info!("Collision {:?}::{:?} - {:?}::{:?}", col_a.kind, a, col_b.kind, b);
                     }
                 }
             }
@@ -182,7 +182,7 @@ fn handle_collision_events(
                     });
 
 
-                info!("Contact Force {:?}-{:?}", col_a.kind, col_b.kind);
+                //info!("Contact Force {:?}-{:?}", col_a.kind, col_b.kind);
             }
         }
     }
@@ -199,7 +199,7 @@ fn cleanup_collision_tags(
             .remove::<CollisionTag>();
     }
     if collisions.collisions.len() != 0 {
-        info!("Clear");
+        //info!("Clear");
         collisions.clear();
     }
 }

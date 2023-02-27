@@ -78,7 +78,7 @@ fn match_spawn(
 
 fn match_despawn(mut commands: Commands, matches: Query<Entity, With<Match>>) {
     for the_match in &matches {
-        info!("Despawn match {:?}", the_match);
+        //info!("Despawn match {:?}", the_match);
         commands.entity(the_match).despawn();
     }
 }

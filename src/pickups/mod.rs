@@ -91,7 +91,7 @@ fn pickup_despawn_all(
     pickups: Query<Entity, With<Pickup>>,
 ) {
     for p in &pickups {
-        info!("Despan pickup {:?}", p);
+        //info!("Despan pickup {:?}", p);
         commands.entity(p)
             .despawn_recursive();
     }
@@ -164,7 +164,7 @@ fn pickup_handle_collisions(
             }
         }
 
-        info!("Despanw pickup regardless {:?}", entity);
+        //info!("Despanw pickup regardless {:?}", entity);
         commands.entity(entity)
             .despawn_recursive();
     }

@@ -41,7 +41,7 @@ impl Default for Player {
 
 impl Player {
     pub fn reset(&mut self) {
-        info!("Player reset");
+        //info!("Player reset");
         self.state = PlayerState::Open;
         self.points = 0;
         self.balls_available = 0;
@@ -61,7 +61,7 @@ impl Player {
 
     pub fn ball_spawned(&mut self) {
         if self.balls_available > 0 {
-            info!("Ball spawned");
+            //info!("Ball spawned");
             self.balls_available -= 1;
             self.balls_carried += 1;
         }
@@ -146,7 +146,7 @@ fn player_pickup_grabber(
                     grabs: count + grabber.grabs
                 });
 
-            info!("More grabs!")
+            //info!("More grabs!")
         }
     } else if let Ok((entity, pickup)) = without_grabber.get_single() {
         if let PickupType::Grabber(count) = pickup.pickup_type {
@@ -155,7 +155,7 @@ fn player_pickup_grabber(
                 .insert(Grabber {
                     grabs: count
                 });
-            info!("Finally grabs!")
+            //info!("Finally grabs!")
         }
     }
 }

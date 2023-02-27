@@ -122,7 +122,7 @@ impl LevelDefinition {
         let mut placed: Vec<usize> = vec![];
         let mut start = 0;
         let mut end = block_count;
-        info!("Distributing {} global pickups", self.global_pickups.len());
+        //info!("Distributing {} global pickups", self.global_pickups.len());
         for pickup in &self.global_pickups {
             let mut repeats = 10;
 
@@ -141,7 +141,7 @@ impl LevelDefinition {
                     placed.push(pos);
                     self.distributed_global_pickups.insert(pos, pickup.clone());
 
-                    info!("{:?} at {}", pickup, pos);
+                    //info!("{:?} at {}", pickup, pos);
                     break;
                 }
             }

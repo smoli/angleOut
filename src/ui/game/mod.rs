@@ -219,7 +219,7 @@ fn ui_update(
                 let o = OptionValues::try_from(*num).expect("Unknown value");
 
 
-                info!("Player chose {:?}", o);
+                //info!("Player chose {:?}", o);
 
                 match o {
                     OptionValues::NewGame => game_event.send(GameFlowEvent::StartMatch),
@@ -232,9 +232,9 @@ fn ui_update(
 }
 
 fn ui_despawn(mut commands: Commands, uis: Query<Entity, With<UITag>>) {
-    info!("Despawning game Screen");
+    //info!("Despawning game Screen");
     for ui in &uis {
-        info!("Despawn game ui {:?}", ui);
+        //info!("Despawn game ui {:?}", ui);
         commands.entity(ui).despawn_recursive();
     }
 }

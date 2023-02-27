@@ -65,7 +65,7 @@ fn ui_despawn(
     ui: Query<Entity, With<UIInfoTag>>,
 ) {
     for ui in &ui {
-        info!("Despawn stats ui {:?}", ui);
+        //info!("Despawn stats ui {:?}", ui);
         commands.entity(ui)
             .despawn_recursive();
     }

@@ -87,7 +87,7 @@ fn ui_handle_action(
 ) {
     for mut action in &mut actions {
         if action.just_released(GameFlowActions::StartGame) {
-            info!("Player requested Start!");
+            //info!("Player requested Start!");
             action.consume(GameFlowActions::StartGame);
             game_event.send(GameFlowEvent::StartGame);
         }
@@ -96,7 +96,7 @@ fn ui_handle_action(
 
 
 fn ui_despawn(mut commands: Commands, uis: Query<Entity, With<UITag>>) {
-    info!("Despawning Start Screen");
+    //info!("Despawning Start Screen");
     for ui in &uis {
         commands.entity(ui).despawn_recursive();
     }

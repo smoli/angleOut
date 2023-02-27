@@ -136,7 +136,7 @@ fn ship_despawn(
     ships: Query<Entity, With<Ship>>,
 ) {
     for ship in &ships {
-        info!("Despawn ship {:?}", ship);
+        //info!("Despawn ship {:?}", ship);
         commands.entity(ship)
             .despawn_recursive();
     }
@@ -207,14 +207,14 @@ fn ship_update_position(time: Res<Time>, mut ship_state: ResMut<ShipState>, mut 
         /*
                 if dp.length() < 5.0 {
                     ship.current_accel = 0.0;
-                    info!("Position reached")
+                    //info!("Position reached")
                 }
 
                 let nx = tp.x.clamp(PADDLE_WIDTH_H - ARENA_WIDTH_H, ARENA_WIDTH_H - PADDLE_WIDTH_H);
 
                 if nx != tp.x {
                     ship.current_accel = 0.0;
-                    info!("Position reached");
+                    //info!("Position reached");
                     tp.x = nx;
                 }*/
 
@@ -248,10 +248,10 @@ fn ship_launch_ball(
             action.consume(MatchActions::SpawnOrLaunchBall);
 
             if player.balls_carried > 0 || player.balls_grabbed > 0 {
-                info!("Ball launch requested by operator");
+                //info!("Ball launch requested by operator");
                 events.send(MatchEvent::BallLaunched);
             } else {
-                info!("Ball spawn requested by operator");
+                //info!("Ball spawn requested by operator");
                 events.send(MatchEvent::BallSpawned);
             }
         }
@@ -345,7 +345,7 @@ fn ship_grab_ball(
                             ball_trans.translation = target;
                             ball_velo.linvel = Vec3::ZERO;
                             grabber.use_one();
-                            info!("{} grabs left", grabber.grabs);
+                            //info!("{} grabs left", grabber.grabs);
                         } else {
                             ball_force.force += v.normalize() * GRAB_FORCE_MAGNITUDE;
                         }

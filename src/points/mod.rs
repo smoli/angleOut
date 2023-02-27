@@ -114,7 +114,7 @@ fn points_update(
         fuse.timer.tick(time.delta());
 
         if fuse.timer.finished() {
-            info!("Despawn points display {:?}", points);
+            //info!("Despawn points display {:?}", points);
             commands.entity(points)
                 .despawn_recursive();
         } else {
@@ -130,7 +130,7 @@ fn points_handle_requests(
     mut sprite_params: Sprite3dParams,
 ) {
     for (entity, points) in &requests {
-        info!("Points request");
+        //info!("Points request");
 
         let idx = get_sprite_indexes(&points.text);
 

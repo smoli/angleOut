@@ -68,7 +68,7 @@ pub fn tear_down_3d_environment(
     env: Query<Entity, With<Environment3d>>
 ) {
     for e in &env {
-        info!("Teardown 3d");
+        //info!("Teardown 3d");
         commands.entity(e)
             .despawn_recursive();
     }

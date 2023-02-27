@@ -383,7 +383,7 @@ fn block_despawn(
     blocks: Query<Entity, With<Block>>,
 ) {
     for block in &blocks {
-        info!("Despawn block {:?}", block);
+        //info!("Despawn block {:?}", block);
         commands.entity(block)
             .despawn_recursive();
     }
@@ -430,7 +430,7 @@ fn block_handle_collisions(
         for collision in collision {
             match collision.other {
                 CollidableKind::Ball => {
-                    info!("{} {}", collision.other_pos.z, trans.translation.z);
+                    //info!("{} {}", collision.other_pos.z, trans.translation.z);
 
                     if hittable.only_top == true && collision.other_pos.z < trans.translation.z
                         || hittable.only_top == false {
@@ -480,7 +480,7 @@ fn block_handle_evader_collisions(
                 match collision.other {
                     CollidableKind::Block | CollidableKind::Wall => {
                         evader.velocity *= -1.0;
-                        info!("Flipping direction");
+                        //info!("Flipping direction");
                     }
 
                     /* CollidableKind::DeathTrigger => {
@@ -488,7 +488,7 @@ fn block_handle_evader_collisions(
                              .despawn_recursive();
                          events.send(MatchEvent::BlockLost);
 
-                         info!("Oh no! I died! {:?}", collision.other_pos);
+                         //info!("Oh no! I died! {:?}", collision.other_pos);
                      }
  */
                     _ => {}
@@ -617,7 +617,7 @@ fn block_update_portals(
     for (portal, target, block_trans) in &portals {
         if let Some(TriggerState::Started(col)) = triggerStates.get_state(target.group) {
             if let Ok(mut ball_trans) = balls.get_mut(col.other_entity) {
-                info!("Portaling");
+                //info!("Portaling");
                 let d = block_trans.translation - col.pos;
                 ball_trans.translation += d;
 
@@ -635,7 +635,7 @@ fn block_update_trigger_targets(
     for (entity, target) in &targets {
         if triggerStates.is_started(target.group) &&
             !triggerStates.is_consumed(target.group) {
-            info!("Starting receiver {:?}", target);
+            //info!("Starting receiver {:?}", target);
             commands.entity(entity)
                 .remove::<BlockTriggerTargetInactive>();
             triggerStates.consume(target.group);
@@ -646,7 +646,7 @@ fn block_update_trigger_targets(
 
         } else if triggerStates.is_stopped(target.group) &&
             !triggerStates.is_consumed(target.group) {
-            info!("Stopping receiver {:?}", target);
+            //info!("Stopping receiver {:?}", target);
             commands.entity(entity)
                 .insert(BlockTriggerTargetInactive);
 

@@ -294,7 +294,7 @@ fn arena_despawn(
     arena_parts: Query<Entity, With<Arena>>,
 ) {
     for part in &arena_parts {
-        info!("Despawn arena");
+        //info!("Despawn arena");
         commands.entity(part)
             .despawn_recursive();
     }
@@ -309,7 +309,7 @@ fn arena_set_custom_material(
         commands.entity(entity)
             .insert(CustomMaterialApplied);
 
-        info!("Applying Arena Material {}", name.as_ref());
+        //info!("Applying Arena Material {}", name.as_ref());
         if name.as_ref() != "ValleyMesh" {
             continue;
         }
@@ -367,7 +367,7 @@ fn arena_handle_collisions(
                                 mat.hit_time = time.elapsed_seconds();
                                 let h_x = (collision.other_pos.x + ARENA_WIDTH_H) / ARENA_WIDTH;
                                 mat.hit_position = Vec3::new(h_x, 0.0, 0.0);
-                                info!("You hit that wall at {}!", h_x);
+                                //info!("You hit that wall at {}!", h_x);
                             }
                         }
                     }

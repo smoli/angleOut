@@ -114,7 +114,7 @@ fn match_event_handler(
             }
 
             MatchEvent::BallSpawned => {
-                info!("Executing ball spawn request");
+                //info!("Executing ball spawn request");
                 if player.balls_available > 0 && player.balls_carried == 0 && player.balls_in_play < level.simultaneous_balls {
                     commands
                         .spawn(Ball::default())
@@ -129,7 +129,7 @@ fn match_event_handler(
             }
 
             MatchEvent::BallLost => {
-                info!("Ball Lost");
+                //info!("Ball Lost");
                 player.ball_lost();
                 match_state.ball_lost();
             }
@@ -171,7 +171,7 @@ fn match_event_handler(
                         pickup_type: *pt,
                     });
 
-                info!("Player picked up {:?}", pt)
+                //info!("Player picked up {:?}", pt)
             }
         }
 
@@ -201,10 +201,10 @@ fn game_flow_handler(
 
             GameFlowEvent::PlayerWins => {
                 if let Ok(mut player) = players.get_single_mut() {
-                    info!("Player wins!");
+                    //info!("Player wins!");
                     player.state = PlayerState::HasWon;
                     player.player_has_won(match_state.points);
-                    info!("Player now has {} points", player.points);
+                    //info!("Player now has {} points", player.points);
                     let _ = game_state.set(GameState::PostMatch);
                 };
             }
@@ -215,7 +215,7 @@ fn game_flow_handler(
 
             GameFlowEvent::PlayerLooses => {
                 if let Ok(mut player) = players.get_single_mut() {
-                    info!("Player looses!");
+                    //info!("Player looses!");
                     player.state = PlayerState::HasLost;
                     let _ = game_state.set(GameState::PostMatch);
                 };
