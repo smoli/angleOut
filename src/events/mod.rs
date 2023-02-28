@@ -88,7 +88,7 @@ fn check_win_criteria(
         };
     }
 
-    if player.balls_available == 0 && stats.blocks > 0 && player.balls_in_play == 0 {
+    if player.total_ball_count() == 0 && stats.blocks > 0 {
         return LevelEndState::Lost;
     }
 

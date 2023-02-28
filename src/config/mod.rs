@@ -1,8 +1,8 @@
 use std::f32::consts::PI;
 use bevy_rapier3d::geometry::Group;
 
-pub const DEBUG_INFO_ENABLED: bool = false;
-pub const DEBUG_PHYSICS_ENABLED: bool = true && DEBUG_INFO_ENABLED;
+pub const DEBUG_INFO_ENABLED: bool = true;
+pub const DEBUG_PHYSICS_ENABLED: bool = false && DEBUG_INFO_ENABLED;
 
 pub const SCREEN_WIDTH: f32 = 1600.0;
 pub const SCREEN_HEIGHT: f32 = 800.0;

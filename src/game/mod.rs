@@ -33,6 +33,7 @@ fn game_start(
     match player {
         Ok((entity, mut player)) => {
 
+            player.reset();
             player.balls_available = 3;
 
             commands.entity(entity)

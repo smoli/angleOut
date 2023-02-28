@@ -51,6 +51,14 @@ impl Player {
         self.balls_lost = 0;
     }
 
+    pub fn reset_for_match(&mut self) {
+        self.balls_lost = 0;
+        self.balls_in_play = 0;
+        self.balls_grabbed = 0;
+        self.balls_carried = 0;
+        self.state = PlayerState::Open;
+    }
+
     pub fn set_balls(&mut self, count: i32) {
         self.balls_available = count;
     }
@@ -97,9 +105,10 @@ impl Player {
         self.points += match_points;
     }
 
-    pub fn has_player_lost(&self) -> bool {
-        self.balls_available + self.balls_in_play == 0
+    pub fn total_ball_count(&self) -> i32 {
+        return self.balls_carried + self.balls_in_play + self.balls_grabbed + self.balls_available;
     }
+
 }
 
 

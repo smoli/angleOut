@@ -15,6 +15,7 @@ use crate::events::GameFlowEvent;
 use crate::labels::SystemLabels;
 use crate::level::Levels;
 use crate::materials::background::BackgroundMaterial;
+use crate::player::Player;
 use crate::r#match::state::MatchState;
 use crate::ship::ShipState;
 use crate::state::GameState;
@@ -70,9 +71,14 @@ impl Plugin for MatchPlugin {
 
 fn match_spawn(
     mut match_state: ResMut<MatchState>,
+    mut players: Query<&mut Player>,
     mut commands: Commands,
 ) {
     match_state.reset();
+
+    for mut player in &mut players {
+        player.reset_for_match();
+    }
     commands.spawn(Match);
 }
 
