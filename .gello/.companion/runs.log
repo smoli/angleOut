@@ -1184,3 +1184,58 @@
 [c0004] → Bash(git show b81e65c -- src/events/mod.rs | sed -n '55,300p')
 [c0004] → Bash(cargo build 2>&1 | tail -40)
 [c0004] → Bash(cat /Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/running-the-game-from-a-gello-session.m…)
+[c0004] → Bash(grep -rn "get_current_level\|Levels\b\|current_level\|LevelAsset" src --include=*.rs | grep -v "^src/level/")
+[c0004] → Bash(env | grep -i "CARGO\|BEVY" ; echo "---"; ls assets/levels/)
+[c0004] → Bash(tail -30 /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/8f3612f4-ad0d-4f3e-8f91-b7abd6452561/tasks/bnu666…)
+[c0004] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut cargo test 2>&1 | tail -80)
+[c0004] → Bash(grep -rn "get_current_level\|Levels\|current_level\|LevelAsset\|distribute_global_pickups\|pickup_at\|clear_pickups" src…)
+[c0004] → Bash(grep -E "^(test result|running|warning: unused|error)" /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/8f3…)
+[c0004] → Bash(sed -n '75,120p' src/match/mod.rs; echo "=== game/mod.rs ==="; sed -n '1,60p' src/game/mod.rs)
+[c0004] → Bash(grep -rn "MatchEvent::Start\|match_state.reset\|reset()" src --include="*.rs" | head -20; echo "=== match plugin ==="; s…)
+[c0004] → Bash(sed -n '1,110p' src/main.rs)
+[c0004] → Bash(git grep -n "MatchEvent::Start\b" 2bd8b33 -- src | head; echo "=== old callers ==="; git grep -ln "get_current_level" 2b…)
+[c0004] → Bash(grep -n "setup_screen" -A 40 src/main.rs | sed -n '1,60p')
+[c0004] → Bash(grep -n "^warning" -A 3 /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/8f3612f4-ad0d-4f3e-8f91-b7abd64525…)
+[c0004] → Bash(touch src/main.rs && cargo build 2>&1 | grep -E "^warning|^error| *--> " | head -60)
+[c0004] → Bash(grep -rni "auto_start\|autostart\|dbg!\|todo!\|unimplemented!\|println!" src --include="*.rs" | head -20; echo "=== chec…)
+[c0004] → Bash(cargo tree -e features -p bevy 2>/dev/null | grep -i "file_watcher\|notify" | head; echo "---lock---"; grep -n "^name = …)
+[c0004] → Bash(git show b81e65c -- src/match/state/mod.rs | grep -E "^-" | grep -v "^---" | head -20; echo "=== deleted lines in campai…)
+[c0004] → Bash(ls target/debug/ | head -20; grep -n "^name" Cargo.toml)
+[c0004] → Bash(cat > /tmp/watchcheck.sh <<'EOF' set -e cd /Users/stephan/CLionProjects/angleOut cp assets/levels/level0.ron /tmp/level0…)
+[c0004] → Bash(git show --stat 2bd8b33 | tail -15; echo "=== c0002 ==="; git show --stat c424a67 | tail -12)
+[c0004] → Bash(grep -rn "GameFlowEvent::" src --include="*.rs" | grep -v "^src/events")
+[c0004] → Bash(cat /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/8f3612f4-ad0d-4f3e-8f91-b7abd6452561/tasks/b5s5bu8y4.o…)
+[c0004] → Bash(grep -iE "error|panic" /tmp/game.log | head -10; echo "=== exit/level lines ==="; grep -iE "angle_out|could not" /tmp/ga…)
+[c0004] → Bash(cargo test 2>&1 | tail -20)
+[c0004] → Bash(grep -n "RequestTag" -B 5 -A 25 src/block/mod.rs | sed -n '1,80p')
+[c0004] → Bash(grep -n "struct TriggerStates" -A 15 src/block/trigger.rs; grep -n "TriggerStates" src/block/*.rs | head -20)
+[c0004] All checks are in. Let me record the verdict on the card.
+[c0004] → Bash(date "+%Y-%m-%dT%H:%M:%S"; grep -n "^## Log" .gello/epics/e01-level-editor/c0004-asset-driven-level-loading.md)
+[c0004] → Bash(cat > /tmp/review_entry.md <<'EOF' ## Review ### 2026-08-26T00:18:37 — pass Checked: every acceptance criterion, the dif…)
+[c0004] **c0004 — pass.** Verdict recorded in a new `## Review` section on the card, above `## Log`. The card stays in `review`; I didn't move it or touch code.
+[c0004] What I checked:
+[c0004] - **Diff** (`b81e65c`): `Cargo.toml`, `arena`, `events`, `level/*`, `main`, `match/state`, `pickups` — all inside the card's What. The Bevy 0.19 migration edits carried in `src/events/mod.rs` are the same carry-along `c0002`/`c0003` made. No debug leftovers, no auto-start system left behind, no level file left modified.
+[c0004] - **Criteria**, against the code rather than the boxes: the loader/asset pair, `Levels` as handles, all four real pre-migration `get_current_level` callers (`git grep` on `2bd8b33` — `match` only ever used `next_level()`), the no-panic early returns plus the `readiness` gate on `StartMatch`.
+[c0004] - **Hot reload end to end myself**, not just on the implementer's word: ran the built binary, appended a line to `assets/levels/level0.ron`, and `bevy_asset::server` logged `Reloaded levels/level0.ron`; restored the file afterwards (`git status` clean for it). `notify` is in the dep tree, so `file_watcher` is genuinely on. The downstream despawn/respawn half is covered by tests, and `block_spawn` augments the request entity rather than replacing it, so `level_reload`'s `With<Block>` query does reach realized blocks.
+[c0004] - **The pickup move**, which was the card's open risk: `MatchState::reset()` clears the distribution, but `match_spawn` is ordered `.before(SystemLabels::UpdateWorld)` and `level_spawn` sits in that set — so the distribution happens after the reset, not the other way round.
+[c0004] - **Checks**: `cargo build` clean; `cargo test` 53 passed / 0 failed / 0 ignored, both with and without `CARGO_MANIFEST_DIR` pointed at the repo. No test removed, skipped or loosened — the campaign identity test got stricter.
+[c0004] Two things I recorded on the card without failing it: the build gained one new warning (`load_level` is now only reachable from tests), and `level_reload` respawns blocks without touching `TriggerStates`, so reloading a level that uses trigger groups mid-match keeps the old groups' consumed state — worth a follow-up card.
+[c0004] "Every level behaves exactly as before" rests on the field-for-field campaign equality plus a caller-by-caller read; playing all seven through needs controller input this session can't send either, which is what the card itself says.
+[c0004] ✓ 56 in / 24687 out tokens, $2.3954, 38 turns, 360.2s
+[c0005] I'll start by picking up the card.
+[c0005] → ToolSearch(select:mcp__gello__set_status,mcp__gello__add_question)
+[c0005] → mcp__gello__set_status(in-progress)
+[c0005] Card is in-progress. Now let me read it and the surrounding context.
+[c0005] → Bash(cat .gello/epics/e01-level-editor/c0005-editor-state-and-entry.md)
+[c0005] → Bash(ls .gello/epics/e01-level-editor/ && cat .gello/epics/e01-level-editor/epic.md)
+[c0005] → Bash(cat src/state/mod.rs && echo "=== main.rs ===" && cat src/main.rs)
+[c0005] → Bash(cat src/ui/game/mod.rs)
+[c0005] → Bash(cat src/events/mod.rs; echo "=== game/mod.rs ==="; cat src/game/mod.rs)
+[c0005] → Bash(ls src/level/ && wc -l src/level/*.rs && ls assets/levels/)
+[c0005] → Bash(cat src/level/mod.rs)
+[c0005] → Bash(grep -rn "Camera3d\|Camera\b" src/ --include=*.rs | head -50)
+[c0005] → Bash(cat src/ui/mod.rs)
+[c0005] → Bash(grep -rn "Camera3d" src --include="*.rs" | head -30; echo ===; cat src/level/layout/*.rs 2>/dev/null | head -80; ls src/…)
+[c0005] → Bash(ls src/level/layout; sed -n 1,120p src/level/layout/mod.rs)
+[c0005] → Bash(sed -n 80,190p src/match/mod.rs)
+[c0005] → Bash(sed -n 1,80p src/match/mod.rs; echo "=== rest ==="; sed -n 190,400p src/match/mod.rs)

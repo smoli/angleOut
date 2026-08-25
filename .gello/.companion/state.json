@@ -1,7 +1,6 @@
 {
   "status": "running",
   "ready": [
-    "c0005",
     "c0006",
     "c0007",
     "c0008",
@@ -14,28 +13,28 @@
   "waiting": [],
   "runs": [
     {
-      "cardId": "c0004",
+      "cardId": "c0005",
       "phase": "running",
       "activity": {
         "name": "Bash",
-        "arg": "cat /Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/running-the-game-from-a-gello-session.md"
+        "arg": "sed -n 1,80p src/match/mod.rs; echo \"=== rest ===\"; sed -n 190,400p src/match/mod.rs"
       },
       "model": "claude-opus-5"
     }
   ],
-  "updated": "2026-08-26T00:13:39",
+  "updated": "2026-08-26T00:19:43",
   "pickupDelay": 10,
   "owned": [
     "i0001",
     "c0001",
     "c0002",
     "c0003",
-    "c0004"
+    "c0004",
+    "c0005"
   ],
   "afk": true,
   "paused": false,
   "firstSeen": {
-    "c0005": "2026-08-25T22:59:42",
     "c0006": "2026-08-25T22:59:50",
     "c0007": "2026-08-25T22:59:53",
     "c0008": "2026-08-25T22:59:56",

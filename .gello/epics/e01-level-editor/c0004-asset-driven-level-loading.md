@@ -7,8 +7,8 @@ depends: [c0003]
 created: 2026-08-25
 updated: 2026-08-26
 status-changed: 2026-08-26T00:12:48
-usage-tokens: 78780
-usage-cost: 10.5086
+usage-tokens: 103523
+usage-cost: 12.90396
 ---
 
 ## What
@@ -115,6 +115,64 @@ handle-driven rather than owning `Vec<LevelDefinition>` — which touches every
 If the level `GameState::NextLevel` moves to cannot be loaded, the fall back to
 the menu restarts the campaign at level 0 rather than resuming. Only reachable
 by breaking a level file mid-run.
+
+## Review
+
+### 2026-08-26T00:18:37 — pass
+
+Checked: every acceptance criterion, the diff in `b81e65c`, `cargo build`,
+`cargo test`, and the file watcher against the running binary.
+
+- `LevelAsset` + `LevelAssetLoader` (`src/level/asset.rs`) load `levels/*.ron`
+  through the asset server, and `the_asset_server_loads_the_campaign_the_files_spell`
+  compares what comes back out of `Assets<LevelAsset>` field for field against
+  `c0003`'s legacy literals.
+- `Levels` is `Vec<Handle<LevelAsset>>` (`src/level/mod.rs`); `load_levels` takes
+  an `&AssetServer` and the resource is inserted in `LevelPlugin::build`, which is
+  after `DefaultPlugins` in `main`, so the `AssetServer` lookup there is sound.
+- Every pre-migration caller is migrated: `git grep get_current_level 2bd8b33`
+  names `arena`, `events`, `level` and `pickups`, and each now takes
+  `Res<Assets<LevelAsset>>` and copes with `None`; `r#match` only ever used
+  `next_level()`. `get_current_level_mut` is gone from the tree.
+- Hot reload verified against the running game, not only in tests: with the built
+  binary running I appended a line to `assets/levels/level0.ron` and
+  `bevy_asset::server` logged `Reloaded levels/level0.ron` (file restored
+  afterwards, `git status` clean for it). `notify` is in the dependency tree, so
+  the `file_watcher` feature is really on. The half downstream of the watcher is
+  covered by `a_hand_edit_to_the_current_level_replaces_its_blocks` and by
+  `editing_a_level_that_is_not_being_played_leaves_the_match_alone`, whose second
+  half proves the handle filter rather than nothing working. `block_spawn`
+  augments the request entity instead of replacing it, so `level_reload`'s
+  `Query<Entity, With<Block>>` does reach fully spawned blocks too.
+- Nothing unwraps a level that has not arrived: `arena_spawn`, `level_spawn` and
+  `match_event_handler` all early-return, and `game_flow_handler` holds
+  `StartMatch` on `Levels::readiness`, whose three outcomes each have a test.
+- The pickup mutation moved without changing play: `MatchState::reset()` clears
+  `distributed_global_pickups`, but `match_spawn` is ordered
+  `.before(SystemLabels::UpdateWorld)` and `level_spawn` sits in that set, so the
+  distribution is made after the reset rather than being wiped by it, and
+  `pickup_spawn_globals_on_event` keys off the same remaining-block counts as
+  before.
+- `cargo build` is clean; the 20 warnings are pre-existing bar one this card
+  causes — `function load_level is never used` in `src/level/campaign.rs`, now
+  only reachable from tests. `cargo test`: 53 passed, 0 failed, 0 ignored, both
+  with and without `CARGO_MANIFEST_DIR` pointed at the repo. No test was removed,
+  skipped or loosened; the campaign identity test got stricter, since the legacy
+  comparison now runs against both the `std::fs` read and the asset-server read.
+- The diff stays inside the What — `Cargo.toml`, `arena`, `events`, `level/*`,
+  `main`, `match/state`, `pickups` — and the Bevy 0.19 migration edits carried in
+  `src/events/mod.rs` are the same carry-along `c0002` and `c0003` made for the
+  files they touched. No debug leftovers, no auto-start system left behind, no
+  level file modified by the live verification.
+- "Every level behaves exactly as before" is met as far as it can be verified
+  here: campaign equality field for field plus a caller-by-caller read of the
+  migration. Playing all seven through needs input this session cannot send
+  either, which is what the card already records.
+
+Observation for a follow-up card, not blocking: `level_reload` despawns and
+respawns blocks without touching `TriggerStates`, so reloading a level that uses
+trigger groups mid-match keeps the old blocks' `consumed`/`state` entries for
+those groups.
 
 ## Log
 

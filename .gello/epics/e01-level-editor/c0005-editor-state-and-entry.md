@@ -1,13 +1,12 @@
 ---
 id: c0005
 title: Editor state, menu entry and cursor
-status: ready
+status: in-progress
 epic: e01
 depends: [c0004]
 created: 2026-08-25
-updated: 2026-08-25
-status-changed: 2026-08-25T22:59:42
-order: 50
+updated: 2026-08-26
+status-changed: 2026-08-26T00:19:15
 ---
 
 ## What
@@ -40,3 +39,4 @@ the state transitions that `c0013`'s playtest round trip will put it through.
 
 - 2026-08-25 created from the e01 epic breakdown
 - 2026-08-25 status → ready (app)
+- 2026-08-26 status → in-progress (agent)
