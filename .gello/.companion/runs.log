@@ -1711,3 +1711,48 @@
 [c0008] → Bash(git log --oneline -5; git show --stat --format="%s" HEAD | head)
 [c0008] The board app auto-committed the card. Committing the source changes:
 [c0008] → Bash(git commit -q -F - <<'EOF' c0008: the grid grows and shrinks An arrow key adds a row or a column at the edge it points a…)
+[c0008] → mcp__gello__set_status(review)
+[c0008] **c0008 — Grid resize** is in `review`, committed as `7dd5600` (the board app committed the card itself as `d76341b`).
+[c0008] **What it does.** An arrow key adds a row or column at the edge it points at; `Shift`+arrow takes that edge away. `Edge::Top` is row 0 — the first line of the layout, which is the top of the screen under both cameras (`cell_to_world` calls it the *bottom* row because world z grows towards the player; the enum doc says so out loud). Row 0's world position is fixed, so the grid always grows towards the paddle whichever end a row goes on — but every retained cell keeps its token, which is what the criterion asks.
+[c0008] **Padding.** `grow`, `shrink` and `set_cell` are now three lines each over one pair of helpers: `slot_grid` (rows of slots squared up to the widest) and `write_grid`. One place a ragged grid gets padded, so `interpret_grid`'s first-line column count stays true.
+[c0008] **The warning.** Undo is `c0011` and depends on this card, so I took the "warns first" branch: an empty edge goes on the first press; an edge with blocks is named and counted in orange at the bottom of the screen and in the log, with the doomed cells outlined on the grid, and the same press again does it. Painting, growing, a different edge or leaving all drop the warning, since it counted the level as it stood.
+[c0008] **Bounds I chose (worth a look in review).** A grid keeps its last row and column, and stops growing where the editor could no longer frame it — 13×16 at the shipped gap, against a widest shipped level of 11. That means the editor will let you build wider than the arena walls; I left "can the ball reach every cell" to `c0012`'s validation warnings rather than making it a resize limit.
+[c0008] **Verification.** 26 new tests (11 pure, 15 through a real app), 132 total green, `cargo build` clean at 19 warnings — unchanged. Also driven in the running game through the real key path: `level0` opens 9×6, `ArrowRight` → 10×6, `Shift+Up` warns *"The top row holds 3 blocks…"* and leaves it at 10×6, the second press → 10×5. Not visually confirmed — screenshots come back black from this session, so the on-screen appearance of the warning text and outline rests on the entities being there with the game's own font.
+[c0008] ✓ 122 in / 68418 out tokens, $6.6169, 63 turns, 1119.5s
+[c0008] I'll start by reading the card.
+[c0008] → Bash(cat .gello/epics/e01-level-editor/c0008-grid-resize.md)
+[c0008] → Bash(cat .gello/board.yaml && ls .gello/epics/e01-level-editor/)
+[c0008] → Bash(git log --oneline -15 && echo "---" && git show --stat 7dd5600)
+[c0008] → Bash(git status --short -- src/ && echo "--- diff of card file only ---" && git diff .gello/epics/e01-level-editor/c0008-grid…)
+[c0008] → Bash(git show 7dd5600 -- src/level/layout/mod.rs)
+[c0008] → Bash(git show 7dd5600 -- src/editor/mod.rs | head -400)
+[c0008] → Bash(git show 7dd5600 -- src/editor/mod.rs | sed -n '400,780p')
+[c0008] → Bash(git show 7dd5600 -- src/editor/mod.rs | sed -n '780,1000p')
+[c0008] → Bash(grep -rn -i "cargo test\|cargo clippy\|cargo build\|cargo check" README.md CLAUDE.md .gello/*.md 2>/dev/null | head -20)
+[c0008] → Bash(ls && head -40 Cargo.toml)
+[c0008] → Bash(timeout 590 cargo test 2>&1 | tail -40)
+[c0008] → Bash(cargo test 2>&1 | tail -50)
+[c0008] → Bash(cargo build 2>&1 | tail -5; echo "=== warning count ==="; cargo build 2>&1 | grep -c "^warning")
+[c0008] → Bash(cargo build 2>&1 | grep -A3 "^warning" | grep -E "editor/mod.rs|layout/mod.rs" | head; echo "--- none above means no war…)
+[c0008] → Bash(sed -n '1,120p' src/level/layout/mod.rs)
+[c0008] → Bash(sed -n '120,320p' src/level/layout/mod.rs)
+[c0008] → Bash(grep -n "fn interpret_grid" -A 45 src/level/layout/mod.rs)
+[c0008] → Bash(grep -n "fn editor_view" -A 25 src/editor/mod.rs; grep -n "editor_setup" -A 40 src/editor/mod.rs | sed -n '1,60p')
+[c0008] → Bash(sed -n '520,560p' src/editor/mod.rs)
+[c0008] → Bash(sed -n '60,160p' src/editor/mod.rs)
+[c0008] → Bash(sed -n '340,400p' src/level/layout/mod.rs)
+[c0008] → Bash(grep -n "fn blocks_on_screen" -A 25 src/editor/mod.rs; grep -n "fn at(" -A 8 src/editor/mod.rs; grep -n "fn layout(" -A …)
+[c0008] → Bash(git show 7dd5600 -- src/ | grep -E "^-" | grep -v "^---" | sed -n '1,60p')
+[c0008] → Bash(cargo clippy --all-targets 2>&1 | tail -60 > /tmp/clippy_c0008.txt; echo done)
+[c0008] → Bash(grep -n "fn editor_draw_hover" -A 20 src/editor/mod.rs)
+[c0008] → Bash(sed -n '676,760p' src/editor/mod.rs)
+[c0008] → Bash(git diff --stat 7dd5600 -- src/editor src/level | tail -3; echo "exit: clean means identical")
+[c0008] → Bash(cat /tmp/claude-501/-Users-stephan-CLionProjects-angleOut/82d792d9-fa7e-4e91-a4cd-96f197955e9a/tasks/bby9n4liq.output 2>…)
+[c0008] → Bash(cat /tmp/clippy_c0008.txt 2>/dev/null | tail -30; echo "---"; grep -cE "^(warning|error)" /tmp/clippy_c0008.txt 2>/dev/n…)
+[c0008] → Bash(for i in $(seq 1 120); do if [ -s /tmp/clippy_c0008.txt ]; then break; fi; done; ls -l /tmp/clippy_c0008.txt)
+[c0008] → ToolSearch(select:Monitor)
+[c0008] → Monitor(until [ -s /tmp/clippy_c0008.txt ]; do sleep 5; done; echo "clippy finished")
+[c0008] → Bash(wc -l /tmp/clippy_c0008.txt; echo "=== tail ==="; tail -25 /tmp/clippy_c0008.txt)
+[c0008] → Bash(git show 7dd5600 -- src/level/layout/mod.rs | grep -n "assert!(false)"; echo "in-commit hits above (none = pre-existing)…)
+[c0008] → Bash(date +%Y-%m-%dT%H:%M:%S)
+[c0008] → Bash(python3 - <<'PY' import io p = ".gello/epics/e01-level-editor/c0008-grid-resize.md" s = io.open(p, encoding="utf-8").rea…)

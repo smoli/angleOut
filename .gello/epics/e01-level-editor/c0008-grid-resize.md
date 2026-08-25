@@ -1,12 +1,14 @@
 ---
 id: c0008
 title: Grid resize
-status: in-progress
+status: review
 epic: e01
 depends: [c0007]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T01:24:12
+status-changed: 2026-08-26T01:42:36
+usage-tokens: 68540
+usage-cost: 6.616872
 ---
 
 ## What
@@ -111,6 +113,79 @@ Rows can be added or removed at top and bottom, columns at left and right.
   the outline on the doomed cells rest on the entities being there with the
   game's own font and on `c0006`'s screenshot of the same camera.
 
+## Review
+
+### 2026-08-26T01:47:30 — pass
+
+Checked: the six acceptance criteria against `src/level/layout/mod.rs` and
+`src/editor/mod.rs`, the diff of `7dd5600`, `cargo test`, `cargo build`,
+`cargo clippy --all-targets`.
+
+- Rows and columns at all four edges: `grow`/`shrink` in the layout module,
+  reached from `resize_asked_for` (arrow / `Shift`+arrow) in `editor_resize`.
+  Covered pure by `a_row_can_be_added_at_the_top_and_at_the_bottom`,
+  `a_column_can_be_added_at_the_left_and_at_the_right` and their two shrink
+  twins, and through the app by
+  `an_arrow_key_adds_a_row_or_a_column_at_the_edge_it_points_at` and
+  `shift_and_an_arrow_key_takes_that_edge_away_again`.
+- `Edge::Top` really is the top of the screen, so the arrows point where the
+  card says they do: `interpret_grid` maps layout line 0 to `cell_to_world` row
+  0, which is the most negative z, and the editor camera at
+  `(0, EDITOR_CAMERA_HEIGHT, 0.00001)` with `Vec3::Y` up puts -z at the top of
+  the frame.
+- "Warns first or is undoable" is met by the warning half: `take_edge_away`
+  refuses the first press on an edge with blocks on it, spawns the orange
+  `EditorWarning` text and outlines the doomed cells, and acts on the second.
+  `an_edge_with_blocks_on_it_is_called_out_before_it_is_taken_away`,
+  `an_empty_edge_needs_no_warning`,
+  `a_warning_does_not_survive_the_author_doing_something_else`,
+  `growing_the_grid_drops_a_warning_rather_than_confirming_it` and
+  `leaving_the_editor_forgets_the_warning` cover it. `blocks_on_edge`'s count is
+  checked against the blocks that actually disappear by
+  `the_count_warned_about_is_the_blocks_that_are_lost`, and
+  `slot_holds_a_block` agrees with `make_block`'s reading of `.` in either of
+  the first two characters.
+- Retained cells keep their tokens: `the_cells_that_are_kept_hold_what_they_held`
+  and `growing_an_edge_and_taking_it_away_again_is_the_grid_it_was` on the
+  layout, `the_blocks_that_are_kept_keep_their_cells` on the blocks on screen.
+  The whole grid moving a cell towards the paddle when a row is added at the top
+  follows from row 0's fixed world position and is disclosed in the Notes; the
+  criterion is about the cells, and it holds.
+- Padding: `slot_grid` squares every row up to the widest and `write_grid` is
+  the only way back out, so `grow`, `shrink` and `set_cell` cannot write a
+  ragged grid. Every slot it writes is >= 2 characters, which is what
+  `interpret_grid`'s unfiltered first-line `split(" ")` count needs.
+  `a_resized_grid_is_padded_out_to_one_width` covers it.
+- Round trip: `a_resized_level_saves_and_reloads_and_plays` writes the resized
+  level with `level_to_ron`, reads it back with `load_level`, and compares
+  `interpret_grid`'s blocks against the editor's own `EditorBlock` transforms -
+  three blocks in a 4x3 grid, so the comparison is not vacuous.
+- Checks green: `cargo test` 132 passed, 0 failed - the claimed count, and the
+  26 new tests are all present and none `#[ignore]`d. `cargo build` clean at 19
+  warnings, none of them in the two files this card touched. `cargo clippy
+  --all-targets` exits 0; its only new lint is `needless_lifetimes` on the test
+  helper `slot<'a>` at `src/level/layout/mod.rs:1026`, and clippy is not a check
+  the repo documents.
+- Diff stays inside the What: two files, no test removed or weakened - the only
+  deletion in an existing test is `editor::tests::every_shipped_level_fits...`
+  reworded onto the new `grid_fits_the_view`, which asserts the same thing.
+  Working tree note: many other `src/*` files are modified and `src/diagnostics/`
+  is untracked, but none of that is this card's - `git diff 7dd5600 -- src/editor
+  src/level` is empty, so the checks above ran on exactly the committed code.
+
+Two things for later, neither blocking:
+
+- The warning's block count can go stale mid-drag. `editor_paint` clears
+  `PendingRemoval` only where the stroke *starts*, so an author holding the
+  mouse down, pressing `Shift+Up`, painting two more cells into the top row
+  while still holding, and pressing `Shift+Up` again removes four blocks having
+  been told two. The criterion is still met - the press did warn first - and
+  `c0011`'s undo makes it moot, but the Notes claim painting always drops a
+  warning and in this one path it does not.
+- Not verified here: that the orange text and the doomed-edge outline actually
+  render. The tests assert the entities and their strings, and screenshots were
+  black in the implementer's session too.
+
 ## Log
 
 - 2026-08-25 created from the e01 epic breakdown
@@ -120,3 +195,4 @@ Rows can be added or removed at top and bottom, columns at left and right.
   with `set_cell` refactored onto the shared `slot_grid`, arrow-key resizing in
   the editor with a warning before an edge with blocks on it goes; 26 new tests,
   132 green, build clean
+- 2026-08-26 status → review (agent)
