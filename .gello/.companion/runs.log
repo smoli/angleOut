@@ -1151,3 +1151,36 @@
 [c0004] → Bash(git status --short | grep "^??" | head -20; echo "=== my files vs HEAD ==="; for f in Cargo.toml src/arena/mod.rs src/ev…)
 [c0004] → Bash(git add Cargo.toml src/arena/mod.rs src/events/mod.rs src/level/mod.rs src/level/campaign.rs src/level/asset.rs src/main…)
 [c0004] → Bash(git diff --cached --stat)
+[c0004] → Bash(git commit -F - <<'EOF' c0004: levels come off the asset server, and hand edits land live `Levels` owned `Vec<LevelDefin…)
+[c0004] → Bash(git status --short .gello/; git show --stat --oneline HEAD | head -15)
+[c0004] → Bash(git log --oneline -5; git log --oneline -3 -- .gello/epics/e01-level-editor/c0004-asset-driven-level-loading.md; grep -c…)
+[c0004] The card notes were picked up by the board's own commit; my code commit is clean. Setting the card to review.
+[c0004] → mcp__gello__set_status(review)
+[c0004] → Bash(cargo build 2>&1 | tail -2; cargo test 2>&1 | grep "test result")
+[c0004] c0004 is done and in `review`, committed as `b81e65c`.
+[c0004] ## What changed
+[c0004] **`LevelAsset` + `LevelAssetLoader`** (`src/level/asset.rs`) read `assets/levels/*.ron` through the asset server. `Levels` is now `Vec<Handle<LevelAsset>>`; `get_current_level` takes `&Assets<LevelAsset>` and returns an `Option`, and `get_current_level_mut` is gone. `arena`, `level`, `events` and `pickups` all cope with a level that hasn't arrived rather than unwrapping.
+[c0004] **The card's open question resolved as it predicted.** Losing the `_mut` accessor forced `distributed_global_pickups` off `LevelDefinition` — it's now per-match state on `MatchState`, derived from the level's authored `global_pickups` and cleared by `reset()`. `pickup_spawn_globals_on_event` no longer needs `Levels` at all.
+[c0004] **Two judgement calls I made rather than asking:**
+[c0004] - Because levels now load asynchronously, `game_flow_handler` holds the `StartMatch` transition until `Levels::readiness` says `Ready`. Without it a first match could start in front of a level still in flight, so "plays exactly as before" would have been luck rather than a property.
+[c0004] - Hot reload replaces the *blocks* of the running match, not the arena, ship or score. Rebuilding the background or obstacles mid-match means tearing down the 3D environment, which is `c0013`'s problem. I noted this scoping on the card.
+[c0004] `bevy` gained the `file_watcher` feature — that's what makes a hand edit an `AssetEvent` at all.
+[c0004] ## How it was checked
+[c0004] `cargo build` clean, `cargo test` 53 passed (up from 40). Beyond tests, I ran the real game with a temporary auto-start system (since removed): adding a row of nine blocks to `level0.ron` in a text editor took the running match from 6 blocks to 15, logged live. Writing garbage into a level file reported the parse error naming `LevelAssetLoader`; restoring it reloaded cleanly.
+[c0004] Two things I want to flag rather than bury:
+[c0004] - **I could not play the levels through.** This session can't send input to the window, so "every level behaves exactly as before" rests on the campaign loading field-for-field equal to c0003's pre-migration literals, plus the block counts above — not on playing all seven.
+[c0004] - **Known limitation:** if the level `GameState::NextLevel` moves to can't be loaded, the fallback to the menu restarts the campaign at level 0 rather than resuming. Only reachable by breaking a level file mid-run; it's on the card.
+[c0004] `src/events/mod.rs` also carries Bevy 0.9→0.19 migration edits that were already uncommitted in the working tree — same arrangement as c0002 and c0003, disclosed in the commit message.
+[c0004] ✓ 218 in / 78562 out tokens, $10.5086, 110 turns, 1738.5s
+[c0004] I'll start by reading the card.
+[c0004] → Bash(cat .gello/epics/e01-level-editor/c0004-asset-driven-level-loading.md)
+[c0004] → Bash(cat CLAUDE.md; echo "=== README ==="; head -80 README.md; echo "=== board.yaml ==="; cat .gello/board.yaml)
+[c0004] Now the diff. Let me find the commits naming c0004.
+[c0004] → Bash(git log --oneline -15 && echo "=== show stat ===" && git show --stat b81e65c)
+[c0004] → Bash(git status --porcelain | head -60 && echo "=== uncommitted diff stat vs HEAD ===" && git diff --stat)
+[c0004] → Bash(git show b81e65c -- Cargo.toml src/main.rs src/level/asset.rs src/level/campaign.rs)
+[c0004] → Bash(git show b81e65c -- src/level/mod.rs)
+[c0004] → Bash(git show b81e65c -- src/arena/mod.rs src/match/state/mod.rs src/pickups/mod.rs | sed -n '55,400p')
+[c0004] → Bash(git show b81e65c -- src/events/mod.rs | sed -n '55,300p')
+[c0004] → Bash(cargo build 2>&1 | tail -40)
+[c0004] → Bash(cat /Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/running-the-game-from-a-gello-session.m…)

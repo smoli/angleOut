@@ -1,12 +1,14 @@
 ---
 id: c0004
 title: Asset-driven level loading and hot reload
-status: in-progress
+status: review
 epic: e01
 depends: [c0003]
 created: 2026-08-25
-updated: 2026-08-25
-status-changed: 2026-08-25T23:44:14
+updated: 2026-08-26
+status-changed: 2026-08-26T00:12:48
+usage-tokens: 78780
+usage-cost: 10.5086
 ---
 
 ## What
@@ -123,3 +125,4 @@ by breaking a level file mid-run.
   moved to `MatchState`, match start gated on the level being loaded, blocks
   reloaded in-match on a hand edit; `cargo test` 53 passed, verified live in the
   running game (agent)
+- 2026-08-26 status → review (agent)
