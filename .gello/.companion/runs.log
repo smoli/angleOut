@@ -1702,3 +1702,12 @@
 [c0008] → Bash(git diff -U0 src/level/layout/mod.rs src/editor/mod.rs | grep -c "^+ fn \|^+ #\[test\]"; git diff -U0 src/level/layout/m…)
 [c0008] Now the card:
 [c0008] → Bash(python3 - <<'PY' p='.gello/epics/e01-level-editor/c0008-grid-resize.md' s=open(p).read() s = s.replace("""- [ ] Rows can…)
+[c0008] → Bash(git log -1 --format=%B bef6615 | tail -12)
+[c0008] → Bash(git add src/editor/mod.rs src/level/layout/mod.rs .gello/epics/e01-level-editor/c0008-grid-resize.md && git status --sho…)
+[c0008] → Bash(git diff --cached --stat)
+[c0008] → Bash(git status --short .gello/epics/e01-level-editor/; git add .gello/epics/e01-level-editor/c0008-grid-resize.md; git diff …)
+[c0008] → Bash(git check-ignore -v .gello/epics/e01-level-editor/c0008-grid-resize.md; git log --oneline -1 -- .gello/epics/e01-level-e…)
+[c0008] → Bash(git diff HEAD --stat -- .gello/; git status --short | head -20)
+[c0008] → Bash(git log --oneline -5; git show --stat --format="%s" HEAD | head)
+[c0008] The board app auto-committed the card. Committing the source changes:
+[c0008] → Bash(git commit -q -F - <<'EOF' c0008: the grid grows and shrinks An arrow key adds a row or a column at the edge it points a…)
