@@ -669,3 +669,27 @@
 [c0001] → Bash(ls /Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/ 2>&1 | head)
 [c0001] → Write(/Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/running-the-game-from-a-gello-session.md)
 [c0001] → Bash(cd /Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory && cat >> MEMORY.md <<'EOF' - [Running t…)
+[c0001] c0001 is in `review` and committed as `783a7e7`.
+[c0001] ## What changed
+[c0001] **`src/materials/force_field.rs`** — the material now owns the behaviour:
+[c0001] - A fixed pool of 8 hit slots (`[Vec4; 8]`: panel uv, start time, used flag). `register_hit` takes the first unused or already-decayed slot and only evicts the oldest live ripple when all eight are busy.
+[c0001] - `panel_uv` inverts the panel's own `GlobalTransform` and divides by its size — replacing `(pos.x + ARENA_WIDTH_H) / ARENA_WIDTH`, which read *every* hit on a rotated `LevelObstacle::ForceField` as u = 1.0 and discarded the contact height.
+[c0001] - `ripple_speed` / `ripple_width` / `ripple_decay` / `flare_intensity` / `sheet_color` / `flare_color` / `hex_tile_size` are fields, not WGSL literals.
+[c0001] **`assets/shaders/force_field_material.wgsl`** — idle is a smooth drifting blue sheet with no lattice; each live slot contributes a gaussian ring expanding in world units (`uv * panel_size`, so ripples stay round on a 200×20 panel), and the hex texture is multiplied by that summed strength, which is what makes the lattice exist only under a passing wavefront.
+[c0001] **`src/arena/mod.rs`** — `arena_update_force_field_material` deleted (the shader reads `globals.time`); hits stamped with `elapsed_secs_wrapped()` to match; `ForceField` carries its size; the hex texture loads with a repeating sampler now that it tiles in world units.
+[c0001] ## Verification
+[c0001] 12 new tests (26 total, all green), written before the implementation — I confirmed the red run first. `cargo build` adds no warnings in the touched files. I also ran the game to confirm the WGSL actually compiles and renders: no shader or pipeline errors across ~40s in-match. Reaching a match needed a temporary auto-start system, which is reverted and not in the commit.
+[c0001] ## Open questions — answered, not asked
+[c0001] All five were cheap-to-change tuning calls that the acceptance criteria turn into material fields anyway, so I picked defaults and wrote the reasoning into the card's Notes rather than blocking: pool size 8 (levels top out at four balls), ripples fade at edges rather than reflect, flare is a hot pale blue rather than white-hot, impact speed does not modulate strength (not in the criteria, would need per-slot strength in the uniform), and the rotated-panel mapping is verified by unit test rather than re-enabling the commented-out level — you'd said no test level was wanted.
+[c0001] ## Left for you
+[c0001] The two visual criteria are unticked: the look itself, and the FPS readout with several ripples alive. The shader should be cheaper than the one it replaced — two `noise()` calls against the voronoi's five, plus eight cheap loop iterations — but that wants confirming on the readout, not asserting from a diff.
+[c0001] One note on the commit: the three files are mid Bevy 0.9 → 0.19 migration along with the rest of your tree, so this commit is not independently buildable, the same situation `5ee8400` documented. Nothing pushed.
+[c0001] ✓ 156 in / 53106 out tokens, $6.1011, 84 turns, 921.6s
+[c0001] I'll start by reading the card.
+[c0001] → Bash(cat .gello/cards/c0001-force-field.md)
+[c0001] → Bash(cat .gello/board.yaml 2>/dev/null; echo "---CLAUDE---"; cat CLAUDE.md; echo "---README---"; head -60 README.md)
+[c0001] Now the diff for this card.
+[c0001] → Bash(git log --oneline -15 && echo "=== commits naming c0001 ===" && git log --oneline --all --grep="c0001")
+[c0001] → Bash(git show --stat 783a7e7)
+[c0001] → Bash(git show 783a7e7 -- assets/shaders/force_field_material.wgsl)
+[c0001] → Bash(git show 783a7e7 -- src/materials/force_field.rs)

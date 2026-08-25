@@ -5,6 +5,8 @@ status: review
 created: 2026-08-25
 updated: 2026-08-25
 status-changed: 2026-08-25T23:01:23
+usage-tokens: 53262
+usage-cost: 6.101066
 ---
 
 ## What
