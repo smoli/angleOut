@@ -1,9 +1,21 @@
 {
-  "status": "idle",
-  "ready": [],
+  "status": "running",
+  "ready": [
+    "c0001"
+  ],
   "waiting": [],
-  "runs": [],
-  "updated": "2026-08-25T22:45:29",
+  "runs": [
+    {
+      "cardId": "c0001",
+      "phase": "running",
+      "activity": {
+        "name": "Bash",
+        "arg": "sed -n 175,230p src/level/layout/mod.rs"
+      },
+      "model": "claude-opus-5"
+    }
+  ],
+  "updated": "2026-08-25T22:46:54",
   "pickupDelay": 10,
   "owned": [
     "i0001",
@@ -11,5 +23,7 @@
   ],
   "afk": false,
   "paused": false,
-  "firstSeen": {}
+  "firstSeen": {
+    "c0001": "2026-08-25T22:46:24"
+  }
 }

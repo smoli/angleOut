@@ -581,3 +581,8 @@
 [i0001] **The commit is partial, deliberately.** `5ee8400` contains `src/input/mod.rs` and my README section only. The three lines registering the plugin in `src/main.rs` are still in the working tree — that file is mid Bevy 0.9 → 0.19 migration along with ~35 others, and committing it alone would leave a 0.19 `main.rs` against a 0.9 HEAD and break the build at that commit. I also kept the unrelated in-flight README edit out by staging only my own hunk. Please fold the `main.rs` wiring in when you commit the migration. Nothing pushed.
 [i0001] I left the stale `src/diagnostics/` module alone — it's untracked, Bevy 0.9-era, and unwired.
 [i0001] ✓ 72 in / 28731 out tokens, $5.3071, 36 turns, 480.9s
+[c0001] → Bash(cat src/config/mod.rs && echo "=== materials/mod.rs ===" && cat src/materials/mod.rs)
+[c0001] → Bash(grep -rn "other_pos\|pub struct Collision\|pub struct CollisionInfo" src/physics/mod.rs | head -40 && echo "=== LEVEL ==…)
+[c0001] → Bash(sed -n 1,80p src/physics/mod.rs)
+[c0001] → Bash(grep -rn "#\[cfg(test)\]" src/ | head -20 && echo "=== TEST COUNT ===" && grep -rn "#\[test\]" src/ | wc -l)
+[c0001] → Bash(sed -n 175,230p src/level/layout/mod.rs)
