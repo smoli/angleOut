@@ -10,12 +10,12 @@
       "phase": "running",
       "activity": {
         "name": "Bash",
-        "arg": "env | grep -i cargo | head; pwd"
+        "arg": "until [ $(grep -ciE \"error|warn.*pipeline|naga\" /tmp/angleout_run4.log) -gt 0 ]; do sleep 3; done; echo FOUND"
       },
       "model": "claude-opus-5"
     }
   ],
-  "updated": "2026-08-25T22:57:57",
+  "updated": "2026-08-25T22:59:11",
   "pickupDelay": 10,
   "owned": [
     "i0001",
