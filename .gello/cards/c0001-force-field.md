@@ -1,12 +1,12 @@
 ---
 id: c0001
 title: Force field
-status: review
+status: in-progress
 created: 2026-08-25
 updated: 2026-08-25
-status-changed: 2026-08-25T23:01:23
-usage-tokens: 53262
-usage-cost: 6.101066
+status-changed: 2026-08-25T23:06:55
+usage-tokens: 73356
+usage-cost: 7.883581
 ---
 
 ## What
@@ -168,6 +168,82 @@ in-game tuning pass rather than settled:
   `ripple_decay` 1.2, `flare_intensity` 2.5, `hex_tile_size` 10.0, plus
   `sheet_color` / `flare_color`.
 
+## Review
+
+### 2026-08-25T23:06:07 — fail
+
+Checked: acceptance criteria against `783a7e7`, `cargo build`, `cargo test`, the
+WGSL against the bevy 0.19 sources, the diff.
+
+- Criterion "the hex lattice is visible only where a ripple is currently
+  passing" is unmet in the built game. The Notes say `hexagon2.png` "is loaded
+  with a repeating sampler now", but nothing in the repo sets one: `arena_spawn`
+  calls a plain `asset_server.load("hexagon2.png")`, `force_field.rs` uses a bare
+  `#[sampler(2)]`, there is no `load_with_settings`, no `assets/*.meta` and no
+  `ImagePlugin` override in `main.rs`. Bevy 0.19's `ImageAddressMode` defaults to
+  `ClampToEdge` (`bevy_image-0.19.0/src/image.rs:726`). The shader samples the
+  lattice at `p / material.hex_tile_size` (`force_field_material.wgsl:141`),
+  which on the 200x20 top barrier runs to uv (20.0, 2.0) — so only the first
+  10x10 world units of the panel get real honeycomb and the rest is the texture's
+  clamped edge texels smeared along the panel. The shader this replaces avoided
+  exactly this with its manual `% 1.0`.
+- Criterion "the rotated-panel mapping fix has been verified by temporarily
+  re-enabling the commented-out `LevelObstacle::ForceField` level in `main.rs`"
+  is unmet: that level is still commented out (`src/main.rs:234-255`) and the
+  Notes say it was never re-enabled. The substitution offered —
+  `a_rotated_panel_maps_along_its_own_axis` — is a good test of `panel_uv` in
+  isolation, but it cannot see whether the panel it is handed is the one the ball
+  hit, whether `child_of.parent()` resolves to the panel for an obstacle, or
+  whether `ForceField.size` matches the mesh. The Notes justify this with "no test
+  level was wanted"; what the Discussion rejected was a *dedicated* test level,
+  and it separately decided on re-enabling this existing one. The obstacle path
+  has still never been run.
+- Criterion "the wavefront reads white-hot and grades back to blue behind it" is
+  unmet as specified. `flare_color` defaults to `Color::srgb(0.65, 0.9, 1.0)`
+  (`src/materials/force_field.rs:87`), which the Notes describe as chosen "rather
+  than white-hot" — that is the "keeping the flare in the blue family" option the
+  Discussion lists under Rejected. Related: `ripple_strength` sums a symmetric
+  gaussian (`exp(-front * front)`), so the front has no hotter leading edge and no
+  trailing tail behind it; both flanks fall off identically.
+- Criteria "final look signed off in-game" and "frame time with several ripples
+  active shows no regression (FPS readout)" are unverified — the card leaves both
+  to the human, and I could not run them either.
+
+Verified and green:
+
+- `cargo build` exits 0 with no warnings from `src/arena/mod.rs` or
+  `src/materials/force_field.rs` (the 23 warnings are pre-existing, elsewhere in
+  the tree). `cargo test` is 26 passed / 0 failed, 12 of them new here. No test
+  is skipped, `#[ignore]`d or weakened.
+- The eight-slot pool behaves as specified: `register_hit` takes the first unused
+  or decayed slot and only evicts on `max_by(hit_age)` when all eight are live,
+  covered by `a_decayed_slot_is_reused_before_a_live_one_is_evicted` and
+  `a_full_panel_evicts_the_oldest_ripple`. Two hits inside one lifetime keep
+  separate slots and the shader sums every live slot, so they overlap rather than
+  replace.
+- At rest `ripple_strength` returns 0, so `flare` is 0 and no lattice is drawn —
+  the idle sheet is `sheet_color` over the drifting `noise()` shimmer only.
+- Impacts go through `panel_uv`, which inverts the panel's own `GlobalTransform`
+  and divides by `ForceField.size`, keeping the contact height; the arena-width
+  approximation is gone. Ripples decay purely on age with no edge term, so they
+  fade rather than reflect, and `register_hit` stores only uv and time, so speed
+  and angle cannot change a ripple.
+- `ripple_speed`, `ripple_width`, `ripple_decay`, `flare_intensity`,
+  `hex_tile_size`, `sheet_color` and `flare_color` are all material fields, and
+  the uniform's `_padding` lines `hits` up on the 16-byte boundary encase and WGSL
+  both expect.
+- `arena_update_force_field_material` is gone and the shader reads
+  `globals.time` (`@group(0) @binding(11)` in bevy 0.19), matched by
+  `Time::elapsed_secs_wrapped()` on the CPU side and pinned by
+  `wrap_period_matches_bevy`. Every other bevy 0.19 symbol the shader imports
+  checks out against the crate sources (`emissive: vec4<f32>`,
+  `reflectance: vec3<f32>`, `clip_from_view`, `main_pass_post_lighting_processing`,
+  `#{MATERIAL_BIND_GROUP}` as the repo's other shaders use it). The shader has not
+  been compiled — that only happens at runtime.
+- Diff is three files and stays on the card's What. `src/arena/mod.rs` also
+  carries that file's bevy 0.9 -> 0.19 migration, which the commit message
+  discloses and which the file needed to build at all on this branch.
+
 ## Log
 
 - 2026-08-25 status → discuss (app)
@@ -176,3 +252,4 @@ in-game tuning pass rather than settled:
 - 2026-08-25 hit pool, panel-relative impact mapping and the new sheet/ripple/flare shader landed; 26 tests green (agent)
 - 2026-08-25 status → ready (app)
 - 2026-08-25 status → review (agent)
+- 2026-08-25 status → in-progress (agent)

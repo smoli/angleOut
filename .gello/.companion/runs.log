@@ -693,3 +693,38 @@
 [c0001] → Bash(git show --stat 783a7e7)
 [c0001] → Bash(git show 783a7e7 -- assets/shaders/force_field_material.wgsl)
 [c0001] → Bash(git show 783a7e7 -- src/materials/force_field.rs)
+[c0001] → Bash(git show 783a7e7 -- src/arena/mod.rs | sed -n '40,400p')
+[c0001] → Bash(git show 783a7e7 -- src/arena/mod.rs | sed -n '400,520p')
+[c0001] → Bash(grep -n "ForceField" -r src/ --include=*.rs | grep -v "src/materials/force_field.rs" | head -40; echo "=== main.rs force…)
+[c0001] → Bash(cargo build 2>&1 | tail -40)
+[c0001] → Bash(sed -n '225,260p' src/main.rs; echo "=== config ==="; grep -n "ARENA_HEIGHT_H\|ARENA_WIDTH\b\|ARENA_WIDTH_H\|MIN_BALL_SP…)
+[c0001] → Bash(sed -n '130,215p' src/arena/mod.rs)
+[c0001] → Bash(sed -n '300,360p' src/arena/mod.rs)
+[c0001] → Bash(tail -20 /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/a57f9291-e216-41e5-be67-10e83d97ec66/tasks/bctbae…)
+[c0001] → Bash(grep -rn "ImagePlugin\|default_sampler\|address_mode\|Repeat\|ImageLoaderSettings\|load_with_settings" src/ | head -20)
+[c0001] → Bash(ls assets/*.meta assets/hexagon2* 2>&1; echo "=== main plugins ==="; grep -n "DefaultPlugins" -A12 src/main.rs | head -3…)
+[c0001] → Bash(sed -n '1,120p' src/materials/force_field.rs)
+[c0001] → Bash(cargo test 2>&1 | tail -50)
+[c0001] → Bash(grep -rn "address_mode\|ImageSampler\|ImagePlugin" --include="*.rs" --include="*.toml" --include="*.ron" --include="*.me…)
+[c0001] → Bash(B=$(ls -d ~/.cargo/registry/src/*/bevy_image-0.19* 2>/dev/null | head -1); echo "IMAGE CRATE: $B"; grep -rn "address_mod…)
+[c0001] → Bash(P=$(ls -d ~/.cargo/registry/src/*/bevy_pbr-0.19* 2>/dev/null | head -1); echo "PBR: $P"; grep -n "reflectance" "$P/src/r…)
+[c0001] → Bash(B=/Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_image-0.19.0; grep -n "enum ImageAddressMode"…)
+[c0001] → Bash(tail -35 /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/a57f9291-e216-41e5-be67-10e83d97ec66/tasks/bq6xdv…)
+[c0001] → Bash(sed -n '213,240p' src/arena/mod.rs)
+[c0001] → Bash(grep -rn "force_field\|ForceField" src/materials/mod.rs; echo "=== linear_rgba ==="; grep -n "fn linear_rgba" -A8 src/ma…)
+[c0001] → Bash(P=/Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_pbr-0.19.0/src/render; sed -n '1,40p' $P/pbr_…)
+[c0001] → Bash(grep -rn "MATERIAL_BIND_GROUP" /Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_pbr-0.19.0/src/ …)
+[c0001] → Bash(cargo build --message-format=short 2>&1 | grep -E "^(src/arena|src/materials/force_field)" | head -20; echo "(none above…)
+[c0001] → Bash(date +%Y-%m-%dT%H:%M:%S)
+[c0001] → Bash(python3 - <<'PY' import io, re p = ".gello/cards/c0001-force-field.md" s = io.open(p, encoding="utf-8").read() entry = "…)
+[c0001] **Verdict: fail** — recorded in a new `## Review` section on `.gello/cards/c0001-force-field.md`.
+[c0001] What holds up: `cargo build` exits 0 with no warnings from the two touched Rust files, `cargo test` is 26/0 (12 new, none skipped or weakened), the eight-slot pool and its eviction rule are correct and well tested, `panel_uv` replaces the arena-width approximation and keeps the contact height, the idle sheet draws no lattice, and every bevy 0.19 symbol the rewritten WGSL imports checks out against the crate sources. The diff is three files and stays on the card's What.
+[c0001] Three criteria don't:
+[c0001] 1. **The hex flare will not tile.** The Notes claim `hexagon2.png` "is loaded with a repeating sampler now" — nothing in the repo sets one (plain `asset_server.load`, bare `#[sampler(2)]`, no `load_with_settings`, no `.meta`, no `ImagePlugin` override), and Bevy 0.19's `ImageAddressMode` defaults to `ClampToEdge`. The shader samples at `p / hex_tile_size`, up to uv (20.0, 2.0) on the 200×20 top barrier, so only the first 10×10 world units get real honeycomb and the rest is clamped edge texels. The old shader's manual `% 1.0` was doing this job.
+[c0001] 2. **The rotated-panel verification never happened.** The commented-out level in `main.rs:234-255` is untouched; the unit test exercises `panel_uv` in isolation but can't see whether `child_of.parent()` resolves to the panel or whether `ForceField.size` matches the mesh. The Notes justify the swap with "no test level was wanted" — the Discussion rejected a *dedicated* test level and separately decided on re-enabling this existing one.
+[c0001] 3. **The flare isn't white-hot.** `flare_color` defaults to `srgb(0.65, 0.9, 1.0)`, which the Notes describe as chosen "rather than white-hot" — precisely the "keeping the flare in the blue family" option listed under Rejected. The gaussian is also symmetric, so there's no hotter leading edge or trailing tail.
+[c0001] The two visual criteria (in-game look, FPS readout) stay unverified — the card leaves them to you, and I couldn't run them either. The card stays in `review`; the notes are for the implementer.
+[c0001] ✓ 38 in / 20056 out tokens, $1.7825, 31 turns, 290.7s
+[c0001] → mcp__gello__set_status(in-progress)
+[c0001] → Bash(cat .gello/cards/c0001-force-field.md)
+[c0001] → Bash(grep -n "hex_lattice_texture\|load_with_settings\|hexagon2\|ImageSampler\|ImageAddressMode" src/arena/mod.rs)
