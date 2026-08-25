@@ -1,28 +1,29 @@
-use std::f32::consts::PI;
-use bevy::hierarchy::{BuildChildren, Parent};
-use bevy::log::info;
+use bevy::app::{App, Plugin, PostUpdate, Update};
 use bevy::math::{Quat, Vec2, Vec3};
-use bevy::pbr::{NotShadowReceiver, StandardMaterial};
-use bevy::prelude::{Component, App, AssetServer, Commands, default, Plugin, Res, SystemSet, TransformBundle, Transform, Query, With, Time, IntoSystemDescriptor, Entity, DespawnRecursiveExt, Assets, ResMut, MaterialPlugin, MaterialMeshBundle, shape, Mesh, Color, AlphaMode, SceneBundle, Handle, Without, Name};
+use bevy::pbr::{MeshMaterial3d, StandardMaterial};
+use bevy::prelude::{in_state, AlphaMode, Assets, AssetServer, ChildOf, Commands, Component, Entity, GlobalTransform, IntoScheduleConfigs, MaterialPlugin, Mesh, Mesh3d, Name, OnEnter, OnExit, Query, Rectangle, Res, ResMut, Time, Transform, With, Without};
+use bevy::world_serialization::WorldAssetRoot;
 use bevy_rapier3d::dynamics::CoefficientCombineRule;
-use bevy_rapier3d::na::inf;
-use bevy_rapier3d::prelude::{ActiveEvents, Collider, CollisionEvent, CollisionGroups, Friction, Restitution, RigidBody, Sensor};
+use bevy_rapier3d::prelude::{ActiveEvents, Collider, CollisionGroups, Friction, Restitution, RigidBody, Sensor};
 
-use crate::config::{ARENA_HEIGHT, ARENA_HEIGHT_H, ARENA_WIDTH, ARENA_WIDTH_H, BACKGROUND_LENGTH, BACKGROUND_SPEED, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_DEATH, MAX_RESTITUTION};
+use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH, ARENA_WIDTH_H, BACKGROUND_LENGTH, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_DEATH, MAX_RESTITUTION};
 use crate::labels::SystemLabels;
 use crate::level::{LevelObstacle, Levels};
 use crate::materials::arena::ArenaMaterial;
-use crate::materials::background::BackgroundMaterial;
 use crate::materials::CustomMaterialApplied;
-use crate::materials::force_field::ForceFieldMaterial;
-use crate::physics::{Collidable, CollidableKind, COLLISION_EVENT_HANDLING, CollisionInfo, CollisionTag};
+use crate::materials::force_field::{panel_uv, ForceFieldMaterial};
+use crate::physics::{Collidable, CollidableKind, CollisionEventHandling, CollisionInfo, CollisionTag};
 use crate::state::GameState;
 
 #[derive(Component)]
 pub struct Arena;
 
+/// A force field panel. Carries its own extents so an impact can be mapped
+/// into the panel's uv space rather than approximated from the arena width.
 #[derive(Component)]
-pub struct ForceField;
+pub struct ForceField {
+    pub size: Vec2,
+}
 
 
 #[derive(Component)]
@@ -35,27 +36,22 @@ pub struct ArenaPlugin;
 impl Plugin for ArenaPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_plugin(
+            .add_plugins(
                 MaterialPlugin::<ForceFieldMaterial>::default(),
             )
 
-            .add_system_set(
-                SystemSet::on_enter(GameState::InMatch)
-                    .with_system(arena_spawn)
-            )
-            .add_system_set(
-                SystemSet::on_update(GameState::InMatch)
-                    .with_system(arena_scroll.label(SystemLabels::UpdateWorld))
-                    .with_system(arena_update_force_field_material.label(SystemLabels::UpdateWorld))
+            .add_systems(OnEnter(GameState::InMatch), arena_spawn)
+            .add_systems(
+                Update,
+                arena_scroll
+                    .in_set(SystemLabels::UpdateWorld)
+                    .run_if(in_state(GameState::InMatch)),
             )
 
 
-            .add_system_to_stage(COLLISION_EVENT_HANDLING, arena_handle_collisions)
+            .add_systems(PostUpdate, arena_handle_collisions.in_set(CollisionEventHandling))
 
-            .add_system_set(
-                SystemSet::on_exit(GameState::PostMatch)
-                    .with_system(arena_despawn)
-            )
+            .add_systems(OnExit(GameState::PostMatch), arena_despawn)
         ;
     }
 }
@@ -70,42 +66,33 @@ fn arena_spawn(
     let level = levels.get_current_level().unwrap();
 
     commands
-        .spawn(SceneBundle {
-            scene: asset_server.load(level.background_asset.clone()),
-            ..default()
-        })
+        .spawn(WorldAssetRoot(asset_server.load(level.background_asset.clone())))
         .insert(
             Arena
         )
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, -4.0, 0.0)))
+        .insert(Transform::from_xyz(0.0, -4.0, 0.0))
         .insert(Scrollable {
             speed: level.background_scroll_velocity.clone(),
         })
     ;
 
     commands
-        .spawn(SceneBundle {
-            scene: asset_server.load(level.background_asset.clone()),
-            ..default()
-        })
+        .spawn(WorldAssetRoot(asset_server.load(level.background_asset.clone())))
         .insert(
             Arena
         )
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, -4.0, -BACKGROUND_LENGTH)))
+        .insert(Transform::from_xyz(0.0, -4.0, -BACKGROUND_LENGTH))
         .insert(Scrollable {
             speed: level.background_scroll_velocity,
         })
     ;
 
     commands
-        .spawn(SceneBundle {
-            scene: asset_server.load(level.background_asset.clone()),
-            ..default()
-        })
+        .spawn(WorldAssetRoot(asset_server.load(level.background_asset.clone())))
         .insert(
             Arena
         )
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, -4.0, - 2.0 * BACKGROUND_LENGTH)))
+        .insert(Transform::from_xyz(0.0, -4.0, - 2.0 * BACKGROUND_LENGTH))
         .insert(Scrollable {
             speed: level.background_scroll_velocity,
         })
@@ -116,7 +103,7 @@ fn arena_spawn(
     // Left
     if level.default_wall_l {
         commands.spawn(Collider::cuboid(wall_thickness, 60.0, 200.0))
-            .insert(TransformBundle::from(Transform::from_xyz(-ARENA_WIDTH_H - wall_thickness, 0.0, 0.0)))
+            .insert(Transform::from_xyz(-ARENA_WIDTH_H - wall_thickness, 0.0, 0.0))
             .insert(Restitution {
                 coefficient: MAX_RESTITUTION,
                 combine_rule: CoefficientCombineRule::Max,
@@ -134,7 +121,7 @@ fn arena_spawn(
     // Right
     if level.default_wall_r {
         commands.spawn(Collider::cuboid(wall_thickness, 60.0, 200.0))
-            .insert(TransformBundle::from(Transform::from_xyz(ARENA_WIDTH_H + wall_thickness, 0.0, 0.0)))
+            .insert(Transform::from_xyz(ARENA_WIDTH_H + wall_thickness, 0.0, 0.0))
             .insert(Restitution {
                 coefficient: MAX_RESTITUTION,
                 combine_rule: CoefficientCombineRule::Max,
@@ -151,30 +138,23 @@ fn arena_spawn(
 
 
     // Top Barrier
+    let top_barrier_size = Vec2::new(ARENA_WIDTH, 20.0);
     commands
-        .spawn(MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad {
-                size: Vec2::new(ARENA_WIDTH, 20.0),
-                flip: false,
-            })),
-            material: force_field_mat.add(ForceFieldMaterial {
-                color1: Color::BLUE,
-                color_texture: Some(asset_server.load("hexagon2.png")),
-                ..default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - 13.0),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
+        .spawn((
+            Mesh3d(meshes.add(Mesh::from(Rectangle::from_size(top_barrier_size)))),
+            MeshMaterial3d(force_field_mat.add(ForceFieldMaterial::for_panel(
+                top_barrier_size,
+                asset_server.load("hexagon2.png"),
+            ))),
+            Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - 13.0),
+        ))
 
-        })
-
-        .insert(ForceField)
+        .insert(ForceField { size: top_barrier_size })
         .with_children(|parent| {
             parent
                 .spawn(RigidBody::Fixed)
                 .insert(Collider::cuboid(ARENA_WIDTH_H, 60.0, wall_thickness))
-                .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - 25.0)))
+                .insert(Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - 25.0))
                 .insert(Restitution {
                     coefficient: MAX_RESTITUTION,
                     combine_rule: CoefficientCombineRule::Max,
@@ -190,8 +170,8 @@ fn arena_spawn(
 
     // Bottom
     commands.spawn(Collider::cuboid(ARENA_WIDTH_H, 60.0, wall_thickness))
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, ARENA_HEIGHT_H + 50.0 + wall_thickness)))
-        // .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 0.0)))
+        .insert(Transform::from_xyz(0.0, 0.0, ARENA_HEIGHT_H + 50.0 + wall_thickness))
+        // .insert(Transform::from_xyz(0.0, 0.0, 0.0))
         .insert(Collidable {
             kind: CollidableKind::DeathTrigger,
         })
@@ -208,31 +188,25 @@ fn arena_spawn(
                 let rot = Quat::from_rotation_y(-angle);
                 let collider_move_vec = rot * *normal;
 
+                let panel_size = Vec2::new(*size, 20.0);
+
                 commands
-                    .spawn(MaterialMeshBundle {
-                        mesh: meshes.add(Mesh::from(shape::Quad {
-                            size: Vec2::new(*size, 20.0),
-                            flip: false,
-                        })),
-                        material: force_field_mat.add(ForceFieldMaterial {
-                            color1: Color::BLUE,
-                            color_texture: Some(asset_server.load("hexagon2.png")),
-                            ..default()
-                        }),
-                        transform: Transform::from_translation(origin.clone()).with_rotation(Quat::from_rotation_y(angle)),
-                        global_transform: Default::default(),
-                        visibility: Default::default(),
-                        computed_visibility: Default::default(),
+                    .spawn((
+                        Mesh3d(meshes.add(Mesh::from(Rectangle::from_size(panel_size)))),
+                        MeshMaterial3d(force_field_mat.add(ForceFieldMaterial::for_panel(
+                            panel_size,
+                            asset_server.load("hexagon2.png"),
+                        ))),
+                        Transform::from_translation(origin.clone()).with_rotation(Quat::from_rotation_y(angle)),
+                    ))
 
-                    })
-
-                    .insert(ForceField)
+                    .insert(ForceField { size: panel_size })
                     .insert(Arena)
                     .with_children(|parent| {
                         parent
                             .spawn(RigidBody::Fixed)
                             .insert(Collider::cuboid(size / 2.0, size / 2.0, size / 2.0))
-                            .insert(TransformBundle::from(Transform::from_translation(-*size * 0.5 * collider_move_vec)))
+                            .insert(Transform::from_translation(-*size * 0.5 * collider_move_vec))
                             .insert(Restitution {
                                 coefficient: MAX_RESTITUTION,
                                 combine_rule: CoefficientCombineRule::Max,
@@ -253,7 +227,7 @@ fn arena_spawn(
                 commands
                     .spawn(RigidBody::Fixed)
                     .insert(Collider::cuboid(w / 2.0, 100.0, h / 2.0))
-                    .insert(TransformBundle::from(Transform::from_translation(pos.clone())))
+                    .insert(Transform::from_translation(pos.clone()))
                     .insert(Restitution {
                         coefficient: MAX_RESTITUTION,
                         combine_rule: CoefficientCombineRule::Max,
@@ -275,7 +249,7 @@ fn arena_spawn(
                 commands
                     .spawn(RigidBody::Fixed)
                     .insert(Collider::cuboid(size / 2.0, size / 2.0, size / 2.0))
-                    .insert(TransformBundle::from(Transform::from_translation(origin.clone()).with_rotation(rot)))
+                    .insert(Transform::from_translation(origin.clone()).with_rotation(rot))
                     .insert(Collidable {
                         kind: CollidableKind::DirectionalDeathTrigger(normal.clone()),
                     })
@@ -296,10 +270,11 @@ fn arena_despawn(
     for part in &arena_parts {
         //info!("Despawn arena");
         commands.entity(part)
-            .despawn_recursive();
+            .despawn();
     }
 }
 
+#[allow(dead_code)]
 fn arena_set_custom_material(
     mut commands: Commands,
     arena: Query<(Entity, &Name), Without<CustomMaterialApplied>>,
@@ -315,13 +290,13 @@ fn arena_set_custom_material(
         }
 
         commands.entity(entity)
-            .remove::<Handle<StandardMaterial>>()
-            .insert(materials.add(ArenaMaterial {
+            .remove::<MeshMaterial3d<StandardMaterial>>()
+            .insert(MeshMaterial3d(materials.add(ArenaMaterial {
                 color1: Default::default(),
                 color2: Default::default(),
                 time: 0.0,
                 alpha_mode: AlphaMode::Blend,
-            }))
+            })))
         ;
     }
 }
@@ -330,7 +305,7 @@ fn arena_scroll(
     time: Res<Time>,
     mut scrollables: Query<(&mut Transform, &Scrollable)>) {
     for (mut trans, scrollable) in &mut scrollables {
-        trans.translation.z += scrollable.speed * time.delta_seconds();
+        trans.translation.z += scrollable.speed * time.delta_secs();
 
         if trans.translation.z > BACKGROUND_LENGTH {
             trans.translation.z -= 3.0 * BACKGROUND_LENGTH;
@@ -338,43 +313,35 @@ fn arena_scroll(
     }
 }
 
-fn arena_update_force_field_material(
-    mut materials: ResMut<Assets<ForceFieldMaterial>>,
-    time: Res<Time>,
-) {
-    for (_, mut mat) in materials.iter_mut() {
-        mat.time = time.elapsed_seconds();
-    }
-}
-
 fn arena_handle_collisions(
-    mut commands: Commands,
-    mut wall: Query<(Entity, &Parent), (With<Arena>, With<CollisionTag>)>,
-    forceFields: Query<(&ForceField, &Handle<ForceFieldMaterial>)>,
+    walls: Query<(Entity, &ChildOf), (With<Arena>, With<CollisionTag>)>,
+    force_fields: Query<(&ForceField, &GlobalTransform, &MeshMaterial3d<ForceFieldMaterial>)>,
     collisions: Res<CollisionInfo>,
     mut materials: ResMut<Assets<ForceFieldMaterial>>,
     time: Res<Time>,
 ) {
-    for (wall, parent) in &wall {
-        if let Some(collisions) = collisions.collisions.get(&wall) {
-            for collision in collisions {
-                match collision.other {
-                    CollidableKind::Ball => {
-                        let p = forceFields.get(parent.get());
+    // The shader ages ripples against `globals.time`, which is the wrapped clock.
+    let now = time.elapsed_secs_wrapped();
 
-                        if let Ok(forceField) = p {
-                            if let Some(mat) = materials.get_mut(forceField.1) {
-                                mat.hit_time = time.elapsed_seconds();
-                                let h_x = (collision.other_pos.x + ARENA_WIDTH_H) / ARENA_WIDTH;
-                                mat.hit_position = Vec3::new(h_x, 0.0, 0.0);
-                                //info!("You hit that wall at {}!", h_x);
-                            }
-                        }
-                    }
+    for (wall, child_of) in &walls {
+        let Some(collisions) = collisions.collisions.get(&wall) else {
+            continue;
+        };
 
-                    _ => {}
-                }
+        for collision in collisions {
+            if collision.other != CollidableKind::Ball {
+                continue;
             }
+
+            let Ok((force_field, panel, material)) = force_fields.get(child_of.parent()) else {
+                continue;
+            };
+
+            let Some(mut mat) = materials.get_mut(&material.0) else {
+                continue;
+            };
+
+            mat.register_hit(panel_uv(panel, force_field.size, collision.other_pos), now);
         }
     }
 }

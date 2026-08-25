@@ -1,40 +1,37 @@
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::mesh_bindings
+#import bevy_pbr::{
+    forward_io::VertexOutput,
+    mesh_view_bindings::{view, globals},
+    pbr_types::{PbrInput, pbr_input_new, STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT},
+    pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing, prepare_world_normal, calculate_view},
+}
 
-#import bevy_pbr::pbr_types
-#import bevy_pbr::utils
-#import bevy_pbr::clustered_forward
-#import bevy_pbr::lighting
-#import bevy_pbr::shadows
-#import bevy_pbr::pbr_functions
+// Keep in step with FORCE_FIELD_HIT_SLOTS / FORCE_FIELD_TIME_WRAP in
+// src/materials/force_field.rs. `globals.time` is Bevy's wrapped clock, so hit
+// times are recorded with `Time::elapsed_secs_wrapped()` and aged the same way.
+const HIT_SLOTS: u32 = 8u;
+const TIME_WRAP: f32 = 3600.0;
 
-struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
-    @builtin(position) frag_coord: vec4<f32>,
-    #import bevy_pbr::mesh_vertex_output
+struct ForceFieldMaterial {
+    sheet_color: vec4<f32>,
+    flare_color: vec4<f32>,
+    panel_size: vec2<f32>,
+    ripple_speed: f32,
+    ripple_width: f32,
+    ripple_decay: f32,
+    flare_intensity: f32,
+    hex_tile_size: f32,
+    _padding: f32,
+    hits: array<vec4<f32>, 8>,
 };
 
-struct CustomMaterial {
-    color1: vec4<f32>,
-    hit_position: vec3<f32>,
-    hit_time: f32,
-    time: f32
-};
+@group(#{MATERIAL_BIND_GROUP}) @binding(0)
+var<uniform> material: ForceFieldMaterial;
 
-@group(1) @binding(0)
-var<uniform> material: CustomMaterial;
-
-@group(1) @binding(1)
+@group(#{MATERIAL_BIND_GROUP}) @binding(1)
 var color_texture: texture_2d<f32>;
-@group(1) @binding(2)
+@group(#{MATERIAL_BIND_GROUP}) @binding(2)
 var color_sampler: sampler;
 
-fn random1(p: f32) -> f32 {
-    return fract(
-        sin(dot(vec2<f32>(p), vec2<f32>(12.9898, 78.233)))
-        * 43758.5453123
-    );
-}
 fn random(p: vec2<f32>) -> f32 {
     return fract(
         sin(dot(p, vec2<f32>(12.9898, 78.233)))
@@ -52,117 +49,113 @@ fn noise(p: vec2<f32>) -> f32 {
     let d = random(i + vec2<f32>(1.0, 1.0));
 
     let u = smoothstep(vec2<f32>(0.0), vec2<f32>(1.0), f);
-//    let u = f * f * (3.0 - 2.0 * f);
-
 
     return mix(a, b, u.x) +
             (c - a) * u.y * (1.0 - u.x) +
             (d - b) * u.x * u.y;
 }
 
-fn voronoi(p: vec2<f32>) -> vec3<f32> {
-    var color = vec3<f32>(0.0);
+/// How long ago a hit was recorded, on the hourly-wrapping clock.
+fn hit_age(start: f32) -> f32 {
+    let age = globals.time - start;
 
-    var points: array<vec2<f32>, 4>;
-
-    points[0] = vec2<f32>(0.83, 0.75);
-    points[1] = vec2<f32>(0.60, 0.07);
-    points[2] = vec2<f32>(0.28, 0.64);
-    points[3] = vec2<f32>(0.31, 0.26);
-
-    var m_dist = 1.0;
-    let ft = fract(material.time);
-
-    let tr = vec2<f32>(
-        0.0,
-        (0.2 * material.time),
-    );
-
-    for (var i = 0; i < 4; i++) {
-        m_dist = min(m_dist, distance(p,
-
-        points[i]
-
-        + noise((p + tr) * 5.0)));
+    if age < 0.0 {
+        return age + TIME_WRAP;
     }
 
-    color += m_dist;
-    //color -= step(0.7, abs(sin(50.0 * m_dist))) * 0.2;
+    return age;
+}
 
-    return color;
+/// Summed strength of every live ripple at panel position `p` (world units).
+/// Each slot contributes a gaussian ring expanding at `ripple_speed`, so two
+/// impacts inside one lifetime read as two overlapping wavefronts.
+fn ripple_strength(p: vec2<f32>) -> f32 {
+    var wave = 0.0;
+
+    for (var i = 0u; i < HIT_SLOTS; i++) {
+        let hit = material.hits[i];
+
+        if hit.w < 0.5 {
+            continue;
+        }
+
+        let age = hit_age(hit.z);
+
+        if age >= material.ripple_decay {
+            continue;
+        }
+
+        let d = distance(p, hit.xy * material.panel_size);
+        let front = (d - age * material.ripple_speed) / material.ripple_width;
+        // Ripples simply die at the panel edges rather than reflecting off them.
+        let decay = 1.0 - age / material.ripple_decay;
+
+        wave += exp(-front * front) * decay * decay;
+    }
+
+    return wave;
 }
 
 @fragment
 fn fragment(
-    in: FragmentInput
+    in: VertexOutput,
+    @builtin(front_facing) is_front: bool,
 ) -> @location(0) vec4<f32> {
+    // Panel-local position in world units, so ripples stay round on a panel
+    // that is ten times wider than it is tall.
+    let p = in.uv * material.panel_size;
 
-    let ar = vec2<f32>(1.0, 0.1);
-    let uv_ar = in.uv * ar;
+    // At rest: a smooth energy sheet, slowly drifting, with no lattice on it.
+    let drift = vec2<f32>(globals.time * 0.02, globals.time * 0.05);
+    let shimmer = noise(in.uv * vec2<f32>(6.0, 2.0) + drift) * 0.5
+        + noise(in.uv * vec2<f32>(13.0, 4.0) - drift * 1.7) * 0.25;
+    let sheet = 0.12 + 0.10 * shimmer;
 
-    let impact_center = vec2<f32>(material.hit_position.x, 0.05);
-    let impact_distance = distance(uv_ar, impact_center);
+    // The sheet feathers out along the top and bottom edges; the left and right
+    // ends stay hot so the arena bounds still read during play.
+    let fade = smoothstep(0.0, 1.0, in.uv.y * 10.0)
+        * smoothstep(0.0, 1.0, (1.0 - in.uv.y) * 10.0);
+    let rim = clamp(
+        smoothstep(1.0, 0.0, in.uv.x * 100.0) + smoothstep(1.0, 0.0, (1.0 - in.uv.x) * 100.0),
+        0.0,
+        1.0,
+    );
 
-    var offsetSpeed = 1.0;
-    var offsetScale = 0.02;
+    // The lattice only exists where a ripple is currently passing over it.
+    let wave = ripple_strength(p);
+    let hex = textureSample(color_texture, color_sampler, p / material.hex_tile_size).x;
+    let flare = hex * wave * material.flare_intensity;
 
-    var timeScale = smoothstep(2.0, 0.0, abs(material.time - material.hit_time));
-    offsetScale = smoothstep(0.10, 0.0, impact_distance) * 0.05 * timeScale + 0.01;
+    var emissive = material.sheet_color.xyz * (sheet + rim * 1.5);
+    emissive += material.flare_color.xyz * (flare + saturate(wave) * 0.35);
 
-    var offx = sin(material.time * 1.0) * offsetScale * cos(in.uv.x * 50.0) * 0.2;
-    var offy = cos(material.time * 1.0) * offsetScale * sin(in.uv.y * 50.0) * 0.2;
+    let alpha = clamp(
+        (sheet + saturate(wave) * 0.7 + saturate(flare) * 0.5) * fade + rim,
+        0.0,
+        1.0,
+    );
 
-    let t = textureSample(color_texture, color_sampler, ((in.uv + vec2<f32>(offx, offy)) *  ar * 5.5) % 1.0);
+    var pbr_input: PbrInput = pbr_input_new();
 
-    var alpha = t.x + 0.2;
-    let top = smoothstep(0.0, 1.0, in.uv.y * 10.0);
-    let bottom = smoothstep(0.0, 1.0, (1.0 - in.uv.y) * 10.0);
+    pbr_input.material.base_color = vec4<f32>(1.0, 1.0, 1.0, alpha);
 
-    let left = smoothstep(1.0, 0.0, in.uv.x * 100.0);
-    let right = smoothstep(1.0, 0.0, (1.0 - in.uv.x) * 100.0);
-
-    alpha = alpha * top * bottom + left + right;
-
-    var color = vec4<f32>(material.color1.xyz, alpha);
-
-
-
-    let white = vec4<f32>(1.0);
-
-    color = mix(color, white, left + right + 0.3 * (1.0 - noise(in.uv * sin(material.time))));
-
-/*
-    if (abs(material.time - material.hit_time) < 2.0 &&
-            impact_distance < 0.02
-    ) {
-        color = white;
-        alpha = smoothstep(0.75, alpha, impact_distance / 0.02);
-    }*/
-
-    var pbr_input: PbrInput;
-
-    pbr_input.material.base_color = vec4<f32>(white.xyz, alpha);
-
-    pbr_input.material.reflectance = 1.0;
+    pbr_input.material.reflectance = vec3<f32>(1.0);
     pbr_input.material.alpha_cutoff = 0.0;
-    pbr_input.material.flags = 2u + 4u + 16u;
-    pbr_input.material.emissive = color;
+    pbr_input.material.flags = STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT;
+    pbr_input.material.emissive = vec4<f32>(emissive, alpha);
     pbr_input.material.metallic = 0.1;
     pbr_input.material.perceptual_roughness = 1.0;
 
-    pbr_input.occlusion = 1.0;
-    pbr_input.frag_coord = in.frag_coord;
+    pbr_input.frag_coord = in.position;
     pbr_input.world_position = in.world_position;
     pbr_input.world_normal = in.world_normal;
 
-    pbr_input.is_orthographic = view.projection[3].w == 1.0;
+    pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
 
-    pbr_input.N = prepare_world_normal(in.world_normal, false, in.is_front);
-    pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic)
-    ;
+    pbr_input.N = prepare_world_normal(in.world_normal, false, is_front);
+    pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
 
-    let output_color = pbr(pbr_input);
+    let output_color = apply_pbr_lighting(pbr_input);
 
-    return tone_mapping(pbr(pbr_input));
-
+    return main_pass_post_lighting_processing(pbr_input, output_color);
 }
