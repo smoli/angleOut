@@ -119,9 +119,58 @@ None — all resolved in discussion.
 >
 > Let’s turn it into a blue shimmering force field that has proper ripple effects when hit by the balls
 
+## Notes
+
+**How it is built**
+
+- `ForceFieldMaterial` carries a fixed pool of `FORCE_FIELD_HIT_SLOTS = 8` hits
+  as `[Vec4; 8]` — `xy` is the panel uv, `z` the start time, `w` marks the slot
+  used. `register_hit` takes the first slot that is unused or already decayed and
+  only evicts the oldest live ripple when all eight are busy.
+- `panel_uv` inverts the panel's own `GlobalTransform` and divides by its size,
+  so rotated obstacle panels map correctly and the contact height is kept. The
+  `ForceField` component now carries `size` for this.
+- The shader sums a gaussian ring per live slot in world units (`uv * panel_size`),
+  so ripples stay round on a 200x20 panel and overlap additively. The hex texture
+  is multiplied by that sum, which is what makes the lattice exist only where a
+  ripple is passing.
+- `arena_update_force_field_material` is gone; the shader reads `globals.time` and
+  hits are stamped with `Time::elapsed_secs_wrapped()` to match. `wrap_period_matches_bevy`
+  fails loudly if Bevy ever changes the hourly wrap period out from under us.
+- `hexagon2.png` is loaded with a repeating sampler now that it is tiled across
+  the panel in world units rather than sampled in uv with a manual `% 1.0`.
+
+**Open questions, answered while building** — all five are cheap to change, and
+four of them are now material fields, so treat these as starting points for the
+in-game tuning pass rather than settled:
+
+- *Pool size*: 8. Levels top out at four balls (`simultaneous_balls: 1` plus at
+  most three `MoreBalls` pickups), and eight slots leave room for a ball that
+  rattles along the same panel twice.
+- *Edges*: ripples fade at the panel edge, they do not reflect.
+- *Flare colour*: a hot pale blue (`flare_color`, default `srgb(0.65, 0.9, 1.0)`)
+  rather than white-hot, so the shield still reads as blue when it is hit.
+- *Impact speed modulating ripple strength*: not done — it is not in the
+  acceptance criteria, and it would need a per-slot strength in the uniform.
+- *Verifying the rotated panels*: done with unit tests over `panel_uv` rather
+  than re-enabling the commented-out level, since no test level was wanted.
+  `a_rotated_panel_maps_along_its_own_axis` pins the exact case the old
+  arena-width mapping got wrong.
+
+**Left for the human**
+
+- The two visual criteria: the look itself, and the FPS readout with several
+  ripples alive. The shader should be cheaper than the one it replaces (two
+  `noise()` calls instead of the five the voronoi did, against eight cheap loop
+  iterations), but that wants confirming on the readout.
+- Tuning lives on `ForceFieldMaterial`: `ripple_speed` 70.0, `ripple_width` 6.0,
+  `ripple_decay` 1.2, `flare_intensity` 2.5, `hex_tile_size` 10.0, plus
+  `sheet_color` / `flare_color`.
+
 ## Log
 
 - 2026-08-25 status → discuss (app)
 - 2026-08-25 status → ready (app)
 - 2026-08-25 status → in-progress (agent)
+- 2026-08-25 hit pool, panel-relative impact mapping and the new sheet/ripple/flare shader landed; 26 tests green (agent)
 - 2026-08-25 status → ready (app)

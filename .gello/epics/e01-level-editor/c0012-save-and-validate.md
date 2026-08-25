@@ -1,12 +1,13 @@
 ---
 id: c0012
 title: Save to disk with validation warnings
-status: backlog
+status: ready
 epic: e01
 depends: [c0008, c0010]
 created: 2026-08-25
 updated: 2026-08-25
-status-changed: 2026-08-25T22:58:50
+status-changed: 2026-08-25T23:00:06
+order: 120
 ---
 
 ## What
@@ -36,3 +37,4 @@ way — without ever refusing to save.
 ## Log
 
 - 2026-08-25 created from the e01 epic breakdown
+- 2026-08-25 status → ready (app)

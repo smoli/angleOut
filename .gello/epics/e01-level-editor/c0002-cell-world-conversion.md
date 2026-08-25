@@ -1,12 +1,13 @@
 ---
 id: c0002
 title: Shared cell/world conversion
-status: backlog
+status: ready
 epic: e01
 depends: []
 created: 2026-08-25
 updated: 2026-08-25
-status-changed: 2026-08-25T22:58:50
+status-changed: 2026-08-25T22:59:33
+order: 20
 ---
 
 ## What
@@ -46,3 +47,4 @@ refactor: every shipped level must produce byte-identical block positions.
 ## Log
 
 - 2026-08-25 created from the e01 epic breakdown
+- 2026-08-25 status → ready (app)

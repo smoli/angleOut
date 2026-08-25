@@ -1,12 +1,13 @@
 ---
 id: c0003
 title: RON level format, campaign index, migrate levels off main.rs
-status: backlog
+status: ready
 epic: e01
 depends: []
 created: 2026-08-25
 updated: 2026-08-25
-status-changed: 2026-08-25T22:58:50
+status-changed: 2026-08-25T22:59:35
+order: 30
 ---
 
 ## What
@@ -46,3 +47,4 @@ and hot reload arrive in `c0004`.
 ## Log
 
 - 2026-08-25 created from the e01 epic breakdown
+- 2026-08-25 status → ready (app)
