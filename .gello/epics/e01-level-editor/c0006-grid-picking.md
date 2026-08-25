@@ -1,12 +1,14 @@
 ---
 id: c0006
 title: Grid picking
-status: in-progress
+status: review
 epic: e01
 depends: [c0002, c0005]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T00:41:05
+status-changed: 2026-08-26T00:53:44
+usage-tokens: 47860
+usage-cost: 5.054555
 ---
 
 ## What
@@ -89,3 +91,4 @@ viewport.
 - 2026-08-26 `cell_under_ray` + `editor_pick_cell` + `HoveredCell`, highlight drawn
   with a gizmo, camera marked `EditorCamera`; 11 new tests, 80 green, build clean
   (19 warnings, one fewer than before - `world_to_cell` is no longer unused)
+- 2026-08-26 status → review (agent)

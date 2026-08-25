@@ -1384,3 +1384,85 @@
 [c0006] → Bash(sed -n '85,130p' src/match/mod.rs; echo "=== config ==="; sed -n '1,40p' src/config/mod.rs)
 [c0006] → Bash(grep -n "^name\|^version\|bevy" Cargo.toml | head -30)
 [c0006] → Bash(find ~/.cargo/registry/src -maxdepth 2 -type d -name "bevy_camera-0.19*" 2>/dev/null; find ~/.cargo/registry/src -maxdep…)
+[c0006] → Bash(grep -n "pub fn viewport_to_world\|pub fn viewport_to_world_2d\|pub fn world_to_viewport\|ViewportConversionError\|pub f…)
+[c0006] → Bash(grep -n "viewport_to_world" -B 20 -A 40 /Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_camera-…)
+[c0006] → Bash(grep -n "pub struct ComputedCameraValues" -A 20 /Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy…)
+[c0006] → Bash(grep -n "pub struct RenderTargetInfo" -A 12 /Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_cam…)
+[c0006] → Bash(grep -rn "fn get_clip_from_view\|pub trait CameraProjection" -A 8 /Users/stephan/.cargo/registry/src/index.crates.io-194…)
+[c0006] → Bash(B=$(find ~/.cargo/registry/src -maxdepth 2 -type d -name "bevy_window-0.19.1"); echo $B; grep -n "pub fn cursor_position…)
+[c0006] → Bash(M=$(find ~/.cargo/registry/src -maxdepth 2 -type d -name "bevy_math-0.19.1"); grep -rn "pub fn intersect_plane" -A 14 $M…)
+[c0006] → Bash(git log --oneline -3 && git show --stat HEAD~1 | head -20)
+[c0006] → Bash(git show 60e61e3 --stat | head -30; echo "=== msg ==="; git log -1 --format=%B 60e61e3)
+[c0006] → Bash(B=/Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_camera-0.19.1; ls $B/src; grep -rn "fn camera…)
+[c0006] → Bash(B=/Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_camera-0.19.1; grep -n "CameraProjectionPlugi…)
+[c0006] → Bash(grep -rn "camera_system" /Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_render-0.19.1/src/came…)
+[c0006] → Bash(grep -rln "fn camera_system" /Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_render-0.19.1/src/…)
+[c0006] → Bash(sed -n '421,470p' /Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_render-0.19.1/src/camera.rs)
+[c0006] → Bash(B=/Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_window-0.19.1; grep -n "require" -B 3 -A 6 $B…)
+[c0006] → Bash(B=/Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_window-0.19.1; grep -n "impl WindowResolution…)
+[c0006] → Bash(sed -n '140,300p' src/level/layout/mod.rs)
+[c0006] → Bash(cat /Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/running-the-game-from-a-gello-session.m…)
+[c0006] → Bash(grep -n "BLOCK_WIDTH\|BLOCK_DEPTH\|BLOCK_GAP\|BLOCK_HEIGHT\|ARENA_WIDTH\|ARENA_HEIGHT" src/config/mod.rs)
+[c0006] Now I have the picture. Let me write the tests first.
+[c0006] → Bash(python3 - <<'PY' import re, io p = 'src/editor/mod.rs' s = open(p).read() # --- module doc --- s = s.replace( """//! Thi…)
+[c0006] → Bash(python3 - <<'PY' p = 'src/editor/mod.rs' s = open(p).read() # --- constants --- old = """/// The size of the grid a leve…)
+[c0006] → Bash(python3 - <<'PY' p = 'src/editor/mod.rs' s = open(p).read() # --- camera marker on the spawned camera --- old = """ Tran…)
+[c0006] → Bash(cargo build 2>&1 | grep -E "^(error|warning: unused)" -A 8 | head -60; echo "--- done ---")
+[c0006] → Bash(cargo build 2>&1 | tail -5)
+[c0006] → Bash(B=/Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_camera-0.19.1; grep -n "impl CameraProjection…)
+[c0006] → Bash(B=/Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_camera-0.19.1; grep -n "impl Projection\|fn g…)
+[c0006] → Bash(B=/Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_camera-0.19.1; sed -n '222,270p' $B/src/proje…)
+[c0006] → Bash(python3 - <<'PY' p = 'src/editor/mod.rs' s = open(p).read() # --- test imports --- old = """ use bevy::app::App; use bev…)
+[c0006] → Bash(python3 - <<'PY' p = 'src/editor/mod.rs' s = open(p).read() marker = """ assert!(checked >= 8, "only {checked} level fil…)
+[c0006] → Bash(cargo test --lib 2>&1 | tail -40)
+[c0006] → Bash(cargo test 2>&1 | tail -60)
+[c0006] → Bash(python3 - <<'PY' p='src/editor/mod.rs'; s=open(p).read() s = s.replace(" use bevy::camera::{CameraProjection, Perspectiv…)
+[c0006] → Bash(cargo test 2>&1 | grep "editor::tests" | sort)
+[c0006] → Bash(cp src/editor/mod.rs /tmp/editor_backup.rs # mutation 1: drop the row bound python3 -c " p='src/editor/mod.rs'; s=open(p…)
+[c0006] → Bash(grep -rn "Screenshot" /Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_render-0.19.1/src/view/wi…)
+[c0006] → Bash(grep -n "insert_state\|init_state\|GameState\|fn main" src/main.rs | head -30)
+[c0006] → Bash(sed -n '60,115p' src/main.rs; echo "=== screenshot doc ==="; sed -n '60,100p' /Users/stephan/.cargo/registry/src/index.c…)
+[c0006] Tests pass and bite. Now a visual check that the highlight actually renders.
+[c0006] → Bash(grep -n "fn setup_screen" -A 30 src/main.rs | head -40; sed -n '1,40p' src/main.rs)
+[c0006] → Bash(cp src/main.rs /tmp/main_backup.rs python3 - <<'PY' p='src/main.rs'; s=open(p).read() s = s.replace(" app.insert_state(G…)
+[c0006] → Bash(rm -f /tmp/editor_hover.png; CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut timeout 90 cargo run 2>&1 | grep -…)
+[c0006] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut timeout 90 cargo run 2>&1 | tail -30)
+[c0006] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut cargo run 2>&1 | tail -40)
+[c0006] → Read(/tmp/editor_hover.png)
+[c0006] The highlight lands exactly on the pointed cell (column 5 of 9, row 3 counting from the top row = layout line 0). Reverting the temporary harness.
+[c0006] → Bash(cp /tmp/main_backup.rs src/main.rs && git diff --stat src/main.rs && echo "main.rs restored" && cargo build 2>&1 | tail …)
+[c0006] → Bash(cargo test 2>&1 | tail -3; echo "=== warnings count ==="; cargo build 2>&1 | grep -c "^warning")
+[c0006] → Bash(git diff --stat)
+[c0006] → Bash(touch src/editor/mod.rs; cargo build 2>&1 | grep -B2 -A4 "src/editor" | head -20; echo "--- editor warnings above (none …)
+[c0006] Now let me review the final code.
+[c0006] → Bash(sed -n '245,340p' src/editor/mod.rs)
+[c0006] Now updating the card.
+[c0006] → Bash(python3 - <<'PY' p='.gello/epics/e01-level-editor/c0006-grid-picking.md' s=open(p).read() s = s.replace("""- [ ] The cur…)
+[c0006] → Bash(python3 - <<'PY' p='.gello/epics/e01-level-editor/c0006-grid-picking.md' s=open(p).read() s=s.replace(""" (19 warnings, …)
+[c0006] → Bash(git add src/editor/mod.rs .gello/epics/e01-level-editor/c0006-grid-picking.md && git status --short | head -10)
+[c0006] → Bash(git commit -F - <<'MSG' c0006: the grid becomes something you can aim at The pointer's pixel becomes a ray, the ray meet…)
+[c0006] → mcp__gello__set_status(review)
+[c0006] **c0006 is in `review`, committed as `e00a2dc`** (not pushed).
+[c0006] **What landed** — all in `src/editor/mod.rs`:
+[c0006] - `cell_under_ray(ray, cols, rows, gap)` — pure: `Ray3d::intersect_plane` against the y=0 ground plane, then `c0002`'s `world_to_cell`, then the row bound. `world_to_cell` is open upwards by design, so rejecting a hit past the last row is this function's job.
+[c0006] - `editor_pick_cell` — the plumbing: primary window's `cursor_position` → the camera marked `EditorCamera` → `viewport_to_world` → `HoveredCell`. Every step is `Option`; no hovered cell is a normal answer.
+[c0006] - `HoveredCell` resource, written only when the cell changes (so change detection means "entered a different cell" — the signal `c0007` wants), cleared on the way out of the editor.
+[c0006] - A gizmo outline of the block footprint on the hovered cell.
+[c0006] **On the tilted-camera criterion:** it predates `c0005`'s decision to make the editor camera orthographic and straight down, so it can't be about the camera the editor actually uses. I read it as the constraint it still is — the maths must not assume a viewpoint — and satisfied it two ways: a pure test feeding rays from the exact position `setup_3d_environment` computes from `TILTED_CAMERA`/`CAMERA_TILT`, and an end-to-end test that swaps that perspective camera into a running editor and round-trips every cell of a 9×6 grid through a real viewport. Both the reading and the reasoning are written on the card.
+[c0006] **Verification:**
+[c0006] - 80 tests pass (11 new), `cargo build` clean — 19 warnings, one fewer than before since `world_to_cell` is no longer unused. No warnings from `src/editor/`.
+[c0006] - Mutation-checked the new tests: dropping the `row < rows` bound fails one test; swapping the ground-plane axes fails eight.
+[c0006] - Visually confirmed in the running game via a temporary screenshot harness (since reverted, `src/main.rs` is back to HEAD): with the pointer on the pixel cell (4, 3) shows up at, the yellow outline is on the middle column, fourth row down.
+[c0006] The commit contains only `src/editor/mod.rs` and the card — no hitchhiking from the in-flight bevy 0.19 migration, since the editor module was already migrated by `c0005`.
+[c0006] ✓ 114 in / 47746 out tokens, $5.0546, 68 turns, 772.6s
+[c0006] I'll start by reading the card.
+[c0006] → Bash(cat .gello/epics/e01-level-editor/c0006-grid-picking.md)
+[c0006] → Bash(cat .gello/board.yaml; echo "---EPIC---"; cat .gello/epics/e01-level-editor/epic.md)
+[c0006] → Bash(git log --oneline -8 && echo "---" && git show --stat e00a2dc)
+[c0006] → Bash(git status --short && echo "--- unstaged diff to src ---" && git diff --stat -- src/ assets/)
+[c0006] → Bash(git diff -- .gello/epics/e01-level-editor/c0006-grid-picking.md)
+[c0006] → Bash(wc -l src/editor/mod.rs; sed -n '1,140p' src/editor/mod.rs)
+[c0006] → Bash(sed -n '140,420p' src/editor/mod.rs)
+[c0006] → Bash(sed -n '1,200p' src/level/layout.rs 2>/dev/null || find src -name 'layout*')
+[c0006] → Bash(ls src/level/layout; wc -l src/level/layout/*; sed -n '1,160p' src/level/layout/mod.rs)
+[c0006] → Bash(sed -n '420,1003p' src/editor/mod.rs)
