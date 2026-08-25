@@ -7,11 +7,10 @@
   "runs": [
     {
       "cardId": "i0001",
-      "phase": "running",
-      "model": "<synthetic>"
+      "phase": "running"
     }
   ],
-  "updated": "2026-08-25T22:17:26",
+  "updated": "2026-08-25T22:21:27",
   "pickupDelay": 10,
   "owned": [
     "i0001"
