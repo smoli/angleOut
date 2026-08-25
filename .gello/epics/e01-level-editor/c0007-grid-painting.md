@@ -1,13 +1,12 @@
 ---
 id: c0007
 title: Grid painting
-status: ready
+status: in-progress
 epic: e01
 depends: [c0006]
 created: 2026-08-25
-updated: 2026-08-25
-status-changed: 2026-08-25T22:59:53
-order: 70
+updated: 2026-08-26
+status-changed: 2026-08-26T00:56:22
 ---
 
 ## What
@@ -41,3 +40,4 @@ the name it is an ordinary grid cell that happens to be unbreakable, unrelated t
 
 - 2026-08-25 created from the e01 epic breakdown
 - 2026-08-25 status → ready (app)
+- 2026-08-26 status → in-progress (agent)

@@ -7,8 +7,8 @@ depends: [c0002, c0005]
 created: 2026-08-25
 updated: 2026-08-26
 status-changed: 2026-08-26T00:53:44
-usage-tokens: 47860
-usage-cost: 5.054555
+usage-tokens: 57942
+usage-cost: 6.292097
 ---
 
 ## What
@@ -82,6 +82,61 @@ viewport.
   column, fourth row down - the cell that was aimed at. The highlight is the
   block's own footprint (`BLOCK_WIDTH` x `BLOCK_DEPTH`), so it sits inside the
   cell's gridline box, inset by the gap: it shows the block that would go there.
+
+## Review
+
+### 2026-08-26T00:55:44 — pass
+
+Checked: all six acceptance criteria against `src/editor/mod.rs` and
+`src/level/layout/mod.rs`, the commit diff (`e00a2dc`), `cargo build` and
+`cargo test`.
+
+- "Cursor to world ray, intersected with y=0": `cell_under_ray` uses
+  `Ray3d::intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y))`, and
+  `cell_under_cursor` builds the ray from the primary window's
+  `cursor_position()` through the `EditorCamera`'s `viewport_to_world`. Rays
+  that never meet the plane come back as no cell
+  (`a_ray_that_misses_the_ground_finds_no_cell`).
+- "Quantised with `world_to_cell`": done on `Vec2::new(hit.x, hit.z)`, which is
+  the pair `cell_to_world` returns - no second copy of the centring maths.
+  `a_ray_aimed_at_a_cell_finds_that_cell` round-trips every cell of 9x6, 10x4,
+  1x1 and 11x8 grids, so both the odd- and even-column centring are covered,
+  and `anywhere_inside_a_cell_is_that_cell` pins the off-centre case.
+- "Outside the grid, no cell": `world_to_cell` bounds col and row 0 from below,
+  and the `row < rows` bound is added in `cell_under_ray` - correct, since
+  `c0002` deliberately left the row count to the caller.
+  `a_ray_that_lands_off_the_grid_finds_no_cell` covers all four sides including
+  the open top, and `the_pointer_hovers_nothing_when_it_is_not_over_a_cell`
+  covers it end to end plus the pointer leaving the window.
+- "Visibly highlighted": `editor_draw_hover` outlines
+  `BLOCK_WIDTH` x `BLOCK_DEPTH` at the cell centre in `YELLOW`, chained after
+  `editor_pick_cell` so it cannot trail a frame, and lifted `HOVER_LIFT` off the
+  grid gizmo. `the_highlight_sits_on_the_hovered_cell` pins the placement for
+  every cell. The gizmo actually reaching the screen is not test-covered (no
+  renderer headless, same as `editor_draw_grid` from `c0005`); I did not re-run
+  the game, so that half rests on code inspection and the screenshot recorded in
+  the notes.
+- "Empty cells hover too": no mesh or `bevy_picking` involvement anywhere in the
+  chain, and `an_empty_cell_hovers_just_like_a_full_one` hovers the six empty
+  cells of a grid that has blocks in the other three.
+- "Correct with the tilted camera": the reasoning in the notes holds -
+  `cell_under_ray` takes a `Ray3d` and knows nothing about its origin. Both
+  tests are real rather than nominal: `picking_is_correct_from_the_tilted_camera`
+  rebuilds `setup_3d_environment`'s position exactly (`src/match/mod.rs:99-103`)
+  and asserts `camera.z > 1.0`, so it fails loudly rather than passing vacuously
+  if `TILTED_CAMERA` is ever turned off; `picking_is_correct_through_the_tilted_camera`
+  swaps the perspective tilted camera into a running editor and asserts all 54
+  cells of a 9x6 grid were checked.
+- Diff is `src/editor/mod.rs` and this card, nothing else. Additive only: no
+  existing test changed except an import moved to the module's `use` block, and
+  nothing is ignored or weakened.
+- `cargo test`: 80 passed, 0 failed. `cargo build`: 19 warnings, none from
+  `src/editor/mod.rs` - matches the log. No lint or typecheck step exists in this
+  repo (README lists `cargo build` only, no clippy config, no CI workflow), so
+  there was none to run.
+- Nit, no action needed: the notes' test breakdown ("four are pure ... two cover
+  the highlight's placement") splits 11 tests wrongly - it is five pure, five end
+  to end and one highlight test.
 
 ## Log
 
