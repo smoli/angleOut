@@ -1,0 +1,15 @@
+// The campaign, in play order. Every entry is a file in this directory.
+//
+// Level files that are not listed here are scratch: they still load and are
+// still checked by the tests, they are just not part of the game.
+Campaign(
+    levels: [
+        "level0.ron",
+        "level1.ron",
+        "level2.ron",
+        "level3.ron",
+        "level4.ron",
+        "level5.ron",
+        "level6.ron",
+    ],
+)

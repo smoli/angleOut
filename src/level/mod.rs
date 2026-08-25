@@ -1,11 +1,12 @@
 use std::time::Duration;
 
-use bevy::app::App;
-use bevy::log::{error, info, warn};
+use bevy::app::{App, Plugin};
+use bevy::log::{error, warn};
 use bevy::math::Vec2;
-use bevy::prelude::{Commands, Component, IntoSystemDescriptor, Plugin, ResMut, Resource, SystemSet, Vec3};
-use bevy::utils::{default, HashMap};
-use rand::{Rng, thread_rng};
+use bevy::platform::collections::HashMap;
+use bevy::prelude::{default, Commands, Component, IntoScheduleConfigs, OnEnter, ResMut, Resource, Vec3};
+use rand::{rng, RngExt};
+use serde::{Deserialize, Serialize};
 
 use crate::block::{Block, BlockBehaviour, BlockType};
 use crate::config::{ARENA_WIDTH_H, BLOCK_GAP, BLOCK_WIDTH};
@@ -17,18 +18,26 @@ use crate::r#match::state::MatchState;
 use crate::ship::Ship;
 use crate::state::GameState;
 
+pub mod campaign;
 mod layout;
 
 #[derive(Component)]
 pub struct RequestTag;
 
 
+/// How a level's blocks are laid out.
+///
+/// `SparseGrid` carries the block map as the multi-line ASCII token string
+/// documented in `layout::make_block`, so a level file stays readable and
+/// hand-editable; the `f32` is the gap between cells.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TargetLayout {
     FilledGrid(usize, usize, BlockType, BlockBehaviour, f32),
     SparseGrid(String, f32),
     Custom(String)
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LevelObstacle {
     // Center position, width, height
     Box(Vec3, f32, f32),
@@ -39,10 +48,18 @@ pub enum LevelObstacle {
     DirectionalDeathTrigger(Vec3, Vec3, f32)
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum WinCriteria {
     BlockHitPercentage(f32)
 }
 
+/// One level, as it is authored in `assets/levels/*.ron`.
+///
+/// Every field defaults, so a level file only has to name what it changes from
+/// [`LevelDefinition::default`] - the same shape the hardcoded levels had with
+/// `..default()`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct LevelDefinition {
     pub background_asset: String,
     pub background_scroll_velocity: f32,
@@ -51,6 +68,11 @@ pub struct LevelDefinition {
     pub targets: TargetLayout,
     pub time_limit: Option<Duration>,
     pub global_pickups: Vec<PickupType>,
+
+    /// Derived at runtime by [`LevelDefinition::distribute_global_pickups`] from
+    /// `global_pickups` and the level's block count - never authored, so it is
+    /// kept out of the file.
+    #[serde(skip)]
     pub distributed_global_pickups: HashMap<usize, PickupType>,
     pub obstacles: Vec<LevelObstacle>,
     pub default_wall_l: bool,
@@ -86,11 +108,11 @@ pub struct Levels {
 
 impl Levels {
     pub fn get_current_level(&self) -> Option<&LevelDefinition> {
-        self.definitions.get(self.current_level)
+        self.definitions.get(self.current_level.clone())
     }
 
     pub fn get_current_level_mut(&mut self) -> Option<&mut LevelDefinition> {
-        self.definitions.get_mut(self.current_level)
+        self.definitions.get_mut(self.current_level.clone())
     }
 
     pub fn next_level(&mut self) -> bool {
@@ -115,7 +137,7 @@ impl LevelDefinition {
     }
 
     pub fn distribute_global_pickups(&mut self, block_count: usize) {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         self.distributed_global_pickups.clear();
 
 
@@ -124,22 +146,23 @@ impl LevelDefinition {
         let mut end = block_count;
         //info!("Distributing {} global pickups", self.global_pickups.len());
         for pickup in &self.global_pickups {
+            let bc = block_count.clone();
             let mut repeats = 10;
 
             while repeats > 0 {
                 repeats -= 1;
-                let pos: usize = rng.gen_range(start..end);
+                let pos: usize = rng.random_range(start..end);
 
                 if placed.contains(&pos) {
                     warn!("Moving start and end around should avoid this!");
                 } else {
-                    if pos == block_count - 1 {
+                    if pos == bc - 1 {
                         end = pos + 1;
                     } else {
                         start = pos;
                     }
-                    placed.push(pos);
-                    self.distributed_global_pickups.insert(pos, pickup.clone());
+                    placed.push(pos.clone());
+                    self.distributed_global_pickups.insert(pos.clone(), pickup.clone());
 
                     //info!("{:?} at {}", pickup, pos);
                     break;
@@ -158,9 +181,9 @@ pub struct LevelPlugin;
 impl Plugin for LevelPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_system_set(
-                SystemSet::on_enter(GameState::InMatch)
-                    .with_system(level_spawn.label(SystemLabels::UpdateWorld))
+            .add_systems(
+                OnEnter(GameState::InMatch),
+                level_spawn.in_set(SystemLabels::UpdateWorld),
             )
 
         ;
@@ -169,7 +192,7 @@ impl Plugin for LevelPlugin {
 
 
 fn make_filled_grid(
-    mut commands: &mut Commands,
+    commands: &mut Commands,
     cols: usize, rows: usize, block_type: &BlockType, behaviour: &BlockBehaviour, gap: f32) -> i32
 {
     let positions = generate_block_grid(rows, cols, gap);
@@ -191,7 +214,7 @@ fn make_filled_grid(
 }
 
 fn make_grid_from_string_layout(
-    mut commands: &mut Commands,
+    commands: &mut Commands,
     layout: &String,
     gap: f32,
 ) -> i32 {
@@ -223,20 +246,20 @@ fn level_spawn(
         .insert(RequestTag);
 
 
-    let mut level = levels.get_current_level_mut().unwrap();
+    let level = levels.get_current_level_mut().unwrap();
 
     match &level.targets {
         FilledGrid(cols, rows, block_type, behaviour, gap) => {
-            let count = make_filled_grid(&mut commands, *cols, *rows, block_type, behaviour, *gap);
+            let count = make_filled_grid(&mut commands, cols.clone(), rows.clone(), block_type, behaviour, gap.clone());
             level.distribute_global_pickups(count as usize);
-            stats.set_block_count(count);
+            stats.set_block_count(count.clone());
 
         }
 
         SparseGrid(layout, gap) => {
-            let count = make_grid_from_string_layout(&mut commands, layout, *gap);
+            let count = make_grid_from_string_layout(&mut commands, layout, gap.clone());
             level.distribute_global_pickups(count as usize);
-            stats.set_block_count(count);
+            stats.set_block_count(count.clone());
         }
 
         TargetLayout::Custom(name) => {
@@ -258,13 +281,13 @@ fn level_spawn(
 
 fn level_span_conveyor(
     mut stats: ResMut<MatchState>,
-    mut level: &mut LevelDefinition,
+    level: &mut LevelDefinition,
     mut commands: Commands
 ) {
-    let speed = 10.0;
     let count_per_row = 2;
     let mut pos = Vec2::new(ARENA_WIDTH_H + 3.0, -25.0);
-    for i in 0..count_per_row {
+    for _i in 0..count_per_row {
+        let speed = 10.0;
         commands.
             spawn(Block {
                 position: pos.clone(),
@@ -276,12 +299,14 @@ fn level_span_conveyor(
         pos.x += 2.0 * BLOCK_WIDTH + BLOCK_GAP;
     }
 
+
     let mut pos = Vec2::new(-ARENA_WIDTH_H - 3.0, -35.0);
-    for i in 0..count_per_row {
+    for _i in 0..count_per_row {
+        let speed2 = 10.0;
         commands.
             spawn(Block {
                 position: pos.clone(),
-                behaviour: BlockBehaviour::EvaderR(speed),
+                behaviour: BlockBehaviour::EvaderR(speed2),
                 block_type: BlockType::Simple,
                 ..default()
             })

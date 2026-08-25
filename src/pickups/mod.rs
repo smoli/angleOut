@@ -1,18 +1,17 @@
-use bevy::app::{App, Plugin};
+use bevy::app::{App, Plugin, PostUpdate, Update};
 use bevy::gltf::Gltf;
-use bevy::log::info;
-use bevy::prelude::{Assets, Commands, Component, DespawnRecursiveExt, Entity, EventReader, EventWriter, IntoSystemDescriptor, Query, Res, ResMut, SystemSet, Time, Transform, TransformBundle, Vec3, With};
-use bevy::scene::SceneBundle;
-use bevy::utils::default;
+use bevy::prelude::{in_state, Assets, Commands, Component, Entity, IntoScheduleConfigs, MessageReader, MessageWriter, OnExit, Query, Res, ResMut, Time, Transform, Vec3, With};
+use bevy::world_serialization::WorldAssetRoot;
 use bevy_rapier3d::dynamics::GravityScale;
 use bevy_rapier3d::prelude::{ActiveEvents, Collider, CollisionGroups, RigidBody};
+use serde::{Deserialize, Serialize};
 
 use crate::config::{COLLIDER_GROUP_DEATH, COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_PICKUP, PICKUP_GENERIC_SCENE, PICKUP_SPEED};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
-use crate::level::{LevelDefinition, Levels, RequestTag};
+use crate::level::{Levels, RequestTag};
 use crate::MyAssetPack;
-use crate::physics::{Collidable, CollidableKind, COLLISION_EVENT_HANDLING, CollisionInfo, CollisionTag};
+use crate::physics::{Collidable, CollidableKind, CollisionEventHandling, CollisionInfo, CollisionTag};
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
 
@@ -21,25 +20,22 @@ pub struct PickupsPlugin;
 impl Plugin for PickupsPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_system_set(
-                SystemSet::on_update(GameState::InMatch)
-                    .with_system(pickup_spawn.label(SystemLabels::UpdateWorld))
-                    .with_system(pickup_update.label(SystemLabels::UpdateWorld))
-                    .with_system(pickup_spawn_globals_on_event.label(SystemLabels::UpdateWorld))
+            .add_systems(
+                Update,
+                (pickup_spawn, pickup_update, pickup_spawn_globals_on_event)
+                    .in_set(SystemLabels::UpdateWorld)
+                    .run_if(in_state(GameState::InMatch)),
             )
 
-            .add_system_to_stage(COLLISION_EVENT_HANDLING, pickup_handle_collisions)
+            .add_systems(PostUpdate, pickup_handle_collisions.in_set(CollisionEventHandling))
 
-            .add_system_set(
-                SystemSet::on_exit(GameState::PostMatch)
-                    .with_system(pickup_despawn_all)
-            )
+            .add_systems(OnExit(GameState::PostMatch), pickup_despawn_all)
         ;
     }
 }
 
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum PickupType {
     MoreBalls(i32),
     Grabber(i16),
@@ -60,17 +56,17 @@ pub struct Fall {
 
 fn pickup_spawn_globals_on_event(
     mut commands: Commands,
-    mut events: EventReader<MatchEvent>,
-    mut match_state: ResMut<MatchState>,
-    mut levels: ResMut<Levels>,
+    mut events: MessageReader<MatchEvent>,
+    match_state: ResMut<MatchState>,
+    levels: ResMut<Levels>,
 ) {
     //  let (player_entity, mut player, mut bouncer) = players.get_single_mut().unwrap();
 
     let level = levels.get_current_level().unwrap();
 
-    for ev in events.iter() {
+    for ev in events.read() {
         match ev {
-            MatchEvent::BlockHit(p, block_type, behaviour) => {
+            MatchEvent::BlockHit(p, _block_type, _behaviour) => {
                 if let Some(pickup_type) = level.pickup_at(match_state.blocks as usize) {
                     commands.spawn(Pickup {
                         spawn_position: p.clone(),
@@ -93,7 +89,7 @@ fn pickup_despawn_all(
     for p in &pickups {
         //info!("Despan pickup {:?}", p);
         commands.entity(p)
-            .despawn_recursive();
+            .despawn();
     }
 }
 
@@ -109,11 +105,8 @@ fn pickup_spawn(
                 .remove::<RequestTag>()
 
 
-                .insert(SceneBundle {
-                    scene: gltf.named_scenes[PICKUP_GENERIC_SCENE].clone(),
-                    ..default()
-                })
-                .insert(TransformBundle::from_transform(Transform::from_translation(pickup.spawn_position.clone())))
+                .insert(WorldAssetRoot(gltf.named_scenes[PICKUP_GENERIC_SCENE].clone()))
+                .insert(Transform::from_translation(pickup.spawn_position.clone()))
                 .insert(Fall {
                     dir: Vec3::new(0.0, 0.0, PICKUP_SPEED)
                 })
@@ -139,14 +132,14 @@ fn pickup_update(
     mut pickups: Query<(&Fall, &mut Transform), With<Pickup>>,
 ) {
     for (fall, mut trans) in &mut pickups {
-        trans.translation += fall.dir * time.delta_seconds();
+        trans.translation += fall.dir * time.delta_secs();
     }
 }
 
 fn pickup_handle_collisions(
     mut commands: Commands,
     pickups: Query<(Entity, &Pickup, &CollisionTag)>,
-    mut events: EventWriter<MatchEvent>,
+    mut events: MessageWriter<MatchEvent>,
     collisions: Res<CollisionInfo>,
 ) {
     for (entity, pickup, _) in &pickups {
@@ -154,7 +147,7 @@ fn pickup_handle_collisions(
             for collision in collision {
                 match collision.other {
                     CollidableKind::Ship => {
-                        events.send(MatchEvent::PickedUp(pickup.pickup_type))
+                        events.write(MatchEvent::PickedUp(pickup.pickup_type));
                     }
 
                     CollidableKind::DeathTrigger => {}
@@ -166,6 +159,6 @@ fn pickup_handle_collisions(
 
         //info!("Despanw pickup regardless {:?}", entity);
         commands.entity(entity)
-            .despawn_recursive();
+            .despawn();
     }
 }

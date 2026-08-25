@@ -1,0 +1,11 @@
+LevelDefinition(
+    simultaneous_balls: 1,
+    time_limit: None,
+    global_pickups: [MoreBalls(1), MoreBalls(1), MoreBalls(1)],
+    targets: SparseGrid(r"AA AA AA AA AA AA AA AA AA
+ BA BA BA BA BA BA BA BA AA
+ AA AA AA AA AA AA AA AA AA
+ BA BA BA BA BA BA BA BA AA
+ AA AA AA AA AA AA AA AA AA
+ BA BA BA BA BA BA BA BA AA", 2.0),
+)

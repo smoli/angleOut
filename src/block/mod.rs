@@ -3,18 +3,16 @@ pub mod trigger;
 use std::f32::consts::TAU;
 use std::time::Duration;
 
-use bevy::app::App;
+use bevy::app::{App, Plugin, PostUpdate, Update};
 use bevy::asset::{Assets, AssetServer, Handle};
 use bevy::gltf::{Gltf, GltfMesh};
-use bevy::log::info;
 use bevy::math::Vec2;
-use bevy::pbr::MaterialMeshBundle;
-use bevy::prelude::{Bundle, Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, IntoSystemDescriptor, MaterialPlugin, Plugin, Query, Res, ResMut, SystemSet, Time, Timer, TimerMode, Transform, TransformBundle, Vec3, Visibility, With, Without};
-use bevy::prelude::KeyCode::C;
-use bevy::time::FixedTimestep;
-use bevy::utils::default;
-use bevy::utils::hashbrown::HashMap;
+use bevy::pbr::{MeshMaterial3d};
+use bevy::color::palettes::css::{DARK_GRAY, GRAY, ORANGE};
+use bevy::prelude::{default, in_state, Color, Commands, Component, Entity, IntoScheduleConfigs, MaterialPlugin, Mesh3d, MessageWriter, OnExit, Query, Res, ResMut, Time, Timer, TimerMode, Transform, Vec3, Visibility, With, Without};
+use bevy::time::common_conditions::on_timer;
 use bevy_rapier3d::prelude::{ActiveEvents, CoefficientCombineRule, Collider, CollisionGroups, ExternalForce, Friction, LockedAxes, Restitution, RigidBody, Sensor};
+use serde::{Deserialize, Serialize};
 
 use crate::ball::{ActiveBall, Ball};
 use crate::block::trigger::{BlockTrigger, BlockTriggerTarget, BlockTriggerTargetInactive, TriggerGroup, TriggerState, TriggerStates, TriggerType};
@@ -24,10 +22,10 @@ use crate::labels::SystemLabels;
 use crate::level::RequestTag;
 use crate::materials::block::BlockMaterial;
 use crate::MyAssetPack;
-use crate::physics::{Collidable, CollidableKind, COLLISION_EVENT_HANDLING, CollisionInfo, CollisionTag};
+use crate::physics::{Collidable, CollidableKind, CollisionEventHandling, CollisionInfo, CollisionTag};
 use crate::state::GameState;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BlockType {
     Simple,
     Hardling,
@@ -36,7 +34,7 @@ pub enum BlockType {
     SimpleTop,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BlockBehaviour {
     SittingDuck,
     Spinner,
@@ -127,40 +125,46 @@ pub struct BlockPlugin;
 impl Plugin for BlockPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_plugin(
+            .add_plugins(
                 MaterialPlugin::<BlockMaterial>::default(),
             )
 
             .insert_resource(TriggerStates::new())
 
-            .add_system_set(
-                SystemSet::on_update(GameState::InMatch)
-                    .with_system(block_spawn.label(SystemLabels::UpdateWorld))
-                    .with_system(block_repluse.label(SystemLabels::UpdateWorld))
-                    .with_system(block_update_evader)
-                    .with_system(block_shake.after(SystemLabels::UpdateWorld))
-                    .with_system(block_update_custom_material)
-                    .with_system(block_update_trigger_targets)
-                    .with_system(block_update_portals)
-
+            .add_systems(
+                Update,
+                (
+                    block_spawn.in_set(SystemLabels::UpdateWorld),
+                    block_repluse.in_set(SystemLabels::UpdateWorld),
+                    block_update_evader,
+                    block_shake.after(SystemLabels::UpdateWorld),
+                    block_update_custom_material,
+                    block_update_trigger_targets,
+                    block_update_portals,
+                )
+                    .run_if(in_state(GameState::InMatch)),
             )
 
-            .add_system_to_stage(COLLISION_EVENT_HANDLING, block_handle_collisions)
-            .add_system_to_stage(COLLISION_EVENT_HANDLING, block_handle_evader_collisions)
-            .add_system_to_stage(COLLISION_EVENT_HANDLING, block_handle_obstacle_trigger_collisions)
-
-            .add_system_set(
-                SystemSet::on_update(GameState::InMatch)
-                    .with_system(block_vanish)
-                    .with_system(block_spin)
-                    .with_run_criteria(FixedTimestep::step(1.0))
-                    .label(SystemLabels::UpdateWorld)
+            .add_systems(
+                PostUpdate,
+                (
+                    block_handle_collisions,
+                    block_handle_evader_collisions,
+                    block_handle_obstacle_trigger_collisions,
+                )
+                    .in_set(CollisionEventHandling),
             )
 
-            .add_system_set(
-                SystemSet::on_exit(GameState::PostMatch)
-                    .with_system(block_despawn)
+            // These two used to run on a one second fixed timestep.
+            .add_systems(
+                Update,
+                (block_vanish, block_spin)
+                    .in_set(SystemLabels::UpdateWorld)
+                    .run_if(in_state(GameState::InMatch))
+                    .run_if(on_timer(Duration::from_secs(1))),
             )
+
+            .add_systems(OnExit(GameState::PostMatch), block_despawn)
         ;
     }
 }
@@ -294,8 +298,8 @@ fn block_spawn(
             };
 
 
-            let mut color1 = Color::ORANGE;
-            let mut color2 = Color::ORANGE;
+            let mut color1: Color = ORANGE.into();
+            let mut color2: Color = ORANGE.into();
             let mut top_bottom_split = false;
 
             match block.block_type {
@@ -313,7 +317,7 @@ fn block_spawn(
                         original_hit_points: 2,
                         ..default()
                     });
-                    color1 = Color::GRAY;
+                    color1 = GRAY.into();
                 }
 
                 BlockType::Concrete => {
@@ -322,7 +326,7 @@ fn block_spawn(
                         original_hit_points: 3,
                         ..default()
                     });
-                    color1 = Color::DARK_GRAY;
+                    color1 = DARK_GRAY.into();
                 }
 
                 BlockType::SimpleTop => {
@@ -332,7 +336,7 @@ fn block_spawn(
                         only_top: true,
                     });
                     top_bottom_split = true;
-                    color1 = Color::ORANGE;
+                    color1 = ORANGE.into();
                     color2 = Color::WHITE;
                 }
 
@@ -354,12 +358,11 @@ fn block_spawn(
                 });
 
             block_commands
-                .insert(MaterialMeshBundle {
-                    mesh: mesh.clone(),
-                    material: custom_material,
-                    ..default()
-                })
-                .insert(TransformBundle::from(Transform::from_xyz(block.position.x, 0.0, block.position.y)))
+                .insert(Mesh3d(mesh.clone()))
+                .insert(MeshMaterial3d(custom_material))
+                .insert(Transform::from_xyz(block.position.x, 0.0, block.position.y))
+                // `Mesh3d` no longer pulls in `Visibility`, but `block_vanish` needs it.
+                .insert(Visibility::default())
             ;
         }
     }
@@ -367,11 +370,11 @@ fn block_spawn(
 
 
 fn block_update_custom_material(
-    hittables: Query<(&Hittable, &Handle<BlockMaterial>)>,
+    hittables: Query<(&Hittable, &MeshMaterial3d<BlockMaterial>)>,
     mut materials: ResMut<Assets<BlockMaterial>>,
 ) {
     for (hittable, block) in &hittables {
-        if let Some(mut mat) = materials.get_mut(&block) {
+        if let Some(mut mat) = materials.get_mut(&block.0) {
             mat.damage = (hittable.original_hit_points - hittable.hit_points) as f32;
         }
     };
@@ -385,7 +388,7 @@ fn block_despawn(
     for block in &blocks {
         //info!("Despawn block {:?}", block);
         commands.entity(block)
-            .despawn_recursive();
+            .despawn();
     }
 }
 
@@ -421,7 +424,7 @@ fn block_handle_obstacle_trigger_collisions(
 fn block_handle_collisions(
     mut commands: Commands,
     mut blocks: Query<(Entity, &mut Hittable, &Block, &Transform), With<CollisionTag>>,
-    mut events: EventWriter<MatchEvent>,
+    mut events: MessageWriter<MatchEvent>,
     collisions: Res<CollisionInfo>,
 ) {
     for (entity, mut hittable, block, trans) in &mut blocks {
@@ -440,8 +443,8 @@ fn block_handle_collisions(
 
                     if hittable.hit_points == 0 {
                         commands.entity(entity)
-                            .despawn_recursive();
-                        events.send(MatchEvent::BlockHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
+                            .despawn();
+                        events.write(MatchEvent::BlockHit(collision.pos.clone(), block.block_type.clone(), block.behaviour.clone()));
                     } else {
                         commands.entity(entity)
                             .insert(Shaking {
@@ -456,8 +459,8 @@ fn block_handle_collisions(
                     let dir = normal.dot(collision.pos - collision.other_pos);
                     if dir > 0.0 {
                         commands.entity(entity)
-                            .despawn_recursive();
-                        events.send(MatchEvent::BlockLost);
+                            .despawn();
+                        events.write(MatchEvent::BlockLost);
                     }
                 }
 
@@ -469,9 +472,7 @@ fn block_handle_collisions(
 
 
 fn block_handle_evader_collisions(
-    mut commands: Commands,
     mut blocks: Query<(Entity, &mut BlockEvader), (With<Block>, With<CollisionTag>)>,
-    mut events: EventWriter<MatchEvent>,
     collisions: Res<CollisionInfo>,
 ) {
     for (block, mut evader) in &mut blocks {
@@ -486,7 +487,7 @@ fn block_handle_evader_collisions(
                     /* CollidableKind::DeathTrigger => {
                          commands.entity(block)
                              .despawn_recursive();
-                         events.send(MatchEvent::BlockLost);
+                         events.write(MatchEvent::BlockLost);
 
                          //info!("Oh no! I died! {:?}", collision.other_pos);
                      }
@@ -506,7 +507,7 @@ fn block_shake(
 ) {
     for (block, mut shaking, mut trans) in &mut shaking {
         shaking.timer.tick(time.delta());
-        if shaking.timer.percent() <= 0.5 {
+        if shaking.timer.fraction() <= 0.5 {
             trans.translation += shaking.direction * shaking.timer.elapsed_secs();
         } else if !shaking.timer.just_finished() {
             trans.translation -= shaking.direction * shaking.timer.elapsed_secs() * 0.5;
@@ -530,7 +531,7 @@ fn block_spin(
 fn block_vanish(
     mut commands: Commands,
     mut blocks: Query<(Entity, &mut Visibility, &Transform), With<BlockVanisher>>,
-    mut balls: Query<&Transform, With<Ball>>,
+    balls: Query<&Transform, With<Ball>>,
 ) {
     let mut positions: Vec<Vec3> = vec![];
 
@@ -558,14 +559,14 @@ fn block_vanish(
             }
         }
 
-        if !vis.is_visible {
+        if *vis == Visibility::Hidden {
             if can_appear {
-                vis.is_visible = !vis.is_visible;
+                *vis = Visibility::Inherited;
                 commands.entity(block)
                     .remove::<Sensor>();
             }
         } else {
-            vis.is_visible = !vis.is_visible;
+            *vis = Visibility::Hidden;
             commands.entity(block)
                 .insert(Sensor);
         }
@@ -573,7 +574,7 @@ fn block_vanish(
 }
 
 fn block_repluse(
-    blocks: Query<(&Transform), With<BlockRepulsor>>,
+    blocks: Query<&Transform, With<BlockRepulsor>>,
     mut balls: Query<(&Transform, &mut ExternalForce), With<Ball>>,
 ) {
     let threshold = 20.0;
@@ -600,9 +601,9 @@ fn block_repluse(
 
 fn block_update_evader(
     time: Res<Time>,
-    mut ball: Query<(&mut Transform, &mut BlockEvader), Without<BlockTriggerTargetInactive>>,
+    mut ball: Query<(&mut Transform, &BlockEvader), Without<BlockTriggerTargetInactive>>,
 ) {
-    for (mut trans, mut evader) in &mut ball {
+    for (mut trans, evader) in &mut ball {
         trans.translation += evader.velocity * time.delta().as_secs_f32();
     }
 }
@@ -612,7 +613,7 @@ fn block_update_portals(
     mut commands: Commands,
     portals: Query<(Entity, &BlockTriggerTarget, &Transform), (With<BlockPortal>, Without<Ball>, Without<BlockTriggerTargetInactive>)>,
     mut balls: Query<&mut Transform, (With<Ball>, With<ActiveBall>)>,
-    mut triggerStates: ResMut<TriggerStates>,
+    triggerStates: ResMut<TriggerStates>,
 ) {
     for (portal, target, block_trans) in &portals {
         if let Some(TriggerState::Started(col)) = triggerStates.get_state(target.group) {
@@ -629,7 +630,7 @@ fn block_update_portals(
 
 fn block_update_trigger_targets(
     mut commands: Commands,
-    mut targets: Query<(Entity, &BlockTriggerTarget)>,
+    targets: Query<(Entity, &BlockTriggerTarget)>,
     mut triggerStates: ResMut<TriggerStates>,
 ) {
     for (entity, target) in &targets {

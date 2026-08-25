@@ -1,0 +1,4 @@
+// Scratch: the smallest level that reproduced a win state bug.
+LevelDefinition(
+    targets: SparseGrid(r"AA AH AA", 2.0),
+)

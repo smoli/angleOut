@@ -89,6 +89,41 @@ pub fn generate_block_grid(
 }
 
 
+/// Reads one block off the token grid, or `None` for an empty slot.
+///
+/// Each 2 to 4 character tuple describes one block, `..` is an empty slot, and
+/// slots are separated by spaces.
+///
+/// 1st character - how many hits can a block take:
+///   * `A` = 1
+///   * `B` = 2
+///   * `C` = 3
+///   * `D` = 1, only from the top
+///   * `Z` = unbreakable
+///
+/// `Z` is used for obstacles and does not count as a block when determining
+/// whether the player has finished the level.
+///
+/// 2nd character - what behaviour does the block have:
+///   * `A` - Nothing
+///   * `B` - Spinner - which is kinda useless I guess
+///   * `C` - Vanisher - questionable as well
+///   * `D` - Repulsor
+///   * `E` - Evader, first movement to the right
+///   * `F` - Evader, first movement to the left
+///   * `G` - Evader, first movement up
+///   * `H` - Evader, first movement down
+///   * `I` - Portal - use this as a trigger target. Teleports the ball from the
+///     trigger to itself, preserving momentum
+///
+/// 3rd character (optional) - trigger type:
+///   * `A` - Start trigger
+///   * `B` - Stop trigger
+///   * `C` - StartStop trigger
+///   * `R` - Receiver that starts stopped
+///   * `S` - Receiver that starts started
+///
+/// 4th character (mandatory if the 3rd exists) - trigger group, `0..=9`.
 pub fn make_block(b_type: char, b_beh: char, b_trigger: Option<char>, b_trigger_group: Option<char>, pos: Vec2) -> Option<Block> {
     let t = match b_type  {
         'A' => BlockType::Simple,
@@ -194,19 +229,6 @@ pub fn interpret_grid(layout: &String, gap: f32) -> Option<Vec<Block>> {
 }
 
 
-// .. = Empty slot
-// <Type><Behaviour>
-// Ignore spaces
-
-// Types
-// A = Simple
-// B = Hardling
-// C = Conctete
-
-// Behaviour
-// A = SittingDuck
-// B = Spinner
-// At max 10 wide
 
 
 #[cfg(test)]

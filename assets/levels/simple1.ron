@@ -1,0 +1,9 @@
+// Scratch: a single column, two of them evading sideways.
+LevelDefinition(
+    targets: SparseGrid(r"AA
+ AA
+ AA
+ AF
+ AE
+ AA", 2.0),
+)
