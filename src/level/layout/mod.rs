@@ -1,9 +1,14 @@
-use bevy::math::Vec2;
+use bevy::math::{Rect, Vec2};
 use bevy::prelude::default;
 use crate::block::{Block, BlockBehaviour, BlockType};
 use crate::block::trigger::{TriggerGroup, TriggerType};
 
 use crate::config::{BLOCK_DEPTH, BLOCK_WIDTH, BLOCK_WIDTH_H};
+
+/// Half a cell, as the offset from a cell centre to its corner.
+fn cell_half_extent() -> Vec2 {
+    Vec2::new(BLOCK_WIDTH_H, BLOCK_DEPTH / 2.0)
+}
 
 
 /// World position of the centre of grid cell (`col`, `row`) in a grid `cols`
@@ -67,6 +72,63 @@ pub fn world_to_cell(pos: Vec2, cols: usize, gap: f32) -> Option<(usize, usize)>
     }
 
     Some((col as usize, row as usize))
+}
+
+
+/// The rectangle a `cols` x `rows` grid covers on the ground plane, cell edges
+/// included.
+///
+/// This is the area an editor has to keep on screen, so it is the outer edge of
+/// the outermost cells rather than the centres [`cell_to_world`] returns. A grid
+/// with no cells has no extent, and collapses to the point cell (0, 0) would
+/// occupy.
+pub fn grid_bounds(cols: usize, rows: usize, gap: f32) -> Rect {
+    let origin = cell_to_world(0, 0, cols.max(1), gap);
+
+    if cols == 0 || rows == 0 {
+        return Rect::from_corners(origin, origin);
+    }
+
+    let far = cell_to_world(cols - 1, rows - 1, cols, gap);
+
+    Rect::from_corners(origin - cell_half_extent(), far + cell_half_extent())
+}
+
+
+/// The size of a token grid, as (columns, rows).
+///
+/// Columns come off the first line, because that is where [`interpret_grid`]
+/// takes them from - a ragged grid is the writer's problem, not this one's.
+/// Lines with nothing on them are not rows: a layout written with a trailing
+/// newline is as many rows as it looks like.
+pub fn grid_dimensions(layout: &str) -> (usize, usize) {
+    let rows: Vec<&str> = layout
+        .split('\n')
+        .filter(|line| slots(line).next().is_some())
+        .collect();
+
+    let cols = rows.first().map_or(0, |line| slots(line).count());
+
+    (cols, rows.len())
+}
+
+
+/// A token grid of `cols` x `rows` empty cells - what a new level starts as.
+pub fn empty_grid(cols: usize, rows: usize) -> String {
+    let row = vec![EMPTY_SLOT; cols].join(" ");
+
+    (0..rows).map(|_| row.as_str()).collect::<Vec<&str>>().join("\n")
+}
+
+
+/// The token for a cell with no block in it.
+pub const EMPTY_SLOT: &str = "..";
+
+
+/// The slots of one line of a token grid, skipping the padding that separates
+/// them - the same thing [`interpret_grid`] walks.
+fn slots(line: &str) -> impl Iterator<Item = &str> {
+    line.split(' ').filter(|slot| slot.len() >= 2)
 }
 
 
@@ -441,5 +503,85 @@ mod tests {
 
             assert_eq!(positions, legacy_layout_positions(&layout, BLOCK_GAP), "layout:\n{layout}");
         }
+    }
+
+    /// The bounds have to hold every cell of the grid whole, or an editor
+    /// framed on them would clip the outermost blocks in half.
+    #[test]
+    fn grid_bounds_hold_every_cell_of_the_grid() {
+        for cols in 1..=12 {
+            for rows in 1..=8 {
+                let bounds = grid_bounds(cols, rows, BLOCK_GAP);
+
+                for row in 0..rows {
+                    for col in 0..cols {
+                        let centre = cell_to_world(col, row, cols, BLOCK_GAP);
+
+                        for corner in [Vec2::new(1.0, 1.0), Vec2::new(-1.0, -1.0)] {
+                            let point = centre + corner * cell_half_extent();
+
+                            assert!(
+                                bounds.contains(point),
+                                "{cols}x{rows} grid: cell ({col}, {row}) corner {point:?} outside {bounds:?}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn grid_bounds_of_a_grid_with_no_cells_have_no_extent() {
+        let bounds = grid_bounds(0, 0, BLOCK_GAP);
+
+        assert_eq!(bounds.size(), Vec2::ZERO);
+    }
+
+    #[test]
+    fn grid_dimensions_read_the_shape_of_a_layout() {
+        assert_eq!(grid_dimensions("AA AA AA"), (3, 1));
+
+        assert_eq!(
+            grid_dimensions(
+"AA .. AA
+ .. AA ..
+ AA .. AA"),
+            (3, 3)
+        );
+
+        // The trailing newline `level0.ron` is written with is not a row.
+        assert_eq!(grid_dimensions("AA AA\n AA AA\n"), (2, 2));
+
+        // Triggers make a slot longer without making it another column.
+        assert_eq!(grid_dimensions("ZIR1 .. AAA1"), (3, 1));
+
+        assert_eq!(grid_dimensions(""), (0, 0));
+    }
+
+    /// What `grid_dimensions` reports has to be what the grid actually spawns
+    /// as, or the editor and the game would disagree about where a cell is.
+    #[test]
+    fn grid_dimensions_agree_with_the_grid_that_gets_spawned() {
+        for layout in sample_layouts() {
+            let (cols, rows) = grid_dimensions(&layout);
+            let bounds = grid_bounds(cols, rows, BLOCK_GAP);
+
+            for block in interpret_grid(&layout, BLOCK_GAP).unwrap() {
+                assert!(
+                    bounds.contains(block.position),
+                    "block at {:?} outside the {cols}x{rows} bounds {bounds:?} of:\n{layout}",
+                    block.position
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn an_empty_grid_is_the_size_it_was_asked_for_and_holds_no_blocks() {
+        let layout = empty_grid(9, 6);
+
+        assert_eq!(grid_dimensions(&layout), (9, 6));
+        assert_eq!(interpret_grid(&layout, BLOCK_GAP).unwrap().len(), 0);
     }
 }

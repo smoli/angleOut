@@ -18,6 +18,10 @@ pub enum GameFlowEvent {
     StartGame,
     StartMatch,
 
+    /// Open the level editor. Nothing to wait for - the editor opens whatever
+    /// level it can get and copes with there being none.
+    OpenEditor,
+
     PlayerWins,
     PlayerLooses,
 
@@ -211,6 +215,10 @@ fn game_flow_handler(
 
             GameFlowEvent::StartMatch => {
                 *match_pending = true;
+            }
+
+            GameFlowEvent::OpenEditor => {
+                game_state.set(GameState::Editor);
             }
 
             GameFlowEvent::PlayerWins => {

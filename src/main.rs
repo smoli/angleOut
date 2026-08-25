@@ -8,7 +8,7 @@ use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::gltf::Gltf;
 use bevy::input::ButtonInput;
 use bevy::state::app::AppExtStates;
-use bevy::prelude::{default, AssetServer, ClearColor, Color, Commands, Entity, Handle, KeyCode, PluginGroup, Query, Res, Resource};
+use bevy::prelude::{default, in_state, not, AssetServer, ClearColor, Color, Commands, Entity, Handle, IntoScheduleConfigs, KeyCode, PluginGroup, Query, Res, Resource};
 use bevy::window::{CursorOptions, MonitorSelection, Window, WindowPlugin, WindowPosition, WindowResolution};
 #[allow(unused_imports)]
 use bevy_framepace::FramepacePlugin;
@@ -19,6 +19,7 @@ use crate::arena::ArenaPlugin;
 use crate::ball::BallPlugin;
 use crate::block::BlockPlugin;
 use crate::config::{SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::editor::EditorPlugin;
 use crate::events::EventsPlugin;
 use crate::game::GamePlugin;
 use crate::input::InputDiagnosticsPlugin;
@@ -34,6 +35,7 @@ use crate::state::GameState;
 use crate::ui::UI;
 
 mod config;
+mod editor;
 mod r#match;
 mod state;
 mod events;
@@ -85,6 +87,7 @@ fn main() {
     app.add_plugins(BallPlugin);
     app.add_plugins(BlockPlugin);
     app.add_plugins(LevelPlugin);
+    app.add_plugins(EditorPlugin);
     app.add_plugins(GamePlugin);
     app.add_plugins(MatchPlugin);
     app.add_plugins(PointsPlugin);
@@ -97,7 +100,9 @@ fn main() {
     app.add_plugins(InputManagerPlugin::<MatchActions>::default());
     app.add_plugins(InputManagerPlugin::<CameraActions>::default());
 
-    app.add_systems(Update, close_on_esc);
+    // The editor uses `Escape` to get back to the menu, so quitting the game on
+    // it would be two things on one key - see `crate::editor`.
+    app.add_systems(Update, close_on_esc.run_if(not(in_state(GameState::Editor))));
 
 
     app.run();

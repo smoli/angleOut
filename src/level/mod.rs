@@ -20,7 +20,7 @@ use crate::state::GameState;
 
 pub mod asset;
 pub mod campaign;
-mod layout;
+pub mod layout;
 
 #[derive(Component)]
 pub struct RequestTag;

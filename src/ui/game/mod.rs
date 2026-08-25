@@ -1,8 +1,10 @@
-use bevy::log::info;
-use bevy::prelude::{App, AssetServer, BackgroundColor, BuildChildren, Color, Commands, Component, default, DespawnRecursiveExt, Entity, EventReader, EventWriter, FlexDirection, GamepadButtonType, JustifyContent, KeyCode, NodeBundle, Plugin, Query, Res, SceneBundle, Size, Style, SystemSet, Text, TextBundle, TextSection, TextStyle, Transform, TransformBundle, Val, With};
-use bevy::ui::{AlignSelf, UiRect};
+use bevy::app::{App, Plugin, Update};
+use bevy::color::palettes::css::{ANTIQUE_WHITE, GOLD, RED};
+use bevy::prelude::{default, in_state, AlignSelf, AssetServer, Color, Commands, Component, Entity, FlexDirection, GamepadButton, IntoScheduleConfigs, JustifyContent, KeyCode, MessageReader, MessageWriter, Node, OnEnter, OnExit, Query, Res, Text, TextColor, TextFont, Transform, Val, With};
+use bevy::text::FontSize;
+use bevy::ui::{BackgroundColor, UiRect};
+use bevy::world_serialization::WorldAssetRoot;
 use leafwing_input_manager::input_map::InputMap;
-use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::events::GameFlowEvent;
@@ -12,6 +14,7 @@ use crate::ui::{UIAction, UIEvents};
 #[derive(PartialEq, Copy, Clone, Debug)]
 enum OptionValues {
     NewGame,
+    Editor,
     Settings,
 }
 
@@ -22,7 +25,8 @@ impl TryFrom<u8> for OptionValues {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(Self::NewGame),
-            1 => Ok(Self::Settings),
+            1 => Ok(Self::Editor),
+            2 => Ok(Self::Settings),
 
             _ => Err(())
         }
@@ -48,22 +52,14 @@ pub struct UIGamePlugin;
 impl Plugin for UIGamePlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_system_set(
-                SystemSet::on_enter(GameState::InGame)
-                    .with_system(ui_spawn)
-                    .with_system(ship_spawn)
+            .add_systems(OnEnter(GameState::InGame), (ui_spawn, ship_spawn))
+
+            .add_systems(
+                Update,
+                (ui_handle_action, ui_update).run_if(in_state(GameState::InGame)),
             )
 
-            .add_system_set(
-                SystemSet::on_update(GameState::InGame)
-                    .with_system(ui_handle_action)
-                    .with_system(ui_update)
-            )
-
-            .add_system_set(
-                SystemSet::on_exit(GameState::InGame)
-                    .with_system(ui_despawn)
-            )
+            .add_systems(OnExit(GameState::InGame), ui_despawn)
         ;
     }
 }
@@ -73,37 +69,35 @@ fn ship_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("ship3_003.glb#Scene4"),
-        ..default()
-    })
-        .insert(TransformBundle::from_transform(Transform::from_xyz(-15.0, 5.0, 0.0)))
-        .insert(UITag)
-
-    ;
+    commands.spawn((
+        WorldAssetRoot(asset_server.load("ship3_003.glb#Scene4")),
+        Transform::from_xyz(-15.0, 5.0, 0.0),
+        UITag,
+    ));
 }
 
 
 fn ui_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut ui_events: EventWriter<UIEvents>,
+    mut ui_events: MessageWriter<UIEvents>,
 ) {
-    let style = TextStyle {
-        font: asset_server.load("BAUHS93.TTF"),
-        font_size: 60.0,
-        color: Color::GOLD,
+    let font = TextFont {
+        font: asset_server.load("BAUHS93.TTF").into(),
+        font_size: FontSize::Px(60.0),
+        ..default()
     };
 
-    let centered = Style {
+    let centered = Node {
         align_self: AlignSelf::FlexStart,
         ..default()
     };
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 margin: UiRect {
@@ -112,68 +106,71 @@ fn ui_spawn(
                 },
                 ..default()
             },
-            background_color: BackgroundColor::from(Color::rgba(0.0, 0.0, 0.0, 0.0)),
-            ..default()
-        })
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0)),
+        ))
         .insert(UIState {
             selected: OptionValues::NewGame,
         })
 
 
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_sections([
-                TextSection::new(
-                    "New Game", style.clone(),
-                )
-            ])
-                .with_style(centered.clone())
-            )
-                .insert(SelectOptions {
+            parent.spawn((
+                Text::new("New Game"),
+                font.clone(),
+                TextColor(GOLD.into()),
+                centered.clone(),
+                SelectOptions {
                     value: OptionValues::NewGame
-                });
+                },
+            ));
 
-            parent.spawn(TextBundle::from_sections([
-                TextSection::new(
-                    "Settings", style.clone(),
-                )
-            ])
-                .with_style(centered.clone())
-            )
-                .insert(SelectOptions {
+            parent.spawn((
+                Text::new("Editor"),
+                font.clone(),
+                TextColor(GOLD.into()),
+                centered.clone(),
+                SelectOptions {
+                    value: OptionValues::Editor
+                },
+            ));
+
+            parent.spawn((
+                Text::new("Settings"),
+                font.clone(),
+                TextColor(GOLD.into()),
+                centered.clone(),
+                SelectOptions {
                     value: OptionValues::Settings
-                });
+                },
+            ));
         })
         .insert(UITag)
-        .insert(InputManagerBundle::<UIAction> {
-            action_state: ActionState::default(),
-            input_map: InputMap::default()
-                .insert(GamepadButtonType::South, UIAction::ActivateSelection)
-                .insert(KeyCode::Space, UIAction::ActivateSelection)
-                .insert(GamepadButtonType::DPadDown, UIAction::SelectDown)
-                .insert(GamepadButtonType::DPadUp, UIAction::SelectUp)
-                .build(),
-        })
+        .insert(
+            InputMap::default()
+                .with(UIAction::ActivateSelection, GamepadButton::South)
+                .with(UIAction::ActivateSelection, KeyCode::Space)
+                .with(UIAction::SelectDown, GamepadButton::DPadDown)
+                .with(UIAction::SelectUp, GamepadButton::DPadUp),
+        )
     ;
 
     // Trigger render
-    ui_events.send(UIEvents::SelectionChange);
+    ui_events.write(UIEvents::SelectionChange);
 }
 
 
 fn ui_handle_action(
-    mut actions: Query<(&mut UIState, &mut ActionState<UIAction>)>,
-    mut ui_events: EventWriter<UIEvents>,
+    mut actions: Query<(&mut UIState, &ActionState<UIAction>)>,
+    mut ui_events: MessageWriter<UIEvents>,
 ) {
-    for (mut state, mut action) in &mut actions {
+    for (mut state, action) in &mut actions {
         let mut curr = state.selected as u8;
-        if action.just_pressed(UIAction::SelectDown) {
+        if action.just_pressed(&UIAction::SelectDown) {
             curr += 1;
-            action.consume(UIAction::SelectDown);
         }
 
-        if action.just_pressed(UIAction::SelectUp) && curr > 0 {
+        if action.just_pressed(&UIAction::SelectUp) && curr > 0 {
             curr -= 1;
-            action.consume(UIAction::SelectUp);
         }
 
         match OptionValues::try_from(curr) {
@@ -181,36 +178,31 @@ fn ui_handle_action(
             Err(_) => {}
         }
 
-        ui_events.send(UIEvents::SelectionChange);
+        ui_events.write(UIEvents::SelectionChange);
 
-        if action.just_pressed(UIAction::ActivateSelection) {
-            ui_events.send(UIEvents::SelectionActivated(state.selected as u8));
-            action.consume(UIAction::ActivateSelection);
+        if action.just_pressed(&UIAction::ActivateSelection) {
+            ui_events.write(UIEvents::SelectionActivated(state.selected as u8));
         }
     }
 }
 
 
 fn ui_update(
-    mut ui_events: EventReader<UIEvents>,
-    mut options: Query<(&mut Text, &SelectOptions)>,
+    mut ui_events: MessageReader<UIEvents>,
+    mut options: Query<(&mut TextColor, &SelectOptions)>,
     ui: Query<&UIState>,
-    mut game_event: EventWriter<GameFlowEvent>,
+    mut game_event: MessageWriter<GameFlowEvent>,
 ) {
-    for ev in ui_events.iter() {
+    for ev in ui_events.read() {
         match ev {
             UIEvents::SelectionChange => {
-                let ui_state = ui.get_single().unwrap();
+                let Ok(ui_state) = ui.single() else { continue; };
 
-                for (mut text, option) in &mut options {
+                for (mut color, option) in &mut options {
                     if option.value == ui_state.selected {
-                        for mut section in &mut text.sections {
-                            section.style.color = Color::RED
-                        }
+                        color.0 = RED.into();
                     } else {
-                        for mut section in &mut text.sections {
-                            section.style.color = Color::ANTIQUE_WHITE
-                        }
+                        color.0 = ANTIQUE_WHITE.into();
                     }
                 }
             }
@@ -222,7 +214,9 @@ fn ui_update(
                 //info!("Player chose {:?}", o);
 
                 match o {
-                    OptionValues::NewGame => game_event.send(GameFlowEvent::StartMatch),
+                    OptionValues::NewGame => { game_event.write(GameFlowEvent::StartMatch); }
+
+                    OptionValues::Editor => { game_event.write(GameFlowEvent::OpenEditor); }
 
                     OptionValues::Settings => {}
                 }
@@ -235,6 +229,81 @@ fn ui_despawn(mut commands: Commands, uis: Query<Entity, With<UITag>>) {
     //info!("Despawning game Screen");
     for ui in &uis {
         //info!("Despawn game ui {:?}", ui);
-        commands.entity(ui).despawn_recursive();
+        commands.entity(ui).despawn();
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use bevy::app::{App, Update};
+    use bevy::ecs::message::Messages;
+    use bevy::MinimalPlugins;
+
+    /// `ui_handle_action` walks the menu by casting the selection to `u8` and
+    /// stepping the number, so the discriminants and `TryFrom` have to agree.
+    /// Adding an entry to one and not the other makes an item unreachable
+    /// without breaking the build.
+    #[test]
+    fn every_menu_entry_is_reachable_by_walking_the_menu() {
+        let entries = [OptionValues::NewGame, OptionValues::Editor, OptionValues::Settings];
+
+        for entry in entries {
+            assert_eq!(OptionValues::try_from(entry as u8), Ok(entry));
+        }
+
+        assert_eq!(OptionValues::try_from(entries.len() as u8), Err(()));
+    }
+
+    /// The menu with nothing spawned in it - `ui_update`'s activation branch
+    /// only needs the two message queues.
+    fn menu_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<UIEvents>();
+        app.add_message::<GameFlowEvent>();
+        app.add_systems(Update, ui_update);
+        app
+    }
+
+    fn activate(app: &mut App, option: OptionValues) -> Vec<GameFlowEvent> {
+        app.world_mut()
+            .resource_mut::<Messages<UIEvents>>()
+            .write(UIEvents::SelectionActivated(option as u8));
+
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<Messages<GameFlowEvent>>()
+            .drain()
+            .collect()
+    }
+
+    #[test]
+    fn picking_the_editor_entry_asks_for_the_editor() {
+        let mut app = menu_app();
+
+        let events = activate(&mut app, OptionValues::Editor);
+
+        assert!(
+            matches!(events.as_slice(), [GameFlowEvent::OpenEditor]),
+            "expected the editor to be opened, got {events:?}"
+        );
+    }
+
+    /// ... and the entry above it still starts a game, so the new item did not
+    /// just shift the menu one down.
+    #[test]
+    fn picking_new_game_still_starts_a_match() {
+        let mut app = menu_app();
+
+        let events = activate(&mut app, OptionValues::NewGame);
+
+        assert!(
+            matches!(events.as_slice(), [GameFlowEvent::StartMatch]),
+            "expected a match to start, got {events:?}"
+        );
     }
 }
