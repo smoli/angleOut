@@ -493,3 +493,34 @@
 [i0001] → Bash(sed -n 1,200p src/ship/mod.rs)
 [i0001] → Bash(ls -la src/diagnostics/ 2>/dev/null; echo "---"; git status --short | head -40; echo "---"; git log --oneline -5)
 [i0001] → Bash(cat src/diagnostics/mod.rs; echo "=== main.rs ==="; sed -n 1,60p src/main.rs; echo "..."; sed -n 190,260p src/main.rs)
+[i0001] → Bash(cat Cargo.toml; echo "=== ls src ==="; ls src; echo "=== tests? ==="; ls tests 2>/dev/null; grep -rn "#\[test\]\|#\[cfg(…)
+[i0001] → Bash(ls ~/.cargo/registry/src/*/ 2>/dev/null | grep -i "leafwing\|gilrs" | head)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/leafwing-input-manager-0.21.0 && grep -rn "LEFT\|RIGHT" src/user_input/gamepad.rs | head -40)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && ls src && ls -la src/*.txt src/**/*.txt 2>/dev/null; find . -iname "*controll…)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && grep -in "8bitdo pro 2\|Pro 2" SDL_GameControllerDB/gamecontrollerdb.txt | he…)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/bevy_gilrs-0.19.1 && ls src && grep -rn "LeftStickY\|RightStickY\|convert_axis\|AxisType\|Axi…)
+[i0001] → Bash(grep -n "env::" src/main.rs; echo "=== labels ==="; cat src/labels/mod.rs)
+[i0001] → Bash(sed -n 1,80p src/config/mod.rs)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-core-0.6.8 && ls src/platform && sed -n 1,60p src/platform/mod.rs)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-core-0.6.8 && ls src/platform/macos && grep -rn "IS_Y_AXIS_REVERSED\|NAME\|uuid\|Uuid" …)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-core-0.6.8 && sed -n 270,340p src/platform/macos/gamepad.rs; echo "=== mod.rs SDL name …)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && grep -rn "IS_Y_AXIS_REVERSED" src/)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && sed -n 1130,1200p src/gamepad.rs)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && grep -rn "'~'\|\"~\"\|invert\|Invert" src/mapping/*.rs | head -20; echo "=== …)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && sed -n 300,340p src/gamepad.rs)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && grep -rn "inverted" src/mapping/mod.rs | head -20)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && grep -rn "inverted" src/ | grep -v "^src/mapping/parser.rs" | head -20; echo …)
+[i0001] I've done the analysis I can do without the hardware. Let me record findings on the card before asking.
+[i0001] → Bash(cat .gello/cards/i0001-controls-not-working-on-8bitdo-pro-2.md)
+[i0001] → Bash(python3 - <<'PY' import io p = ".gello/cards/i0001-controls-not-working-on-8bitdo-pro-2.md" s = open(p, encoding="utf-8"…)
+[i0001] → Bash(git add .gello/cards/i0001-controls-not-working-on-8bitdo-pro-2.md && git commit -q -F - <<'EOF' i0001: record input-cha…)
+[i0001] → mcp__gello__add_question(I traced the whole input path (details in **Notes** above) and the fix depends on facts only the attached hardware can g…)
+[i0001] I've picked up i0001, done the analysis, and parked a question on the card. Stopping here as the workflow requires.
+[i0001] **What I found** (recorded in the card's Notes, committed as `28c210e`):
+[i0001] The paddle binds both sticks in `src/ship/mod.rs:101`, and `ship_articulate` (`src/ship/mod.rs:140`) uses the stick `y` twice — for paddle tilt and for forward/back position — so a Y sign flip would both mirror the tilt and drive the paddle the wrong way. That matches the reported hunch.
+[i0001] The device-dependence is entirely inside gilrs; `bevy_gilrs`' converter is a 1:1 passthrough. On macOS `gilrs-core` sets `IS_Y_AXIS_REVERSED = true`, but `gilrs` only applies that flip to axes it has already *resolved* as `LeftStickY`/`RightStickY`/`DPadY` via the bundled `SDL_GameControllerDB`. An unresolved axis falls through as `Axis::Unknown` and is **not** flipped — so a pad the DB doesn't match arrives Y-inverted relative to one it does. That's a concrete mechanism for exactly this symptom.
+[i0001] Matching is by SDL GUID (vendor/product/version). The DB has `Mac OS X` entries for the Pro 2 only under vendor `c82d` / product `0660`, and the Pro 2 enumerates with a *different* vendor/product per position of the mode switch on its back (S mode → Switch Pro Controller, X mode → Xbox pad, …).
+[i0001] I also confirmed an upstream limitation worth knowing: gilrs parses the SDL `~` invert suffix (`mapping/parser.rs:201`) but never applies it — `Token::AxisMapping.inverted` is dead code. It doesn't affect the macOS 8BitDo entries (no `~`), but it would break any mapping that needs one.
+[i0001] **Why I stopped:** the four candidate root causes (unmatched pad / mis-mapped pad / Y-only inversion / deadzone drift) need different fixes and are indistinguishable without the controller attached. The card asks which mode switch position the pad is in and what precisely misbehaves — and offers to build an opt-in input-debug overlay first if reading raw axis values is easier than describing the symptom.
+[i0001] Nothing is pushed. The commit contains only the card file; the rest of the pre-existing dirty tree is untouched.
+[i0001] ✓ 60 in / 14335 out tokens, $3.2042, 30 turns, 271.6s
