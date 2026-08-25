@@ -1,12 +1,14 @@
 ---
 id: c0005
 title: Editor state, menu entry and cursor
-status: in-progress
+status: review
 epic: e01
 depends: [c0004]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T00:19:15
+status-changed: 2026-08-26T00:36:03
+usage-tokens: 59222
+usage-cost: 7.817072
 ---
 
 ## What
@@ -65,3 +67,4 @@ and `GameState::Editor`.
 - 2026-08-25 status → ready (app)
 - 2026-08-26 status → in-progress (agent)
 - 2026-08-26 editor state, menu entry, cursor, camera and level resource; 69 tests green
+- 2026-08-26 status → review (agent)
