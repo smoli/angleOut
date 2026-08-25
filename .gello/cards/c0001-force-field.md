@@ -1,10 +1,11 @@
 ---
 id: c0001
 title: Force field
-status: discuss
+status: ready
 created: 2026-08-25
 updated: 2026-08-25
-status-changed: 2026-08-25T22:15:18
+status-changed: 2026-08-25T22:21:53
+order: 0
 ---
 
 ## What
@@ -103,3 +104,4 @@ fixing the impact-position mapping, not just the visuals.
 ## Log
 
 - 2026-08-25 status → discuss (app)
+- 2026-08-25 status → ready (app)
