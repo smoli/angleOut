@@ -7,6 +7,8 @@ depends: []
 created: 2026-08-25
 updated: 2026-08-25
 status-changed: 2026-08-25T23:39:32
+usage-tokens: 36650
+usage-cost: 3.600852
 ---
 
 ## What

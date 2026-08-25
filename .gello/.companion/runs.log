@@ -984,3 +984,25 @@
 [c0003] → Bash(git add assets/levels src/level/campaign.rs Cargo.toml src/main.rs src/level/mod.rs src/level/layout/mod.rs src/block/mo…)
 [c0003] → Bash(git diff --cached --stat)
 [c0003] → Bash(git commit -F - <<'EOF' c0003: levels become files, not Rust literals Eight levels lived as `LevelDefinition` literals i…)
+[c0003] c0003 is in **review** and committed as `2bd8b33`.
+[c0003] **What landed**
+[c0003] - `assets/levels/` — 12 files: `campaign.ron` (play order) + `level0…level6.ron`, plus scratch `conveyor.ron`, `simple1.ron`, `demo_moving.ron`, `demo_minimal_win_state_error.ron`.
+[c0003] - `src/level/campaign.rs` — `levels_dir()`, `load_campaign`, `load_level`, `load_levels`, `parse_level`, `level_to_ron`, and the tests.
+[c0003] - serde derives across `LevelDefinition` (with `#[serde(default)]`), `TargetLayout`, `WinCriteria`, `LevelObstacle`, `PickupType`, `BlockType`, `BlockBehaviour`; `distributed_global_pickups` is `#[serde(skip)]`.
+[c0003] - `main.rs` lost every level literal and constant; the token-grid documentation moved onto `layout::make_block`.
+[c0003] **Decisions worth knowing**
+[c0003] - Level dir resolves through `FileAssetReader::get_base_path()`, the same root the asset server uses, so c0004 can't drift onto different files.
+[c0003] - Block maps are RON raw strings; `level_to_ron` uses `escape_strings(false)` so a written level keeps its ASCII map instead of one `\n`-riddled line — that's what c0012 will save through.
+[c0003] - A missing or malformed level file panics at startup naming the path, rather than playing a short campaign.
+[c0003] **Verification** — `cargo test`: 40 passed, 0 failed; build clean (only pre-existing warnings). The migration criterion is checked by keeping the old literals in the test module and asserting the loaded campaign equals them field for field. On "playing every level behaves exactly as before": I verified it structurally (definitions equal to the old ones, everything downstream reads only from `Levels`) plus a 20-second boot of the real binary that loaded the campaign without panicking — I did not play through all seven levels.
+[c0003] One thing to flag: `src/main.rs`, `src/block/mod.rs`, `src/pickups/mod.rs` and `Cargo.toml` also carried the uncommitted Bevy 0.9 → 0.19 migration edits already in your working tree, so those went in with this commit — same as c0002 did for `src/level/layout/mod.rs`. It's called out in the commit body. Nothing was pushed.
+[c0003] ✓ 86 in / 36564 out tokens, $3.6009, 47 turns, 554.4s
+[c0003] I'll start by reading the card.
+[c0003] → Bash(cat .gello/epics/e01-level-editor/c0003-ron-level-format.md)
+[c0003] → Bash(git log --oneline -15 && echo "---" && git log --all --oneline --grep="c0003")
+[c0003] → Bash(git show --stat 2bd8b33)
+[c0003] → Bash(git status --short src/ assets/ Cargo.toml && echo "--- diff vs HEAD in src:" && git diff --stat HEAD -- src/ Cargo.toml…)
+[c0003] → Bash(sed -n 1,200p src/level/campaign.rs)
+[c0003] → Bash(cat assets/levels/campaign.ron && echo "=== level0" && cat assets/levels/level0.ron && echo "=== conveyor" && cat assets…)
+[c0003] → Bash(cargo test --offline 2>&1 | tail -60)
+[c0003] → Bash(sed -n 200,443p src/level/campaign.rs)
