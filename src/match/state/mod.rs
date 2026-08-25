@@ -1,6 +1,10 @@
 use std::time::Duration;
+use bevy::log::warn;
+use bevy::platform::collections::HashMap;
 use bevy::prelude::Resource;
+use rand::{rng, RngExt};
 use crate::block::{BlockBehaviour, BlockType};
+use crate::pickups::PickupType;
 
 
 pub enum BlockHitType {
@@ -46,7 +50,15 @@ pub struct MatchState {
     pub time_taken: Duration,
 
     pub blocks_hit: i32,
-    pub blocks_lost: i32
+    pub blocks_lost: i32,
+
+    /// Which remaining-block counts hand out one of the level's global pickups.
+    ///
+    /// Derived once per match from the level's authored `global_pickups` by
+    /// [`MatchState::distribute_global_pickups`]. It lives here rather than on
+    /// the level because the level is a shared asset - two matches of the same
+    /// level must not fight over where its pickups landed.
+    pub distributed_global_pickups: HashMap<usize, PickupType>,
 }
 
 
@@ -67,6 +79,7 @@ impl MatchState {
         self.balls = 0;
         self.blocks_hit = 0;
         self.blocks_lost = 0;
+        self.distributed_global_pickups.clear();
     }
 }
 
@@ -88,6 +101,7 @@ impl Default for MatchState {
             paddle_bounce_combo_possible: false,
             balls: 0,
             blocks_lost: 0,
+            distributed_global_pickups: Default::default(),
         }
     }
 }
@@ -197,6 +211,58 @@ impl MatchState {
 
     pub fn set_ball_count(&mut self, count: i32) {
         self.balls = count;
+    }
+
+    /// The pickup waiting at this many remaining blocks, if any.
+    pub fn pickup_at(&self, remaining_block_count: usize) -> Option<&PickupType> {
+        self.distributed_global_pickups.get(&remaining_block_count)
+    }
+
+    pub fn clear_pickups(&mut self) {
+        self.distributed_global_pickups.clear();
+    }
+
+    /// Scatters the level's global pickups across the blocks of this match.
+    ///
+    /// Each pickup gets a remaining-block count to appear at; the window narrows
+    /// as they are placed so two do not land on the same block.
+    pub fn distribute_global_pickups(&mut self, pickups: &[PickupType], block_count: usize) {
+        let mut rng = rng();
+        self.distributed_global_pickups.clear();
+
+        if block_count == 0 {
+            return;
+        }
+
+        let mut placed: Vec<usize> = vec![];
+        let mut start = 0;
+        let mut end = block_count;
+        for pickup in pickups {
+            let mut repeats = 10;
+
+            while repeats > 0 {
+                repeats -= 1;
+                let pos: usize = rng.random_range(start..end);
+
+                if placed.contains(&pos) {
+                    warn!("Moving start and end around should avoid this!");
+                } else {
+                    if pos == block_count - 1 {
+                        end = pos + 1;
+                    } else {
+                        start = pos;
+                    }
+                    placed.push(pos);
+                    self.distributed_global_pickups.insert(pos, pickup.clone());
+
+                    break;
+                }
+            }
+
+            if repeats == 0 {
+                warn!("Could not distribute all pickups")
+            }
+        }
     }
 }
 

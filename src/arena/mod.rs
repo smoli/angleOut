@@ -2,6 +2,7 @@ use bevy::app::{App, Plugin, PostUpdate, Update};
 use bevy::image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor};
 use bevy::math::{Quat, Vec2, Vec3};
 use bevy::pbr::{MeshMaterial3d, StandardMaterial};
+use bevy::log::warn_once;
 use bevy::prelude::{in_state, AlphaMode, Assets, AssetServer, ChildOf, Commands, Component, Handle, Image, Entity, GlobalTransform, IntoScheduleConfigs, MaterialPlugin, Mesh, Mesh3d, Name, OnEnter, OnExit, Query, Rectangle, Res, ResMut, Time, Transform, With, Without};
 use bevy::world_serialization::WorldAssetRoot;
 use bevy_rapier3d::dynamics::CoefficientCombineRule;
@@ -9,6 +10,7 @@ use bevy_rapier3d::prelude::{ActiveEvents, Collider, CollisionGroups, Friction, 
 
 use crate::config::{ARENA_HEIGHT_H, ARENA_WIDTH, ARENA_WIDTH_H, BACKGROUND_LENGTH, COLLIDER_GROUP_BALL, COLLIDER_GROUP_BLOCK, COLLIDER_GROUP_DEATH, MAX_RESTITUTION};
 use crate::labels::SystemLabels;
+use crate::level::asset::LevelAsset;
 use crate::level::{LevelObstacle, Levels};
 use crate::materials::arena::ArenaMaterial;
 use crate::materials::CustomMaterialApplied;
@@ -77,10 +79,14 @@ fn arena_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     levels: Res<Levels>,
+    level_assets: Res<Assets<LevelAsset>>,
     mut force_field_mat: ResMut<Assets<ForceFieldMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    let level = levels.get_current_level().unwrap();
+    let Some(level) = levels.get_current_level(&level_assets) else {
+        warn_once!("Entered a match before level {} finished loading - no arena spawned", levels.current_level);
+        return;
+    };
 
     commands
         .spawn(WorldAssetRoot(asset_server.load(level.background_asset.clone())))

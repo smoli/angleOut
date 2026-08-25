@@ -22,7 +22,7 @@ use crate::config::{SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::events::EventsPlugin;
 use crate::game::GamePlugin;
 use crate::input::InputDiagnosticsPlugin;
-use crate::level::{campaign, LevelPlugin};
+use crate::level::LevelPlugin;
 use crate::particles::ParticlePlugin;
 use crate::physics::PhysicsPlugin;
 use crate::pickups::PickupsPlugin;
@@ -99,11 +99,6 @@ fn main() {
 
     app.add_systems(Update, close_on_esc);
 
-
-    app.insert_resource(
-        campaign::load_levels(&campaign::levels_dir())
-            .unwrap_or_else(|e| panic!("could not load the campaign: {e}")),
-    );
 
     app.run();
 }

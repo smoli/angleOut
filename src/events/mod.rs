@@ -1,19 +1,19 @@
-use std::os::macos::raw::stat;
-use bevy::app::{App, Plugin};
-use bevy::log::info;
-use bevy::prelude::{Commands, Entity, EventReader, EventWriter, IntoSystemDescriptor, Query, ResMut, State, SystemSet, Vec3};
+use bevy::app::{App, Plugin, Update};
+use bevy::log::error;
+use bevy::prelude::{in_state, Assets, AssetServer, Commands, Entity, IntoScheduleConfigs, Local, Message, MessageReader, MessageWriter, NextState, Query, Res, ResMut, Vec3};
 use crate::ball::Ball;
 use crate::block::{BlockBehaviour, BlockType};
 use crate::labels::SystemLabels;
-use crate::level::{LevelDefinition, Levels, RequestTag, WinCriteria};
+use crate::level::asset::LevelAsset;
+use crate::level::{LevelReadiness, Levels, RequestTag, WinCriteria};
 use crate::pickups::{Pickup, PickupType};
 use crate::player::{Player, PlayerState};
 use crate::points::{PointsDisplay, PointsDisplayRequest};
-use crate::powerups::{Bouncer, Grabber, PowerUpData, PowerUpType};
+use crate::powerups::{Bouncer, PowerUpData};
 use crate::r#match::state::MatchState;
 use crate::state::GameState;
 
-#[derive(Debug)]
+#[derive(Message, Debug)]
 pub enum GameFlowEvent {
     StartGame,
     StartMatch,
@@ -26,6 +26,7 @@ pub enum GameFlowEvent {
     EndGame,
 }
 
+#[derive(Message)]
 pub enum MatchEvent {
     Start,
     BallSpawned,
@@ -45,14 +46,15 @@ pub struct EventsPlugin;
 impl Plugin for EventsPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_event::<MatchEvent>()
-            .add_event::<GameFlowEvent>()
-            .add_system(game_flow_handler)
-            .add_system_set(
-                SystemSet::on_update(GameState::InMatch)
-                    .with_system(match_event_handler
-                        .after(SystemLabels::UpdateWorld)
-                        .label(SystemLabels::UpdateState))
+            .add_message::<MatchEvent>()
+            .add_message::<GameFlowEvent>()
+            .add_systems(Update, game_flow_handler)
+            .add_systems(
+                Update,
+                match_event_handler
+                    .after(SystemLabels::UpdateWorld)
+                    .in_set(SystemLabels::UpdateState)
+                    .run_if(in_state(GameState::InMatch)),
             )
 
         ;
@@ -60,7 +62,7 @@ impl Plugin for EventsPlugin {
 }
 
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum LevelEndState {
     Won,
     Lost,
@@ -97,17 +99,18 @@ fn check_win_criteria(
 
 fn match_event_handler(
     mut commands: Commands,
-    mut events: EventReader<MatchEvent>,
+    mut events: MessageReader<MatchEvent>,
     mut match_state: ResMut<MatchState>,
     mut players: Query<(Entity, &mut Player, &mut Bouncer)>,
-    mut levels: ResMut<Levels>,
-    mut game_flow: EventWriter<GameFlowEvent>,
+    levels: Res<Levels>,
+    level_assets: Res<Assets<LevelAsset>>,
+    mut game_flow: MessageWriter<GameFlowEvent>,
 ) {
-    let (player_entity, mut player, mut bouncer) = players.get_single_mut().unwrap();
+    let Ok((player_entity, mut player, mut bouncer)) = players.single_mut() else { return; };
 
-    let mut level = levels.get_current_level().unwrap();
+    let Some(level) = levels.get_current_level(&level_assets) else { return; };
 
-    for ev in events.iter() {
+    for ev in events.read() {
         match ev {
             MatchEvent::Start => {
                 match_state.reset();
@@ -137,7 +140,7 @@ fn match_event_handler(
             MatchEvent::BounceOffPaddle => {
                 match_state.add_paddle_bounce();
                 if !bouncer.available() {
-                    game_flow.send(GameFlowEvent::PlayerLooses)
+                    game_flow.write(GameFlowEvent::PlayerLooses);
                 } else {
                     bouncer.use_one();
                 }
@@ -176,64 +179,99 @@ fn match_event_handler(
         }
 
         match check_win_criteria(&level.win_criteria, &player, &match_state) {
-            LevelEndState::Won => game_flow.send(GameFlowEvent::PlayerWins),
-            LevelEndState::Lost => game_flow.send(GameFlowEvent::PlayerLooses),
+            LevelEndState::Won => { game_flow.write(GameFlowEvent::PlayerWins); }
+            LevelEndState::Lost => { game_flow.write(GameFlowEvent::PlayerLooses); }
             LevelEndState::Undecided => {}
         }
     }
 }
 
+/// Drives the state machine off [`GameFlowEvent`]s.
+///
+/// `StartMatch` is the one transition that has to wait for something: the levels
+/// come off the asset server now, so on the very first match the file may still
+/// be in flight. Holding the transition for a frame or two is what keeps a match
+/// from starting in front of a level that has not arrived - see
+/// [`Levels::readiness`].
 fn game_flow_handler(
     mut players: Query<&mut Player>,
-    mut events: EventReader<GameFlowEvent>,
-    mut match_state: ResMut<MatchState>,
-    mut game_state: ResMut<State<GameState>>,
+    mut events: MessageReader<GameFlowEvent>,
+    match_state: ResMut<MatchState>,
+    levels: Res<Levels>,
+    level_assets: Res<Assets<LevelAsset>>,
+    asset_server: Res<AssetServer>,
+    mut match_pending: Local<bool>,
+    mut game_state: ResMut<NextState<GameState>>,
 ) {
-    for ev in events.iter() {
+    for ev in events.read() {
         match ev {
             GameFlowEvent::StartGame => {
-                let _ = game_state.set(GameState::InGame);
+                game_state.set(GameState::InGame);
             }
 
             GameFlowEvent::StartMatch => {
-                let _ = game_state.set(GameState::InMatch);
+                *match_pending = true;
             }
 
             GameFlowEvent::PlayerWins => {
-                if let Ok(mut player) = players.get_single_mut() {
+                if let Ok(mut player) = players.single_mut() {
                     //info!("Player wins!");
                     player.state = PlayerState::HasWon;
                     player.player_has_won(match_state.points);
                     //info!("Player now has {} points", player.points);
-                    let _ = game_state.set(GameState::PostMatch);
+                    game_state.set(GameState::PostMatch);
                 };
             }
 
             GameFlowEvent::NextLevel => {
-                let _ = game_state.set(GameState::NextLevel);
+                game_state.set(GameState::NextLevel);
             }
 
             GameFlowEvent::PlayerLooses => {
-                if let Ok(mut player) = players.get_single_mut() {
+                if let Ok(mut player) = players.single_mut() {
                     //info!("Player looses!");
                     player.state = PlayerState::HasLost;
-                    let _ = game_state.set(GameState::PostMatch);
+                    game_state.set(GameState::PostMatch);
                 };
             }
 
             GameFlowEvent::EndGame => {}
         }
     };
+
+    if *match_pending {
+        match levels.readiness(&level_assets, &asset_server) {
+            LevelReadiness::Loading => {}
+
+            LevelReadiness::Ready => {
+                *match_pending = false;
+                game_state.set(GameState::InMatch);
+            }
+
+            // A level file that is missing or will not parse used to be a
+            // startup panic. Now that it can also be a typo made in a text
+            // editor while the game runs, fall back to the menu instead: the
+            // asset server keeps watching the file, so fixing it and pressing
+            // start again works, where an empty match would just be stuck.
+            LevelReadiness::Unavailable => {
+                error!(
+                    "Level {} could not be loaded - back to the menu",
+                    levels.current_level
+                );
+                *match_pending = false;
+                game_state.set(GameState::InGame);
+            }
+        }
+    }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use super::check_win_criteria;
+    use super::{check_win_criteria, LevelEndState};
 
-    use bevy::utils::default;
     use crate::level::WinCriteria;
-    use crate::player::{Player, PlayerState};
+    use crate::player::Player;
     use crate::r#match::state::MatchState;
 
     #[test]
@@ -242,17 +280,18 @@ mod tests {
             blocks: 1,
             blocks_hit: 1,
             blocks_lost: 1,
-            ..default()
+            ..Default::default()
         };
 
         let player = Player {
             balls_available: 1,
             balls_lost: 1,
-            ..default()
+            ..Default::default()
         };
 
         let crit = WinCriteria::BlockHitPercentage(1.0);
 
-        assert_eq!(check_win_criteria(&crit, &player, &stats), false);
+        // A block still stands and the player still has a ball, so the level is not over.
+        assert_eq!(check_win_criteria(&crit, &player, &stats), LevelEndState::Undecided);
     }
 }

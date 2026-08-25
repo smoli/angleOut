@@ -6,7 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.19.1"
+# `file_watcher` is what makes hand edits to `assets/levels/*.ron` reach a
+# running game: it turns on the asset server's "watch for changes".
+bevy = { version = "0.19.1", features = ["file_watcher"] }
 bevy_framepace = "0.22.0"
 bevy_hanabi = "0.19.0"
 bevy_sprite3d = "9.0.0"

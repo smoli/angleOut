@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::{COLLIDER_GROUP_DEATH, COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_PICKUP, PICKUP_GENERIC_SCENE, PICKUP_SPEED};
 use crate::events::MatchEvent;
 use crate::labels::SystemLabels;
-use crate::level::{Levels, RequestTag};
+use crate::level::RequestTag;
 use crate::MyAssetPack;
 use crate::physics::{Collidable, CollidableKind, CollisionEventHandling, CollisionInfo, CollisionTag};
 use crate::r#match::state::MatchState;
@@ -58,16 +58,11 @@ fn pickup_spawn_globals_on_event(
     mut commands: Commands,
     mut events: MessageReader<MatchEvent>,
     match_state: ResMut<MatchState>,
-    levels: ResMut<Levels>,
 ) {
-    //  let (player_entity, mut player, mut bouncer) = players.get_single_mut().unwrap();
-
-    let level = levels.get_current_level().unwrap();
-
     for ev in events.read() {
         match ev {
             MatchEvent::BlockHit(p, _block_type, _behaviour) => {
-                if let Some(pickup_type) = level.pickup_at(match_state.blocks as usize) {
+                if let Some(pickup_type) = match_state.pickup_at(match_state.blocks as usize) {
                     commands.spawn(Pickup {
                         spawn_position: p.clone(),
                         pickup_type: pickup_type.clone(),

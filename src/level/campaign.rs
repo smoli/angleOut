@@ -5,21 +5,28 @@
 //! the game, in play order. Any other level file in the directory is scratch -
 //! it stays loadable and testable without being part of the campaign.
 //!
-//! Files are read once at startup with `std::fs`. Going through the asset server
-//! (and with it hot reload) is card `c0004`.
+//! The campaign index is read once at startup with `std::fs` - the play order is
+//! not something a running game re-reads. The levels themselves go through the
+//! asset server, so a hand edit to a level file hot-reloads into a running game
+//! (see [`crate::level::asset`]).
 
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use bevy::asset::io::file::FileAssetReader;
+use bevy::asset::AssetServer;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
+use crate::level::asset::LevelAsset;
 use crate::level::{LevelDefinition, Levels};
 
 /// Where the level files live, relative to the asset root.
 pub const LEVELS_DIR: &str = "assets/levels";
+
+/// The same directory as an asset path, which is rooted at `assets/` already.
+pub const LEVELS_ASSET_DIR: &str = "levels";
 
 /// The campaign index, inside [`LEVELS_DIR`].
 pub const CAMPAIGN_FILE: &str = "campaign.ron";
@@ -34,10 +41,15 @@ pub struct Campaign {
 /// The level directory of the running game.
 ///
 /// Resolved through Bevy's own asset root so `std::fs` here and the asset server
-/// in `c0004` always look at the same files - including when `BEVY_ASSET_ROOT`
-/// or `CARGO_MANIFEST_DIR` moves the root.
+/// always look at the same files - including when `BEVY_ASSET_ROOT` or
+/// `CARGO_MANIFEST_DIR` moves the root.
 pub fn levels_dir() -> PathBuf {
     FileAssetReader::get_base_path().join(LEVELS_DIR)
+}
+
+/// The asset path of a level file named by the campaign index.
+pub fn level_asset_path(name: &str) -> String {
+    format!("{LEVELS_ASSET_DIR}/{name}")
 }
 
 #[derive(Debug)]
@@ -88,17 +100,21 @@ pub fn load_campaign(dir: &Path) -> Result<Campaign, LevelLoadError> {
     ron::from_str(&source).map_err(|e| LevelLoadError::Parse(path, e))
 }
 
-/// The campaign as the game plays it: every level the index names, in order.
-pub fn load_levels(dir: &Path) -> Result<Levels, LevelLoadError> {
+/// The campaign as the game plays it: a handle per level the index names, in
+/// order.
+///
+/// The index has to exist and parse - a campaign we cannot even name is a
+/// startup error. The level files behind it are then loaded asynchronously, so a
+/// broken one surfaces later, as an asset load failure.
+pub fn load_levels(dir: &Path, asset_server: &AssetServer) -> Result<Levels, LevelLoadError> {
     let campaign = load_campaign(dir)?;
 
-    let mut definitions = Vec::with_capacity(campaign.levels.len());
-    for name in &campaign.levels {
-        definitions.push(load_level(&dir.join(name))?);
-    }
-
     Ok(Levels {
-        definitions,
+        handles: campaign
+            .levels
+            .iter()
+            .map(|name| asset_server.load::<LevelAsset>(level_asset_path(name)))
+            .collect(),
         current_level: 0,
     })
 }
@@ -107,9 +123,14 @@ pub fn load_levels(dir: &Path) -> Result<Levels, LevelLoadError> {
 mod tests {
     use super::*;
 
+    use bevy::app::App;
+    use bevy::asset::{AssetApp, AssetPlugin, Assets};
     use bevy::prelude::{default, Vec3};
+    use bevy::MinimalPlugins;
 
     use crate::config::{ARENA_WIDTH_H, BLOCK_GAP};
+    use crate::level::asset::LevelAssetLoader;
+    use crate::r#match::state::MatchState;
     use crate::level::{LevelObstacle, TargetLayout, WinCriteria};
     use crate::pickups::PickupType;
 
@@ -347,12 +368,80 @@ mod tests {
         }
     }
 
+    /// The campaign as the files on disk spell it, read without an asset server.
+    fn campaign_definitions() -> Vec<LevelDefinition> {
+        load_campaign(&dir())
+            .unwrap()
+            .levels
+            .iter()
+            .map(|name| load_level(&dir().join(name)).unwrap())
+            .collect()
+    }
+
     #[test]
     fn the_campaign_is_the_levels_that_used_to_live_in_main() {
-        let levels = load_levels(&dir()).unwrap();
+        assert_eq!(campaign_definitions(), legacy_campaign());
+    }
+
+    #[test]
+    fn the_campaign_index_becomes_one_handle_per_level_in_order() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()));
+        app.init_asset::<LevelAsset>()
+            .register_asset_loader(LevelAssetLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let levels = load_levels(&dir(), &asset_server).unwrap();
 
         assert_eq!(levels.current_level, 0);
-        assert_eq!(levels.definitions, legacy_campaign());
+        assert_eq!(levels.handles.len(), load_campaign(&dir()).unwrap().levels.len());
+
+        for (handle, name) in levels.handles.iter().zip(load_campaign(&dir()).unwrap().levels) {
+            assert_eq!(
+                handle.path().map(|p| p.path().to_string_lossy().to_string()),
+                Some(level_asset_path(&name)),
+                "{name}"
+            );
+        }
+    }
+
+    /// The asset server, its loader and the files line up: what a match reads
+    /// out of `Assets<LevelAsset>` is the campaign, not something adjacent.
+    #[test]
+    fn the_asset_server_loads_the_campaign_the_files_spell() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()));
+        app.init_asset::<LevelAsset>()
+            .register_asset_loader(LevelAssetLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let levels = load_levels(&dir(), &asset_server).unwrap();
+
+        for _ in 0..2000 {
+            if levels
+                .handles
+                .iter()
+                .all(|h| asset_server.is_loaded_with_dependencies(h))
+            {
+                break;
+            }
+            app.update();
+        }
+
+        let assets = app.world().resource::<Assets<LevelAsset>>();
+        let loaded: Vec<LevelDefinition> = levels
+            .handles
+            .iter()
+            .map(|h| {
+                assets
+                    .get(h)
+                    .unwrap_or_else(|| panic!("{:?} never loaded", h.path()))
+                    .0
+                    .clone()
+            })
+            .collect();
+
+        assert_eq!(loaded, legacy_campaign());
     }
 
     #[test]
@@ -428,15 +517,20 @@ mod tests {
         );
     }
 
+    /// Where a level's pickups land is per-match state on `MatchState`, derived
+    /// from the authored `global_pickups` - so it is neither read from nor
+    /// written to a level file.
     #[test]
     fn distributed_pickups_are_derived_rather_than_read() {
-        let mut level = load_level(&dir().join("level0.ron")).unwrap();
-        assert!(level.distributed_global_pickups.is_empty());
+        let level = load_level(&dir().join("level0.ron")).unwrap();
+        assert_eq!(level.global_pickups, vec![PickupType::MoreBalls(1)]);
 
-        level.distribute_global_pickups(24);
-        assert_eq!(level.distributed_global_pickups.len(), 1);
+        let mut state = MatchState::default();
+        assert!(state.distributed_global_pickups.is_empty());
 
-        // ... and never written back out.
+        state.distribute_global_pickups(&level.global_pickups, 24);
+        assert_eq!(state.distributed_global_pickups.len(), 1);
+
         let written = level_to_ron(&level).unwrap();
         assert!(!written.contains("distributed_global_pickups"), "{written}");
     }
