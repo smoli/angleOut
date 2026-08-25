@@ -1,0 +1,9 @@
+{
+  "requests": [
+    {
+      "id": "f59654fc-4dce-43c8-9fa2-a95d6b99c058",
+      "kind": "stop",
+      "cardId": "c0001"
+    }
+  ]
+}

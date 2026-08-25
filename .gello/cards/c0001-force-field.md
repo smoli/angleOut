@@ -1,11 +1,10 @@
 ---
 id: c0001
 title: Force field
-status: ready
+status: in-progress
 created: 2026-08-25
 updated: 2026-08-25
-status-changed: 2026-08-25T22:21:53
-order: 0
+status-changed: 2026-08-25T22:24:15
 ---
 
 ## What
@@ -105,3 +104,4 @@ fixing the impact-position mapping, not just the visuals.
 
 - 2026-08-25 status → discuss (app)
 - 2026-08-25 status → ready (app)
+- 2026-08-25 status → in-progress (agent)
