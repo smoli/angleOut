@@ -11,6 +11,13 @@
 const HIT_SLOTS: u32 = 8u;
 const TIME_WRAP: f32 = 3600.0;
 
+// Shape of the wavefront, in units of `ripple_width`. The leading edge is sharp
+// and the wake washes out slowly behind it, so the ripple reads as travelling
+// rather than pulsing; the crest is the narrow core that runs white-hot.
+const LEADING_SHARPNESS: f32 = 4.0;
+const TRAILING_SHARPNESS: f32 = 0.35;
+const CREST_SHARPNESS: f32 = 9.0;
+
 struct ForceFieldMaterial {
     sheet_color: vec4<f32>,
     flare_color: vec4<f32>,
@@ -67,10 +74,15 @@ fn hit_age(start: f32) -> f32 {
 }
 
 /// Summed strength of every live ripple at panel position `p` (world units).
-/// Each slot contributes a gaussian ring expanding at `ripple_speed`, so two
-/// impacts inside one lifetime read as two overlapping wavefronts.
-fn ripple_strength(p: vec2<f32>) -> f32 {
+/// Each slot contributes a ring expanding at `ripple_speed`, so two impacts
+/// inside one lifetime read as two overlapping wavefronts.
+///
+/// `x` is the ripple's total energy, which decides where the lattice shows and
+/// how solid the panel goes; `y` is the narrow crest at the wavefront, which
+/// decides how white-hot it runs there.
+fn ripple_strength(p: vec2<f32>) -> vec2<f32> {
     var wave = 0.0;
+    var crest = 0.0;
 
     for (var i = 0u; i < HIT_SLOTS; i++) {
         let hit = material.hits[i];
@@ -89,11 +101,20 @@ fn ripple_strength(p: vec2<f32>) -> f32 {
         let front = (d - age * material.ripple_speed) / material.ripple_width;
         // Ripples simply die at the panel edges rather than reflecting off them.
         let decay = 1.0 - age / material.ripple_decay;
+        let energy = decay * decay;
 
-        wave += exp(-front * front) * decay * decay;
+        // Behind the front (front < 0) the wake trails away slowly; ahead of it
+        // the sheet is still untouched, so that flank cuts off fast.
+        var sharpness = LEADING_SHARPNESS;
+        if front < 0.0 {
+            sharpness = TRAILING_SHARPNESS;
+        }
+
+        wave += exp(-front * front * sharpness) * energy;
+        crest += exp(-front * front * CREST_SHARPNESS) * energy;
     }
 
-    return wave;
+    return vec2<f32>(wave, crest);
 }
 
 @fragment
@@ -122,12 +143,17 @@ fn fragment(
     );
 
     // The lattice only exists where a ripple is currently passing over it.
-    let wave = ripple_strength(p);
+    let ripple = ripple_strength(p);
+    let wave = ripple.x;
+    let heat = saturate(ripple.y);
     let hex = textureSample(color_texture, color_sampler, p / material.hex_tile_size).x;
     let flare = hex * wave * material.flare_intensity;
 
+    // White-hot at the crest, grading back into the sheet's blue through the wake.
+    let flare_rgb = mix(material.sheet_color.xyz, material.flare_color.xyz, heat);
+
     var emissive = material.sheet_color.xyz * (sheet + rim * 1.5);
-    emissive += material.flare_color.xyz * (flare + saturate(wave) * 0.35);
+    emissive += flare_rgb * flare + material.flare_color.xyz * heat * 0.35;
 
     let alpha = clamp(
         (sheet + saturate(wave) * 0.7 + saturate(flare) * 0.5) * fade + rim,

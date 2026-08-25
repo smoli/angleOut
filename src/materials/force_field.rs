@@ -53,7 +53,8 @@ pub fn panel_uv(panel: &GlobalTransform, size: Vec2, world: Vec3) -> Vec2 {
 pub struct ForceFieldMaterial {
     /// Colour of the idle energy sheet.
     pub sheet_color: Color,
-    /// Colour the hex lattice flares in where a ripple passes over it.
+    /// Colour of the wavefront itself. The lattice grades from this at the
+    /// crest back into `sheet_color` through the wake behind it.
     pub flare_color: Color,
     /// The panel's extents in world units; impacts are mapped through these.
     pub panel_size: Vec2,
@@ -84,7 +85,7 @@ impl Default for ForceFieldMaterial {
     fn default() -> Self {
         ForceFieldMaterial {
             sheet_color: Color::srgb(0.1, 0.35, 1.0),
-            flare_color: Color::srgb(0.65, 0.9, 1.0),
+            flare_color: Color::WHITE,
             panel_size: Vec2::new(200.0, 20.0),
             ripple_speed: 70.0,
             ripple_width: 6.0,
@@ -180,7 +181,7 @@ impl Material for ForceFieldMaterial {
 mod tests {
     use std::f32::consts::FRAC_PI_2;
 
-    use bevy::prelude::{Quat, Time, Transform};
+    use bevy::prelude::{LinearRgba, Quat, Time, Transform};
 
     use super::*;
 
@@ -322,6 +323,21 @@ mod tests {
 
         assert_close(uv.x, 1.0);
         assert_close(uv.y, 1.0);
+    }
+
+    /// The wavefront has to read white-hot against the blue sheet; a flare that
+    /// stays in the blue family is the look this card set out to replace.
+    #[test]
+    fn the_flare_is_white_hot_rather_than_another_blue() {
+        let mat = ForceFieldMaterial::default();
+        let flare: LinearRgba = mat.flare_color.into();
+        let sheet: LinearRgba = mat.sheet_color.into();
+
+        assert!(
+            flare.red > 0.9 && flare.green > 0.9 && flare.blue > 0.9,
+            "flare should be white-hot, got {flare:?}"
+        );
+        assert!(flare.red > sheet.red && flare.green > sheet.green);
     }
 
     #[test]

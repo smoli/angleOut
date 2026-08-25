@@ -1,7 +1,8 @@
 use bevy::app::{App, Plugin, PostUpdate, Update};
+use bevy::image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor};
 use bevy::math::{Quat, Vec2, Vec3};
 use bevy::pbr::{MeshMaterial3d, StandardMaterial};
-use bevy::prelude::{in_state, AlphaMode, Assets, AssetServer, ChildOf, Commands, Component, Entity, GlobalTransform, IntoScheduleConfigs, MaterialPlugin, Mesh, Mesh3d, Name, OnEnter, OnExit, Query, Rectangle, Res, ResMut, Time, Transform, With, Without};
+use bevy::prelude::{in_state, AlphaMode, Assets, AssetServer, ChildOf, Commands, Component, Handle, Image, Entity, GlobalTransform, IntoScheduleConfigs, MaterialPlugin, Mesh, Mesh3d, Name, OnEnter, OnExit, Query, Rectangle, Res, ResMut, Time, Transform, With, Without};
 use bevy::world_serialization::WorldAssetRoot;
 use bevy_rapier3d::dynamics::CoefficientCombineRule;
 use bevy_rapier3d::prelude::{ActiveEvents, Collider, CollisionGroups, Friction, Restitution, RigidBody, Sensor};
@@ -54,6 +55,22 @@ impl Plugin for ArenaPlugin {
             .add_systems(OnExit(GameState::PostMatch), arena_despawn)
         ;
     }
+}
+
+/// The hex lattice the shield flares up in. The shader tiles it across the panel
+/// in world units rather than sampling it in uv, so it has to repeat — the
+/// default `ClampToEdge` would smear one tile's edge texels down the whole panel.
+fn hex_lattice_texture(asset_server: &AssetServer) -> Handle<Image> {
+    asset_server
+        .load_builder()
+        .with_settings(|settings: &mut ImageLoaderSettings| {
+            settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+                address_mode_u: ImageAddressMode::Repeat,
+                address_mode_v: ImageAddressMode::Repeat,
+                ..ImageSamplerDescriptor::linear()
+            });
+        })
+        .load("hexagon2.png")
 }
 
 fn arena_spawn(
@@ -144,7 +161,7 @@ fn arena_spawn(
             Mesh3d(meshes.add(Mesh::from(Rectangle::from_size(top_barrier_size)))),
             MeshMaterial3d(force_field_mat.add(ForceFieldMaterial::for_panel(
                 top_barrier_size,
-                asset_server.load("hexagon2.png"),
+                hex_lattice_texture(&asset_server),
             ))),
             Transform::from_xyz(0.0, 0.0, -ARENA_HEIGHT_H - 13.0),
         ))
@@ -195,7 +212,7 @@ fn arena_spawn(
                         Mesh3d(meshes.add(Mesh::from(Rectangle::from_size(panel_size)))),
                         MeshMaterial3d(force_field_mat.add(ForceFieldMaterial::for_panel(
                             panel_size,
-                            asset_server.load("hexagon2.png"),
+                            hex_lattice_texture(&asset_server),
                         ))),
                         Transform::from_translation(origin.clone()).with_rotation(Quat::from_rotation_y(angle)),
                     ))
