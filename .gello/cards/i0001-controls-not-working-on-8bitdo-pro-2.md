@@ -6,7 +6,7 @@ type: issue
 created: 2026-08-25
 updated: 2026-08-25
 status-changed: 2026-08-25T22:16:55
-order: 10
+order: -10
 ---
 
 Testing it wuth the Dualsense the two analog sticks work perfectly for controlling the pad.
