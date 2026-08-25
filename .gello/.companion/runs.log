@@ -898,3 +898,49 @@
 [c0002] → Bash(git log --oneline -5 && echo "=== files ===" && git show --stat c424a67)
 [c0002] → Bash(git status --porcelain | head -60)
 [c0002] → Bash(git show c424a67 -- src/level/layout/mod.rs)
+[c0002] → Bash(sed -n '1,90p' src/level/layout/mod.rs && echo "=== grep default ===" && grep -n "default" src/level/layout/mod.rs)
+[c0002] → Bash(grep -rn "BLOCK_GAP\|BLOCK_WIDTH_H\s*:" src/config/mod.rs | head -20; echo "=== callers ==="; grep -rn "generate_block_g…)
+[c0002] → Bash(sed -n '150,220p' src/level/mod.rs)
+[c0002] → Bash(grep -rn "FilledGrid\|SparseGrid" src/level/mod.rs | head -20)
+[c0002] → Bash(sed -n '55,140p' src/level/mod.rs)
+[c0002] → Bash(grep -rn "SparseGrid(" src/ | grep -v "level/mod.rs" | head)
+[c0002] → Bash(grep -rn "LEVEL0\|LEVEL1\|LEVEL2\|DEMO_MOVING" src/ --include="*.rs" | grep -i "const\|static" | head)
+[c0002] → Bash(sed -n '100,180p' src/main.rs | cat -A | sed 's/\$$//' | head -90)
+[c0002] → Bash(sed -n '100,180p' src/main.rs | cat -et)
+[c0002] → Bash(grep -in "cargo\|test\|build" README.md | head -20)
+[c0002] → Bash(cargo test 2>&1 | tail -40)
+[c0002] → Bash(sed -n '55,75p' src/config/mod.rs; echo "=== build ==="; cargo build 2>&1 | grep -E "^(error|warning: unused|warning: `)…)
+[c0002] → Bash(sed -n '55,75p' src/config/mod.rs)
+[c0002] → Bash(cargo build 2>&1 | tail -5)
+[c0002] → Bash(mkdir -p /tmp/c0002check && cat > /tmp/c0002check/main.rs <<'EOF' const BLOCK_WIDTH: f32 = 15.0; const BLOCK_WIDTH_H: f3…)
+[c0002] → Bash(grep -n "^bevy\|bevy =" Cargo.toml | head; echo "=== warnings ==="; cargo build 2>&1 | grep -c "^warning"; echo "=== lay…)
+[c0002] → Bash(git show c424a67^:src/level/layout/mod.rs | sed -n '180,215p')
+[c0002] → Bash(sed -n '150,205p' src/level/layout/mod.rs; echo "=== steps outside cell_to_world/world_to_cell ==="; grep -n "x_step\|y_…)
+[c0002] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut timeout 25 ./target/debug/angle_out > /tmp/c0002check/run.log 2…)
+[c0002] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut perl -e 'alarm 25; exec @ARGV' ./target/debug/angle_out > /tmp/…)
+[c0002] → Bash(date +%Y-%m-%dT%H:%M:%S; grep -n "^## Log" .gello/epics/e01-level-editor/c0002-cell-world-conversion.md)
+[c0002] → Bash(python3 - <<'PY' import io p = ".gello/epics/e01-level-editor/c0002-cell-world-conversion.md" s = open(p, encoding="utf-…)
+[c0002] **c0002 — pass.** Verdict recorded in a new `## Review` section on the card; the card stays in `review` and I made no code changes and no commit.
+[c0002] What I verified:
+[c0002] - **Single source of truth** — outside `cell_to_world`/`world_to_cell`, no origin, step or centring offset survives in `src/level/layout/mod.rs:1-200`. The only remaining `x_step`/`cols_h`/`-30.0` are the deliberate pre-refactor copies inside `mod tests`.
+[c0002] - **Positions unchanged, checked independently** — I didn't take the card's own tests on trust. I re-ran the pre-refactor `interpret_grid` maths against the committed one over the real `LEVEL0`..`LEVEL6`, `DEMO_MOVING` and both demo layouts from `src/main.rs`: bit-identical everywhere. That includes `LEVEL0`'s `..   ..` multi-space runs, a shape the repo's own `sample_layouts()` doesn't contain — the "slots under two chars don't advance the column" quirk is preserved exactly.
+[c0002] - **Identity tests aren't vacuous** — substituting `y0 + row * y_step` for the stepping changes every level except the single-row one, so both identity tests really would fail on it. The commit's central claim holds.
+[c0002] - **Checks** — `cargo test`: 33 passed, 0 failed, 0 ignored. `cargo build`: clean, 25 warnings, one more than before (`world_to_cell is never used`, as predicted). No test weakened or skipped; the pre-existing `works` test is byte-for-byte unchanged. The repo defines no lint or typecheck step beyond `cargo build`.
+[c0002] - **Scope** — the commit touches only `src/level/layout/mod.rs` and the card. The one incidental line, `bevy::utils::default` → `bevy::prelude::default`, is what the file needs to compile against the in-flight bevy 0.19 tree.
+[c0002] Two things I recorded rather than glossed:
+[c0002] - `world_to_cell` is open upwards — it bounds columns by `cols` and rows below by row 0, but nothing above. That's forced by the signature the criteria name (no row count), and the card says so; `c0006` owns that bound.
+[c0002] - I could not drive the game into an actual match — it starts clean with no panic under `CARGO_MANIFEST_DIR`, but reaching a match needs controller input I can't send. "No visible change in game" rests on the bit-identity check, not on eyes.
+[c0002] ✓ 42 in / 14262 out tokens, $1.2599, 28 turns, 227.6s
+[c0003] I'll pick up the card first, then dig in.
+[c0003] → ToolSearch(select:mcp__gello__set_status,mcp__gello__add_question)
+[c0003] → mcp__gello__set_status(in-progress)
+[c0003] Picked up. Now reading the card and surrounding context.
+[c0003] → Bash(cat .gello/epics/e01-level-editor/c0003-ron-level-format.md)
+[c0003] → Bash(ls .gello/epics/e01-level-editor/ && cat .gello/epics/e01-level-editor/epic.md)
+[c0003] → Bash(wc -l src/main.rs src/level/mod.rs src/block/mod.rs && cat Cargo.toml)
+[c0003] → Bash(cat src/level/mod.rs)
+[c0003] → Bash(cat src/main.rs)
+[c0003] → Bash(sed -n 1,140p src/block/mod.rs; echo ---- ; cat src/level/layout.rs)
+[c0003] → Bash(sed -n 1,80p src/pickups/mod.rs; echo ----; grep -rn "TriggerType" src/block/*.rs | head -40)
+[c0003] → Bash(ls src/level/; echo ----; find src -name "layout*"; echo ----; sed -n 1,40p src/block/trigger.rs)
+[c0003] → Bash(ls -R src/level/layout; echo ----; cat src/level/layout/mod.rs)

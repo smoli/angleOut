@@ -7,8 +7,8 @@ depends: []
 created: 2026-08-25
 updated: 2026-08-25
 status-changed: 2026-08-25T23:26:51
-usage-tokens: 17384
-usage-cost: 1.381578
+usage-tokens: 31688
+usage-cost: 2.641521
 ---
 
 ## What
@@ -56,6 +56,48 @@ refactor: every shipped level must produce byte-identical block positions.
   two cells belongs to the nearer of them rather than being dead space.
 - `world_to_cell` is dead code until `c0006` picks it up, so the build carries one
   more `never used` warning alongside the ~20 already there.
+
+## Review
+
+### 2026-08-25T23:30:23 — pass
+
+Checked: acceptance criteria, the commit diff (`c424a67`), `cargo test`,
+`cargo build`, a game start, and an independent re-derivation of the shipped
+levels' block positions.
+
+- `cell_to_world` is the only place a position comes from grid coordinates:
+  outside it and its inverse, no origin, step or centring offset survives in
+  `src/level/layout/mod.rs` — the only remaining `x_step` / `cols_h` / `-30.0`
+  are in the two deliberate legacy copies inside `mod tests`.
+- `generate_block_grid` and `interpret_grid` both call it. `interpret_grid`
+  counts columns as it walks a line, and the "slot shorter than two chars does
+  not advance" quirk is preserved exactly, so `LEVEL0`'s multi-space runs still
+  land where they did.
+- `world_to_cell` inverts it by nearest centre and rejects out-of-grid
+  positions; `round_trips_every_cell_of_an_odd_and_an_even_grid` covers 11 and
+  10 columns over rows 0..8, and a second test covers every column count 1..=12.
+  It is open upwards by design (the signature the criteria name carries no row
+  count); the card says so and `c0006` owns that bound.
+- Shipped level positions verified independently, not just via the card's own
+  tests: I re-ran the pre-refactor `interpret_grid` maths and the committed one
+  over `LEVEL0`..`LEVEL6`, `DEMO_MOVING` and the two demo layouts from
+  `src/main.rs` — all 6 shipped levels bit-identical, including `LEVEL0`, whose
+  `..   ..` multi-space shape `sample_layouts()` does not itself contain.
+- The stepping-not-multiplying claim holds and the identity tests are not
+  vacuous: substituting `y0 + row * y_step` changes every level except the
+  single-row `AA AH AA`, so `filled_grid_positions_are_unchanged` and
+  `sparse_grid_positions_are_unchanged` would fail on it.
+- `cargo test`: 33 passed, 0 failed, 0 ignored. `cargo build`: clean, 25
+  warnings — one more than before, `world_to_cell is never used`, as the card
+  predicted. No test weakened, skipped or ignored; the pre-existing `works`
+  test is byte-for-byte unchanged.
+- Diff stays inside the What: `src/level/layout/mod.rs` and this card only. The
+  one incidental edit, `bevy::utils::default` → `bevy::prelude::default`, is
+  what the file needs to compile against the in-flight bevy 0.19 tree.
+- Not run: the game driven into an actual match. It starts clean under
+  `CARGO_MANIFEST_DIR` with no panic, but reaching a match needs controller
+  input this session cannot send, so "no visible change in game" rests on the
+  bit-identity check above rather than on eyes.
 
 ## Log
 
