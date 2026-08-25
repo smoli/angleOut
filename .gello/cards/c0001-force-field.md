@@ -5,8 +5,8 @@ status: review
 created: 2026-08-25
 updated: 2026-08-25
 status-changed: 2026-08-25T23:18:23
-usage-tokens: 109383
-usage-cost: 16.807275
+usage-tokens: 122626
+usage-cost: 18.567486
 ---
 
 ## What
@@ -265,6 +265,56 @@ Verified and green:
 - Diff is three files and stays on the card's What. `src/arena/mod.rs` also
   carries that file's bevy 0.9 -> 0.19 migration, which the commit message
   discloses and which the file needed to build at all on this branch.
+
+### 2026-08-25T23:21:31 — pass
+
+Checked: the three findings from the previous round against `226d022`, the rest
+of the acceptance criteria against the code, `cargo build`, `cargo test`, the
+diff, and the tree for harness residue.
+
+- The repeating sampler is real this time. `hex_lattice_texture`
+  (`src/arena/mod.rs:63-75`) loads through `load_builder().with_settings(...)`
+  with `address_mode_u/v: Repeat`, and both panels go through it — `hexagon2.png`
+  has no other load site in `src/`. `#[sampler(2)]` takes the `GpuImage`'s
+  sampler, which is the one the loader settings set, so `p / hex_tile_size`
+  running out to uv 20 now tiles instead of smearing edge texels.
+- The wavefront is white-hot and does grade back to blue behind it.
+  `flare_color` is `Color::WHITE` (`src/materials/force_field.rs:88`), pinned by
+  the new `the_flare_is_white_hot_rather_than_another_blue`. `ripple_strength`
+  now returns energy and a separate `crest`, and the ring is genuinely
+  asymmetric: `front < 0` is the swept interior and gets `TRAILING_SHARPNESS`
+  0.35 for a long wake, `front > 0` is the untouched sheet ahead and gets
+  `LEADING_SHARPNESS` 4.0. `flare_rgb = mix(sheet_color, flare_color, heat)`
+  with `heat` falling off at `CREST_SHARPNESS` 9.0 — white at the crest, back to
+  the sheet's blue through the wake.
+- The rotated-panel run holds up under recomputation. The four hits logged in
+  the Notes reproduce exactly from the conveyor level's geometry (+x panel at
+  `(100, 0, -33.39)`, `normal NEG_X`, `flip`, size 30; -x panel mirrored): I get
+  u = 0.669, 0.220, 0.218, 0.550 for the logged world positions, against the
+  0.991 / 0.009 the old `(other_pos.x + ARENA_WIDTH_H) / ARENA_WIDTH` would have
+  produced for every one of them. `src/main.rs` is back with the level commented
+  out and its working-tree diff carries nothing force-field-related; no harness
+  code, no stray logging in either touched file.
+- `cargo build` exits 0 with no warnings from `src/arena/mod.rs` or
+  `src/materials/force_field.rs` (the 23 warnings are pre-existing elsewhere in
+  the tree). `cargo test` is 27 passed / 0 failed — the previous 26 plus the new
+  flare-colour test. Nothing skipped, `#[ignore]`d or weakened.
+- The criteria carried over from the first round still hold: the eight-slot pool
+  with claim-free-then-evict-oldest, two hits in one lifetime staying two
+  overlapping ripples, no lattice at rest (`wave` and `crest` are both 0, so
+  `flare` is 0), `panel_uv` off the panel's own transform and size, age-only
+  decay with no edge term, and position-and-time-only `register_hit` so speed and
+  angle cannot change a ripple. Ripple speed, width, decay, flare intensity,
+  hex tile size and both colours are material fields; only the three wavefront
+  shape constants are WGSL consts, which the Notes call out.
+- Diff is the same three files and stays on the card's What.
+
+Not verified, and the reason this pass is not the last word: "final look signed
+off in-game" and "frame time with several ripples active shows no regression
+(FPS readout)" both need a human at the screen, and I could not run either. The
+WGSL is still only read, not compiled here — the implementer's run reports it
+compiling and rendering without pipeline errors, which is the only evidence for
+that. Both remaining criteria are yours to tick before this goes to done.
 
 ## Log
 

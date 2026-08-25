@@ -835,3 +835,27 @@
 [c0001] → Bash(sed -n '/^## Notes/,/^## Review/p' .gello/cards/c0001-force-field.md)
 [c0001] → Bash(git show 226d022 -- src/materials/force_field.rs src/arena/mod.rs | sed -n '/^diff/,$p')
 [c0001] → Bash(git show 226d022 -- assets/shaders/force_field_material.wgsl | sed -n '/^diff/,$p')
+[c0001] → Bash(cargo test 2>&1 | tail -20)
+[c0001] → Bash(echo "=== level still commented out? ==="; sed -n '232,236p;253,258p' src/main.rs; echo "=== other hexagon2 loads ==="; …)
+[c0001] → Bash(git diff src/main.rs | grep -nE "^\+" | grep -iE "force|ripple|panel|uv|launch|aim|info!|println" | head; echo "(empty =…)
+[c0001] → Bash(grep -rn "fn load_builder" -A6 /Users/stephan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bevy_asset-0.19.0/src…)
+[c0001] → Bash(tail -14 /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/a57f9291-e216-41e5-be67-10e83d97ec66/tasks/bgdye9…)
+[c0001] → Bash(cargo build --message-format=short 2>&1 | grep -E "^(src/arena|src/materials/force_field)" ; echo "exit: ${PIPESTATUS[0]…)
+[c0001] → Bash(python3 - <<'PY' import math def panel_uv(origin, angle_y, size, world): # local x axis in world = rot_y(angle) * (1,0,0…)
+[c0001] → Bash(date +%Y-%m-%dT%H:%M:%S; echo "---"; grep -n "^## Log" .gello/cards/c0001-force-field.md; sed -n '/^## Log/,$p' .gello/c…)
+[c0001] → Bash(python3 - <<'PY' import io p = ".gello/cards/c0001-force-field.md" s = io.open(p, encoding="utf-8").read() entry = """##…)
+[c0001] **Verdict: pass** — round-2 entry appended under `## Review` in `.gello/cards/c0001-force-field.md`. The card stays in `review`.
+[c0001] All three findings from the first round are genuinely fixed in `226d022`:
+[c0001] - **Repeating sampler.** `hex_lattice_texture` (`src/arena/mod.rs:63-75`) loads via `load_builder().with_settings(...)` with `address_mode_u/v: Repeat`, and both panels go through it — `hexagon2.png` has no other load site. The commit message is honest about why the earlier claim was false (the edit died on a shell quoting error and only the build half was re-run).
+[c0001] - **White-hot wavefront.** `flare_color` is now `Color::WHITE`, pinned by a new test, and `ripple_strength` returns a separate narrow `crest` alongside the energy. The ring is genuinely asymmetric — the swept interior (`front < 0`) gets a long wake, the untouched sheet ahead cuts off fast — and `mix(sheet_color, flare_color, heat)` burns white at the crest and grades back to blue through the wake.
+[c0001] - **Rotated-panel path.** I recomputed the four hits logged in the Notes from the conveyor level's geometry and got u = 0.669, 0.220, 0.218, 0.550 — exactly the logged values, against the 0.991 / 0.009 the old arena-width mapping would have collapsed every one of them to. `main.rs` is back with the level commented out, its working-tree diff carries nothing force-field-related, and there's no harness residue or stray logging in the touched files.
+[c0001] `cargo build` exits 0 with no warnings from either touched Rust file; `cargo test` is 27/0 (the previous 26 plus the new flare-colour test), nothing skipped or weakened. Diff is still the same three files.
+[c0001] Two criteria remain unverified and are why this pass isn't the last word: the in-game look sign-off and the FPS readout with several ripples alive both need you at the screen. The WGSL is also still only read here, not compiled — the implementer's run reporting no pipeline errors is the only evidence it renders.
+[c0001] ✓ 20 in / 13223 out tokens, $1.7602, 16 turns, 199.3s
+[c0002] I'll pick up the card first, then dig in.
+[c0002] → ToolSearch(select:mcp__gello__set_status,mcp__gello__add_question)
+[c0002] → mcp__gello__set_status(in-progress)
+[c0002] Card picked up. Now reading it.
+[c0002] → Bash(cat .gello/epics/e01-level-editor/c0002-cell-world-conversion.md)
+[c0002] → Bash(ls .gello/epics/e01-level-editor/ && cat .gello/epics/e01-level-editor/epic.md)
+[c0002] → Bash(wc -l src/level/layout/mod.rs && cat src/level/layout/mod.rs)
