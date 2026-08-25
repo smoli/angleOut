@@ -6,12 +6,10 @@ type: issue
 created: 2026-08-25
 updated: 2026-08-25
 status-changed: 2026-08-25T22:24:22
-awaiting: input
 usage-tokens: 14395
 usage-cost: 3.204238
 ---
 
-```gelloquestion
 I traced the whole input path (details in **Notes** above) and the fix depends on facts only the attached hardware can give. Two things I need:
 
 **1. Which position is the mode switch on the back of the Pro 2 set to?**
@@ -19,14 +17,14 @@ I traced the whole input path (details in **Notes** above) and the fix depends o
 This decides which vendor/product id the pad enumerates as, and therefore whether gilrs matches it in the bundled SDL controller DB at all. The DB only has `Mac OS X` entries for vendor `c82d` / product `0660`.
 
 - [ ] `S` (Switch mode)
-- [ ] `X` (X-input mode)
+- [x] `X` (X-input mode)
 - [ ] `D` (D-input mode)
 - [ ] `macOS` mode
 - [ ] Not sure / it is a "Pro 2 for Xbox" variant
 
 **2. What exactly misbehaves?** Push each stick and say what the paddle does — that alone tells me which axis is flipped.
 
-- [ ] Push a stick **up** → paddle moves **towards me** instead of away (Y inverted)
+- [x] Push a stick **up** → paddle moves **towards me** instead of away (Y inverted)
 - [ ] Push a stick **left** → paddle moves **right** (X inverted)
 - [ ] Paddle **tilts the wrong way** but moves correctly
 - [ ] Sticks do **nothing at all**
@@ -42,7 +40,8 @@ If answering #2 precisely is awkward, I can instead add a small opt-in input-deb
 
 - [ ] Just fix it from my answers above
 - [ ] Build the input-debug overlay first, I'll report the values
-```
+
+Only left stick works ad is inverted. Right stick does nothing. Moving it to D makes it work perfectly
 
 Testing it wuth the Dualsense the two analog sticks work perfectly for controlling the pad.
 

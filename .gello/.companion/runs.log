@@ -524,3 +524,7 @@
 [i0001] **Why I stopped:** the four candidate root causes (unmatched pad / mis-mapped pad / Y-only inversion / deadzone drift) need different fixes and are indistinguishable without the controller attached. The card asks which mode switch position the pad is in and what precisely misbehaves — and offers to build an opt-in input-debug overlay first if reading raw axis values is easier than describing the symptom.
 [i0001] Nothing is pushed. The commit contains only the card file; the rest of the pre-existing dirty tree is untouched.
 [i0001] ✓ 60 in / 14335 out tokens, $3.2042, 30 turns, 271.6s
+[i0001] → Bash(cat .gello/cards/i0001-controls-not-working-on-8bitdo-pro-2.md)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-core-0.6.8 && grep -n "native_ev_codes" -A 80 src/platform/macos/gamepad.rs | sed -n 1,…)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-core-0.6.8 && grep -n "USAGE_AXIS_\|PAGE_GENERIC_DESKTOP\|PAGE_SIMULATION\|PAGE_BUTTON"…)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-core-0.6.8 && grep -rn "USAGE_AXIS_LSTICKX\|USAGE_AXIS_RSTICKX\|USAGE_AXIS_RSTICKY\|USA…)
