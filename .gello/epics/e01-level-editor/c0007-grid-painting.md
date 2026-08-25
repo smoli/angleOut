@@ -1,12 +1,14 @@
 ---
 id: c0007
 title: Grid painting
-status: in-progress
+status: review
 epic: e01
 depends: [c0006]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T00:56:22
+status-changed: 2026-08-26T01:19:42
+usage-tokens: 89479
+usage-cost: 7.947934
 ---
 
 ## What
@@ -119,6 +121,81 @@ screen).
   `screencapture` does - so how it looks on screen rests on the material being
   the game's own and on `c0006`'s screenshot of the same camera.
 
+## Review
+
+### 2026-08-26T01:23:26 — pass
+
+Checked: all seven acceptance criteria against the code, the `bef6615` diff, the
+test suite (`cargo test`) and the build (`cargo build`).
+
+- Criterion "a brush resource holds block type, behaviour, trigger type and
+  trigger group, plus an erase mode" is met: `Brush` in `src/editor/mod.rs` is
+  an `init_resource` with all four, trigger type and group fused into one
+  `Option<(TriggerType, TriggerGroup)>` — which is the Notes' "a brush with a
+  trigger type but no group is invalid", made unrepresentable rather than
+  checked.
+- "Clicking a cell writes the current brush into the in-memory level" is met:
+  `editor_paint` -> `EditorLevel::paint_cell` -> `set_cell`, covered by
+  `clicking_a_cell_writes_the_brush_into_the_level` and
+  `a_brush_with_a_trigger_writes_the_whole_token`, both driven through the real
+  camera and window rather than by calling the system.
+- "The erase brush clears a cell back to empty" is met: `Brush::token` returns
+  `EMPTY_SLOT`; `the_erase_brush_clears_a_cell_back_to_empty` and
+  `the_right_button_erases_whatever_the_brush_is_set_to` cover both paths.
+- "`Z` / `BlockType::Obstacle` can be painted" is met: no special case in
+  `block_token`, and `an_obstacle_is_an_ordinary_brush` paints two and finds two
+  `Obstacle` blocks on screen.
+- "Painted cells appear immediately as blocks in the editor view" is met as far
+  as it can be tested headlessly: `editor_show_blocks` is chained behind
+  `editor_paint`, and `a_painted_cell_shows_up_as_a_block_the_same_frame` asserts
+  the `EditorBlock` exists before the button comes up. The mesh and material
+  `editor_dress_blocks` adds are not asserted — there is no glTF in a headless
+  test — so that half rests on the card's run in the real game and on
+  `block_material` being the game's own table, which
+  `every_block_type_has_the_look_it_has_always_had` pins to the colours
+  `block_spawn` used before the extraction. Noted, not held against the card.
+- "Dragging paints a run of cells without a click per cell" is met:
+  `dragging_paints_every_cell_it_crosses` presses once, moves the pointer per
+  cell, releases once. `a_drag_is_one_edit` shows the stroke is a single
+  `PaintStroke` holding the layout as it stood at press time, and
+  `crossing_a_cell_twice_in_one_drag_writes_it_once` shows the cell list does the
+  Notes' "record a drag as a single edit from the start".
+- "The edited layout serializes to a token grid that `interpret_grid` parses back
+  to the same blocks" is met:
+  `the_edited_layout_parses_back_to_the_blocks_that_were_painted` paints three
+  brushes and checks type, behaviour, trigger type and group of each block that
+  comes back, and
+  `every_token_the_format_defines_survives_the_round_trip` walks all 2295 tokens
+  through `make_block`/`block_token`.
+- Tests green: 106 passed, 0 failed — the 106 the card claims, 26 of them new in
+  this commit (2 in `src/block/mod.rs`, 16 in `src/editor/mod.rs`, 8 in
+  `src/level/layout/mod.rs`). No test is ignored, skipped or weakened; the diff
+  removes no assertion, and the only edit to an existing test helper is
+  `editor_app` gaining the three asset collections the new systems read.
+- Build clean at 19 warnings, all pre-existing (`config`, `events`, `state`,
+  `powerups`, `ship`, `player`, `level/campaign`, `match/state` and the three
+  `block/mod.rs` ones that were already there) — none in `editor/mod.rs`,
+  `level/layout/mod.rs` or the new `block_material`. There is no lint or
+  typecheck step in this repo beyond `cargo build`/`cargo test`; `cargo clippy`
+  is not configured and was not run.
+- Diff stays inside the What: `bef6615` touches only the card, `src/block/mod.rs`,
+  `src/editor/mod.rs` and `src/level/layout/mod.rs`. The `block_material` /
+  `BLOCK_MESH` extraction out of `block_spawn` is what lets the editor draw a
+  block, and it is a pure move — every colour, the split flag and the texture are
+  the ones `block_spawn` set before. No debug leftovers: the one new `info!` is
+  the per-stroke line, and the temporary pointer-driving system the card mentions
+  is not in the tree.
+- Two things read as deliberate rather than as defects, both documented on the
+  card: `set_cell` squaring up a ragged grid (`set_cell_squares_up_a_ragged_grid`
+  — `interpret_grid` takes its column count off the first line only, so the
+  ragged grid was already lying about where its blocks are), and `block_token`
+  dropping a trigger whose group has no digit rather than writing half a token
+  (`a_trigger_group_the_format_has_no_room_for_writes_no_trigger`). The silent
+  drop is only reachable from code that builds a brush by hand; `c0009`'s palette
+  should not be able to offer a group above 9.
+- The working tree carries unrelated uncommitted changes in 21 other files; the
+  run above is of the tree as it stands, and it is green with them in it.
+
 ## Log
 
 - 2026-08-25 created from the e01 epic breakdown
@@ -128,3 +205,4 @@ screen).
   `Brush` + `PaintStroke` + `editor_paint` on the mouse, `EditorBlock` putting
   the level on screen for the first time, `block_material` shared out of
   `block_spawn`; 26 new tests, 106 green, build clean
+- 2026-08-26 status → review (agent)

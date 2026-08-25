@@ -1505,3 +1505,126 @@
 [c0007] → Bash(grep -rn "interpret_grid\|generate_block_grid\|TargetLayout" src --include='*.rs' | grep -v "^src/level/layout/mod.rs" |…)
 [c0007] → Bash(grep -n "fn \|spawn" src/block/mod.rs | sed -n '1,80p')
 [c0007] → Bash(sed -n '170,380p' src/block/mod.rs)
+[c0007] → Bash(sed -n '120,172p' src/block/mod.rs)
+[c0007] → Bash(sed -n '200,300p' src/level/mod.rs)
+[c0007] → Bash(grep -n "MyAssetPack" -r src --include='*.rs' | head -20; echo ===; sed -n '1,60p' src/materials/block.rs)
+[c0007] → Bash(sed -n '400,700p' src/editor/mod.rs)
+[c0007] → Bash(ls assets/levels/ && sed -n '1,40p' assets/levels/*.ron | head -60)
+[c0007] → Bash(cat -A assets/levels/level4.ron | sed -n '1,40p' | sed 's/\$$/<EOL>/' | head -40)
+[c0007] → Bash(cat assets/levels/level4.ron)
+[c0007] → Bash(cat /Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/running-the-game-from-a-gello-session.m…)
+[c0007] → Bash(sed -n '1,140p' src/main.rs)
+[c0007] → Bash(sed -n '1,50p' src/block/trigger.rs)
+[c0007] → Bash(sed -n '330,590p' src/level/layout/mod.rs)
+[c0007] → Bash(sed -n '700,1003p' src/editor/mod.rs)
+[c0007] → Bash(sed -n '25,110p' src/level/mod.rs)
+[c0007] → Bash(sed -n '1,60p' src/materials/block.rs)
+[c0007] Now I have the full picture. Let me write the layout-side format functions first.
+[c0007] → Bash(python3 - <<'PY' import re p='src/level/layout/mod.rs' s=open(p).read() anchor = "pub fn interpret_grid(layout: &String,…)
+[c0007] Now the shared block material, extracted from `block_spawn`:
+[c0007] → Bash(python3 - <<'PY' p='src/block/mod.rs' s=open(p).read() old = ''' let mut color1: Color = ORANGE.into(); let mut color2: …)
+[c0007] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() # --- imports --------------------------------------------------…)
+[c0007] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() # --- EditorLevel methods --------------------------------------…)
+[c0007] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() # --- Brush, stroke, preview marker ----------------------------…)
+[c0007] Now the painting and preview systems, plus the plugin wiring:
+[c0007] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() # --- plugin wiring --------------------------------------------…)
+[c0007] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() anchor = """/// Back to the menu. /// /// `Escape` is the way ou…)
+[c0007] → Bash(cargo build 2>&1 | grep -E "^(error|warning: unused|warning: unre)" -A 8 | head -80)
+[c0007] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() s = s.replace("use bevy::color::palettes::css::{DIM_GRAY, GRAY, …)
+[c0007] → Bash(cargo build 2>&1 | tail -5; cargo build 2>&1 | grep -c "^warning")
+[c0007] Build is clean (19 warnings, unchanged). Now the tests — layout format first:
+[c0007] → Bash(python3 - <<'PY' p='src/level/layout/mod.rs' s=open(p).read() anchor = """ #[test] fn an_empty_grid_is_the_size_it_was_a…)
+[c0007] → Bash(cargo test 2>&1 | tail -30)
+[c0007] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = """ app.init_asset::<LevelAsset>();""" new = """ app.init_…)
+[c0007] 88 green. Now the editor painting tests — first let me confirm how mouse button state survives a frame:
+[c0007] → Bash(grep -n "fn clear" -A 8 ~/.cargo/registry/src/*/bevy_input-0.19*/src/button_input.rs | head -30)
+[c0007] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() anchor = """ /// The camera the cell was picked through leaves w…)
+[c0007] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() s = s.replace(''' assert_eq!(layout(&app), "AA CB AA\\n.. .. .."…)
+[c0007] Tests are green. Now let me verify it actually renders in the running game with a temporary driver system:
+[c0007] → Bash(grep -rn "pub use\|pub fn save_to_disk\|pub struct Screenshot" ~/.cargo/registry/src/*/bevy_render-0.19.1/src/view/windo…)
+[c0007] → Bash(cat > /tmp/tempverify.rs <<'RS' // TEMPORARY - c0007 visual check, reverted before commit. use bevy::prelude::*; use bev…)
+[c0007] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut timeout 120 cargo run 2>&1 | tail -25)
+[c0007] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut cargo run 2>&1 | tail -30)
+[c0007] Found a real bug the tests missed — run conditions are evaluated even when the outer `in_state` is false, so `resource_changed` panics before the editor has ever been entered:
+[c0007] → Bash(grep -rn "pub fn resource_exists_and_changed" -A 3 ~/.cargo/registry/src/*/bevy_ecs-0.19.1/src/schedule/condition.rs | h…)
+[c0007] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() s = s.replace("use bevy::prelude::{default, in_state, resource_c…)
+[c0007] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() anchor = """ #[test] fn leaving_the_editor_takes_everything_it_s…)
+[c0007] → Bash(git stash list >/dev/null; python3 -c " import subprocess " ; git stash show >/dev/null 2>&1; echo ---; git diff --stat …)
+[c0007] The regression test does catch it. Now the visual run:
+[c0007] → Bash(rm -f /tmp/c0007-editor.png; CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut cargo run 2>&1 | grep -viE "^\s*$"…)
+[c0007] → Read(/tmp/c0007-editor.png)
+[c0007] → Bash(python3 - <<'PY' p='src/tempverify.rs' s=open(p).read() s=s.replace(""" mut exit: MessageWriter<AppExit>, ) {""",""" mut…)
+[c0007] The paint didn't fire — the synthetic cursor never landed on the grid. Let me aim it properly through the camera:
+[c0007] → Bash(cat > src/tempverify.rs <<'RS' // TEMPORARY - c0007 visual check, reverted before commit. use bevy::prelude::*; use bevy…)
+[c0007] → Bash(ls -la /tmp/c0007-*.png)
+[c0007] Both screenshots are byte-identical black — this environment can't capture the window (as the memory notes). Let me verify the render path a different way, by checking the blocks actually get the game's mesh and material:
+[c0007] → Bash(python3 - <<'PY' p='src/tempverify.rs' s=open(p).read() s=s.replace(" blocks: Query<&EditorBlock>,", " blocks: Query<&Ed…)
+[c0007] Confirmed in the real game: all editor blocks get the game's mesh and `BlockMaterial`, and a real mouse-driven paint added a block. Now reverting the temporary driver:
+[c0007] → Bash(rm -f src/tempverify.rs /tmp/c0007-editor.png /tmp/c0007-menu.png python3 - <<'PY' p='src/main.rs' s=open(p).read() s=s.…)
+[c0007] → Bash(git status --short src/ && git diff --stat src/)
+[c0007] → Bash(git show --stat e00a2dc | head -30; echo =====; git log -1 --format=%B e00a2dc)
+[c0007] → Bash(git show --stat --format="" e00a2dc | tail -6)
+[c0007] Let me review my own diff before writing up the card:
+[c0007] → Bash(git diff src/block/mod.rs)
+[c0007] → Bash(grep -n "mod tests" src/block/mod.rs src/level/mod.rs | head)
+[c0007] → Bash(python3 - <<'PY' p='src/block/mod.rs' s=open(p).read() s = s.rstrip('\n') + ''' #[cfg(test)] mod tests { use super::*; u…)
+[c0007] → Bash(python3 - <<'PY' p='src/block/mod.rs' s=open(p).read() s=s.replace(""" use bevy::app::App; use bevy::asset::AssetPlugin;…)
+[c0007] → Bash(python3 - <<'PY' p='src/block/mod.rs' s=open(p).read() s=s.replace(" use bevy::color::palettes::css::WHITE;\n","") s=s.r…)
+[c0007] → Bash(sed -n '/^\/\/\/ Paints the hovered cell/,/^\/\/\/ Back to the menu/p' src/editor/mod.rs)
+[c0007] `editor_dress_blocks` needs to run after the respawn, or every painted cell blinks the whole grid for a frame:
+[c0007] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = """ // One chain, because each link needs the one before i…)
+[c0007] All green. Now the card:
+[c0007] → Bash(python3 - <<'PY' p='.gello/epics/e01-level-editor/c0007-grid-painting.md' s=open(p).read() s = s.replace("""- [ ] A brus…)
+[c0007] A few counts in my write-up are off — let me correct them:
+[c0007] → Bash(python3 - <<'PY' p='.gello/epics/e01-level-editor/c0007-grid-painting.md' s=open(p).read() s = s.replace(""" to it so th…)
+[c0007] Now the commit — only my files:
+[c0007] → Bash(git add src/editor/mod.rs src/level/layout/mod.rs src/block/mod.rs .gello/epics/e01-level-editor/c0007-grid-painting.md …)
+[c0007] → Bash(git diff --cached --stat)
+[c0007] → Bash(git commit -F - <<'MSG' c0007: the grid becomes something you can paint A brush, a mouse button, and the level under edi…)
+[c0007] → mcp__gello__set_status(review)
+[c0007] → Bash(git status --short .gello/epics/e01-level-editor/c0007-grid-painting.md; git log --oneline -2)
+[c0007] Card c0007 is done and in `review`.
+[c0007] ## What landed
+[c0007] **The format got its inverse** (`src/level/layout/mod.rs`)
+[c0007] - `block_token` writes the token `make_block` would read a block back out of, sitting right next to it. A test walks all 2295 tokens the format defines through `make_block` and back.
+[c0007] - `set_cell` rewrites the grid rather than patching one line, which pads every row to the widest one — `interpret_grid` takes the column count off the first line only, so a ragged grid centres its rows on a width they don't have. Painting one squares it up.
+[c0007] - `filled_grid` spells a `FilledGrid` out as tokens.
+[c0007] **Painting** (`src/editor/mod.rs`)
+[c0007] - `Brush` holds type, behaviour, trigger and erase mode. Trigger type and group are *one* field, so the invalid brush the card warns about can't be built; `block_token` drops a trigger entirely rather than writing half of one.
+[c0007] - Left button paints, right button erases, holding either drags a run of cells. `PaintStroke` opens on button-down and closes on button-up, so a drag is one edit — `c0011` has one entry to push.
+[c0007] - A `FilledGrid` becomes a token grid the first time a cell of it is painted. That's every level file that names no layout, since `LevelDefinition::default` is `FilledGrid(5, 5, …)`.
+[c0007] **The editor had no blocks in it at all before this** — `c0005` and `c0006` drew the grid and the hover, the level itself was invisible. Blocks now appear the frame they're painted, wearing the game's own mesh and `BlockMaterial` (`block_material` moved out of `block_spawn`, which `c0009`'s palette will want too).
+[c0007] ## One bug the tests missed
+[c0007] Running the game panicked on the main menu: a run condition is evaluated every frame whether or not the `in_state` beside it holds — Bevy runs them all rather than short-circuiting, so change detection in a condition can't miss a change. `resource_changed::<EditorLevel>` asked about a resource that doesn't exist until the editor is opened. Fixed with `resource_exists_and_changed` and pinned by a test that fails on the old condition.
+[c0007] ## Verification
+[c0007] 26 new tests, 106 green, `cargo build` clean at 19 warnings (unchanged). Also checked in the running game via a temporary driver system, since removed: the editor opens on `level0` with all 8 blocks dressed in the game mesh and material, and a mouse-driven paint through the real input path adds a ninth.
+[c0007] One gap, recorded on the card: **not** visually confirmed. Bevy's own screenshot API returns solid black from this session, as `screencapture` does — so how it looks on screen rests on the material being the game's own rather than on a picture.
+[c0007] ✓ 138 in / 89341 out tokens, $7.9479, 80 turns, 1420.4s
+[c0007] I'll start by reading the card.
+[c0007] → Bash(cat .gello/epics/e01-level-editor/c0007-grid-painting.md)
+[c0007] → Bash(cat .gello/board.yaml && ls .gello/epics/e01-level-editor/)
+[c0007] → Bash(git log --oneline -5 && echo "---STAT---" && git show --stat bef6615)
+[c0007] → Bash(git status --porcelain -- src/ .gello/epics/e01-level-editor/c0007-grid-painting.md && echo "---diff since commit---" &&…)
+[c0007] → Bash(git show bef6615 -- src/level/layout/mod.rs)
+[c0007] → Bash(sed -n 1,120p src/level/layout/mod.rs)
+[c0007] → Bash(sed -n 150,270p src/level/layout/mod.rs)
+[c0007] → Bash(git show bef6615 -- src/block/mod.rs | sed -n '/^diff/,$p')
+[c0007] → Bash(git show bef6615 -- src/editor/mod.rs | sed -n '/^diff/,$p' | head -400)
+[c0007] → Bash(git show bef6615 -- src/editor/mod.rs | sed -n '/^diff/,$p' | sed -n '400,800p')
+[c0007] → Bash(git show bef6615 -- src/editor/mod.rs | sed -n '/^diff/,$p' | sed -n '800,1000p')
+[c0007] → Bash(head -60 README.md && echo "=== cargo ===" && cat Cargo.toml | head -40)
+[c0007] → Bash(cargo test 2>&1 | tail -60)
+[c0007] → Bash(grep -n "info!\|debug!\|warn!\|synthetic\|temporary\|TODO\|dbg!" src/editor/mod.rs | head -40)
+[c0007] → Bash(grep -rn "ignore\]\|#\[ignore" src/ | head; echo "---"; git show bef6615 --stat --numstat | tail -8)
+[c0007] → Bash(ls -a; ls .github 2>/dev/null; ls .gello/)
+[c0007] → Bash(cargo build 2>&1 | grep -c "^warning"; echo "--- exit ---"; cargo build 2>&1 | tail -5)
+[c0007] → Bash(touch src/main.rs; cargo build 2>&1 | grep -A2 "^warning" | grep -E "^\s+-->" | sort | uniq -c | sort -rn)
+[c0007] → Bash(sed -n '120,150p' src/level/layout/mod.rs; echo "=== interpret_grid ==="; sed -n '/^pub fn interpret_grid/,/^}/p' src/le…)
+[c0007] → Bash(grep -rn "MyAssetPack" src/*.rs src/**/*.rs | head -20)
+[c0007] → Bash(git show bef6615 -- src/editor/mod.rs src/block/mod.rs src/level/layout/mod.rs | grep "^-" | grep -v "^---")
+[c0007] → Bash(grep -n "type TriggerGroup\|pub enum TriggerType" -A3 src/block/trigger.rs | head -20)
+[c0007] → Bash(git show bef6615 | grep -c "^+ #\[test\]"; echo "--- per file ---"; for f in src/block/mod.rs src/editor/mod.rs src/leve…)
+[c0007] → Bash(sed -n '/fn point_at/,/^ }/p' src/editor/mod.rs; echo "=== put_the_pointer_at ==="; sed -n '/fn put_the_pointer_at/,/^ }…)
+[c0007] → Bash(date +%Y-%m-%dT%H:%M:%S)
+[c0007] → Bash(grep -n "^## Log" .gello/epics/e01-level-editor/c0007-grid-painting.md)
+[c0007] → Bash(python3 - <<'EOF' import io p = ".gello/epics/e01-level-editor/c0007-grid-painting.md" s = open(p).read() review = """##…)
