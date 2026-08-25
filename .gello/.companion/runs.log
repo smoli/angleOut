@@ -728,3 +728,110 @@
 [c0001] → mcp__gello__set_status(in-progress)
 [c0001] → Bash(cat .gello/cards/c0001-force-field.md)
 [c0001] → Bash(grep -n "hex_lattice_texture\|load_with_settings\|hexagon2\|ImageSampler\|ImageAddressMode" src/arena/mod.rs)
+[c0001] → Bash(grep -rn "Launch\|launch" src/ball/mod.rs src/ship/mod.rs src/match/mod.rs | head -30)
+[c0001] → Bash(grep -rn "Custom" src/level/mod.rs src/level/layout/mod.rs src/block/mod.rs | head -20)
+[c0001] → Bash(sed -n 235,275p src/level/mod.rs)
+[c0001] Two real defects. Starting with the flare colour — test first:
+[c0001] → Bash(python3 - <<'PY' p='src/materials/force_field.rs' s=open(p).read() s=s.replace(''' #[test] fn defaults_describe_a_blue_s…)
+[c0001] → Bash(python3 - <<'PY' p='src/materials/force_field.rs' s=open(p).read() s=s.replace(''' flare_color: Color::srgb(0.65, 0.9, 1…)
+[c0001] Now the shader — an asymmetric front with a white-hot crest grading back to blue, and the repeating sampler that never got applied:
+[c0001] → Bash(python3 - <<'PY' p='assets/shaders/force_field_material.wgsl' s=open(p).read() s=s.replace('''const HIT_SLOTS: u32 = 8u;…)
+[c0001] Now the repeating sampler — the edit that silently never applied last time:
+[c0001] → Bash(python3 - <<'PY' p='src/arena/mod.rs' s=open(p).read() assert 'hex_lattice_texture' not in s s=s.replace('''use bevy::ap…)
+[c0001] → Bash(cargo build 2>&1 | grep -E "arena/mod.rs|force_field.rs" ; cargo build 2>&1 | tail -2; cargo test 2>&1 | grep -E "^test …)
+[c0001] → Bash(cargo build 2>&1 | grep -B6 "arena/mod.rs:64")
+[c0001] → Bash(grep -rn -A12 "pub fn load_builder\|pub fn with_settings" ~/.cargo/registry/src/*/bevy_asset-0.19.1/src/server/mod.rs | …)
+[c0001] → Bash(python3 - <<'PY' p='src/arena/mod.rs' s=open(p).read() s=s.replace(''' asset_server.load_with_settings("hexagon2.png", |…)
+[c0001] → Bash(sed -n 230,270p src/ship/mod.rs; echo "=== ball spawn ==="; grep -n "BallSpawned\|SpawnBall\|MatchEvent::" src/events/mo…)
+[c0001] Now the third defect — the rotated-panel path has never actually run. Setting up a temporary harness to exercise it:
+[c0001] → Bash(cp src/main.rs /tmp/main.rs.pre && cp src/arena/mod.rs /tmp/arena.rs.pre && md5 -q /tmp/main.rs.pre /tmp/arena.rs.pre)
+[c0001] → Bash(python3 - <<'PY' p='src/main.rs' s=open(p).read() # Uncomment the conveyor level with the rotated ForceField panels. old…)
+[c0001] → Bash(cargo build 2>&1 | grep -A6 "^error" | head -50)
+[c0001] → Bash(grep -n "^use crate::config\|^use crate::level" src/main.rs | head)
+[c0001] → Bash(grep -n "WinCriteria" src/level/mod.rs | head -3; python3 - <<'PY' p='src/main.rs' s=open(p).read() s=s.replace('use cra…)
+[c0001] → Bash(cargo build 2>&1 | grep -B2 -A10 "^error\[" | head -25)
+[c0001] → Bash(cargo build 2>&1 | grep -B12 "could not compile" | head -25)
+[c0001] → Bash(cargo build 2>&1 | grep -E "^error\[E[0-9]+\]" -A4 | head -20)
+[c0001] → Bash(cargo build 2>&1 | grep -n "cannot find\|expected\|E0425" | head -10)
+[c0001] → Bash(python3 - <<'PY' p='src/main.rs' s=open(p).read() s=s.replace('targets: Custom("Conveyor".to_string()),','targets: Targe…)
+[c0001] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut RUST_LOG=info ./target/debug/angle_out > /tmp/ff_rotated.log 2>…)
+[c0001] → Bash(until grep -q "TEMP FF HIT" /tmp/ff_rotated.log 2>/dev/null; do sleep 3; done; echo "GOT HITS")
+[c0001] → Bash(grep -c "" /tmp/ff_rotated.log; grep -iE "ERROR|panic" /tmp/ff_rotated.log | head -5; grep "TEMP FF HIT" /tmp/ff_rotated…)
+[c0001] → Bash(cat /tmp/ff_rotated.log)
+[c0001] → TaskStop(b6qyx31wb)
+[c0001] → Bash(python3 - <<'PY' p='src/main.rs' s=open(p).read() s=s.replace(''' // TEMPORARY (rotated-panel smoke test) app.add_system…)
+[c0001] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut RUST_LOG=info ./target/debug/angle_out > /tmp/ff_rotated2.log 2…)
+[c0001] → Bash(until grep -qE "TEMP FF HIT|TEMP obstacle" /tmp/ff_rotated2.log 2>/dev/null; do sleep 3; done; echo FOUND; grep -E "TEMP…)
+[c0001] → Read(/private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/c115cade-e4ad-4609-9394-ee2860fc87bc/tasks/br71u09c6.outpu…)
+[c0001] → Bash(grep -c "" /tmp/ff_rotated2.log; grep -E "TEMP|ERROR" /tmp/ff_rotated2.log | head -10)
+[c0001] The conveyor level is index 1 but the game starts at level 0 — that's why nothing fired.
+[c0001] → TaskStop(bj002haw3)
+[c0001] → Bash(python3 - <<'PY' p='src/main.rs' s=open(p).read() s=s.replace(''' definitions: level_definitions, current_level: 0,''','…)
+[c0001] → Bash(until grep -qE "TEMP" /tmp/ff_rotated3.log 2>/dev/null; do sleep 3; done; echo FOUND)
+[c0001] → Bash(grep -E "TEMP" /tmp/ff_rotated3.log | head -20; echo "=== count: $(grep -c 'TEMP FF HIT' /tmp/ff_rotated3.log)")
+[c0001] → Read(/private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/c115cade-e4ad-4609-9394-ee2860fc87bc/tasks/b092qc6et.outpu…)
+[c0001] → Bash(until [ -f /tmp/ff_rotated3.log ]; do sleep 3; done; sleep 20; grep -E "TEMP" /tmp/ff_rotated3.log | head -20; echo "===…)
+[c0001] → Read(/private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/c115cade-e4ad-4609-9394-ee2860fc87bc/tasks/bnzdvu1yz.outpu…)
+[c0001] → Bash(ls -la /tmp/ff_rotated3.log 2>&1; ps aux | grep -c "[a]ngle_out")
+[c0001] → Bash(grep -E "TEMP" /tmp/ff_rotated3.log | head -20; echo "=== FF hits: $(grep -c 'TEMP FF HIT' /tmp/ff_rotated3.log)"; grep …)
+[c0001] → Bash(grep -n "current_level" src/main.rs src/level/mod.rs | head -20)
+[c0001] → Bash(sed -n 222,260p src/main.rs)
+[c0001] → Bash(grep -n "TEMP" src/arena/mod.rs)
+[c0001] → Bash(grep -E "TEMP" /tmp/ff_rotated3.log; echo "=== hits: $(grep -c 'TEMP FF HIT' /tmp/ff_rotated3.log)"; ps aux | grep -c "[…)
+[c0001] → Bash(grep -rn "current_level\|get_current_level" src/ | grep -v "src/level/mod.rs\|src/main.rs")
+[c0001] `src/game/mod.rs:27` resets `current_level = 0` on entering InGame. Moving the conveyor level to index 0 for the test:
+[c0001] → Bash(python3 - <<'PY' p='src/main.rs' s=open(p).read() start = s.index(''' LevelDefinition { background_asset: "ship3_003.glb…)
+[c0001] → Bash(pkill -f "target/debug/angle_out"; CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut RUST_LOG=info ./target/debug…)
+[c0001] → Bash(until grep -q "TEMP FF HIT" /tmp/ff_rotated4.log 2>/dev/null; do sleep 3; done; echo "HITS FOUND")
+[c0001] → Bash(grep -E "TEMP obstacle|TEMP top" /tmp/ff_rotated4.log; echo "=== hits: $(grep -c 'TEMP FF HIT' /tmp/ff_rotated4.log)"; g…)
+[c0001] → Bash(grep -n "struct ShipState" -A8 src/ship/mod.rs; grep -n "Resource" src/ship/mod.rs | head -5)
+[c0001] → Bash(sed -n 160,180p src/ball/mod.rs; grep -n "pub struct Ball" -A5 src/ball/mod.rs | head -12; grep -n "Velocity" src/ball/m…)
+[c0001] → Bash(python3 - <<'PY' p='src/main.rs' s=open(p).read() s=s.replace(''' if now - *last > 2.0 { *last = now; ev.write(crate::ev…)
+[c0001] → Bash(sed -i '' 's/velo.linvel = dir \* 130.0;/velo.linear = dir * 130.0;/' src/main.rs && cargo build 2>&1 | tail -2 && pkill…)
+[c0001] → Bash(until grep -q "size=Vec2(30.0, 20.0)" /tmp/ff_rotated5.log 2>/dev/null; do sleep 3; done; echo "ROTATED PANEL HIT")
+[c0001] → Read(/private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/c115cade-e4ad-4609-9394-ee2860fc87bc/tasks/busv05tlb.outpu…)
+[c0001] → Bash(grep "TEMP FF HIT" /tmp/ff_rotated5.log | tail -12; echo "=== total hits: $(grep -c 'TEMP FF HIT' /tmp/ff_rotated5.log)"…)
+[c0001] → Read(/private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/c115cade-e4ad-4609-9394-ee2860fc87bc/tasks/bv36o25hu.outpu…)
+[c0001] → Bash(ps aux | grep "[a]ngle_out" | head -3; ls -la /tmp/ff_rotated5.log 2>&1)
+[c0001] → Bash(until [ -f /tmp/ff_rotated5.log ]; do sleep 5; done; until grep -q "size=Vec2(30.0, 20.0)" /tmp/ff_rotated5.log 2>/dev/n…)
+[c0001] → Read(/private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/c115cade-e4ad-4609-9394-ee2860fc87bc/tasks/bnj5hu5bp.outpu…)
+[c0001] → Bash(ls -la /tmp/ff_rotated5.log 2>&1 | head -2; grep -c "TEMP FF HIT" /tmp/ff_rotated5.log 2>/dev/null; grep "size=Vec2(30.0…)
+[c0001] → Bash(grep -E "TEMP|ERROR|panic" /tmp/ff_rotated5.log | head -10; echo "---"; ps aux | grep -c "[t]arget/debug/angle_out")
+[c0001] A rotated-panel hit, and the numbers check out. Let me collect more before tearing down:
+[c0001] → Bash(until [ $(grep -c "size=Vec2(30.0, 20.0)" /tmp/ff_rotated5.log) -ge 4 ]; do sleep 4; done; echo "4+ rotated hits")
+[c0001] → Read(/private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/c115cade-e4ad-4609-9394-ee2860fc87bc/tasks/bbjlvopsr.outpu…)
+[c0001] → Bash(grep "size=Vec2(30.0, 20.0)" /tmp/ff_rotated5.log | sed 's/.*TEMP FF HIT //' | head -10; echo "=== total FF hits: $(grep…)
+[c0001] Verified end to end. Both rotated panels hit at true positions along their own axis (0.22, 0.44, 0.49, 0.55, 0.67) — the old mapping collapsed all of these to ~0.99/~0.01. Now tearing the harness down:
+[c0001] → Bash(pkill -f "target/debug/angle_out"; cp /tmp/main.rs.pre src/main.rs && cp /tmp/arena.rs.pre src/arena/mod.rs echo "=== md…)
+[c0001] → Bash(cargo build 2>&1 | grep -E "arena/mod.rs|force_field.rs"; cargo build 2>&1 | tail -2; cargo test 2>&1 | grep -E "^test r…)
+[c0001] Now rewriting the card Notes, which contradicted the resolved decisions:
+[c0001] → Bash(python3 - <<'PY' p='.gello/cards/c0001-force-field.md' s=open(p).read() # Tick the criteria this round settles. for crit…)
+[c0001] Now committing:
+[c0001] → Bash(git status --short src/arena/mod.rs src/materials/force_field.rs assets/shaders/force_field_material.wgsl src/main.rs; e…)
+[c0001] → Bash(git add src/arena/mod.rs src/materials/force_field.rs assets/shaders/force_field_material.wgsl && git commit -F - <<'MSG…)
+[c0001] → mcp__gello__set_status(review)
+[c0001] Back in `review` as `226d022`. All three findings were correct.
+[c0001] ## 1. The repeating sampler was never in the tree
+[c0001] The review is right, and the cause is worth stating plainly: my edit was in a shell command that died on a zsh quoting error before the `python3` heredoc ran. I saw the error, re-ran only the `cargo build` half, and it compiled — because the plain `asset_server.load` was still there. So the Notes claimed a change that didn't exist.
+[c0001] It's applied now as `hex_lattice_texture` (`src/arena/mod.rs:63`), via `load_builder().with_settings(...)` since `load_with_settings` is deprecated in 0.19. I verified it by grepping the file afterwards rather than trusting the edit.
+[c0001] ## 2. Wavefront now reads white-hot
+[c0001] `flare_color` defaults to `Color::WHITE`, guarded by a new test — the pale blue I'd chosen was exactly the "keeping the flare in the blue family" option the card rejects. `ripple_strength` returns `vec2(wave, crest)`, and the ring is asymmetric now: sharp leading edge, long wake behind it. The lattice is `mix(sheet_color, flare_color, crest)`, so it burns white at the front and grades back to blue through the wake.
+[c0001] ## 3. The rotated-panel path, actually run
+[c0001] Re-enabled the conveyor level with a throwaway harness (auto-start, auto-launch, and a system aiming balls at the side panels — this session can't synthesise keystrokes), then restored both files and confirmed with `md5` against pre-harness copies. Both panels took real hits:
+[c0001] ```
+[c0001] panel=536v0 world=(98.27, 0, -28.33)  uv=(0.669, 0.5)
+[c0001] panel=536v0 world=(98.27, 0, -41.78)  uv=(0.220, 0.5)
+[c0001] panel=533v0 world=(-98.27, 0, -24.93) uv=(0.218, 0.5)
+[c0001] ```
+[c0001] The old mapping would have read all of those as u ≈ 0.99 / ≈ 0.01. This also covers what the unit test can't: `child_of.parent()` resolving on the obstacle path and `ForceField.size` matching the mesh. No shader or pipeline errors in the run, so the WGSL compiles and renders.
+[c0001] Two incidental findings, left as found and noted on the card: the commented-out level doesn't compile as written (needs `ARENA_WIDTH_H`, `WinCriteria`, and `TargetLayout::Custom`), and `src/game/mod.rs:27` resets `current_level = 0` on entering `InGame`, so reaching a later level means reordering the list.
+[c0001] 27 tests pass, build adds no warnings in the touched files. The Notes were rewritten — the previous ones argued for choices the discussion had already settled the other way. The two visual criteria are still unticked and still need you at the screen. Nothing pushed.
+[c0001] ✓ 152 in / 35875 out tokens, $8.9237, 76 turns, 706.0s
+[c0001] Second round on this card. Let me re-read the card from disk and see what's changed since.
+[c0001] → Bash(sed -n '1,10p' .gello/cards/c0001-force-field.md; echo "=== git log ==="; git log --oneline -8; echo "=== status ==="; g…)
+[c0001] → Bash(awk '/^## Review/,0' .gello/cards/c0001-force-field.md | grep -n "^### \|^## ")
+[c0001] New commit since my last round. Reading it.
+[c0001] → Bash(git show --stat 226d022)
+[c0001] → Bash(sed -n '/^## Notes/,/^## Review/p' .gello/cards/c0001-force-field.md)
+[c0001] → Bash(git show 226d022 -- src/materials/force_field.rs src/arena/mod.rs | sed -n '/^diff/,$p')
+[c0001] → Bash(git show 226d022 -- assets/shaders/force_field_material.wgsl | sed -n '/^diff/,$p')

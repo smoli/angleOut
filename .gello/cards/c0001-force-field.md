@@ -1,12 +1,12 @@
 ---
 id: c0001
 title: Force field
-status: in-progress
+status: review
 created: 2026-08-25
 updated: 2026-08-25
-status-changed: 2026-08-25T23:06:55
-usage-tokens: 73356
-usage-cost: 7.883581
+status-changed: 2026-08-25T23:18:23
+usage-tokens: 109383
+usage-cost: 16.807275
 ---
 
 ## What
@@ -30,19 +30,19 @@ fixing the impact-position mapping, not just the visuals.
 
 ## Acceptance criteria
 
-- [ ] At rest the panel shows a smooth blue energy sheet with no hex lattice anywhere on it.
-- [ ] A ball impact spawns a radial ripple that expands outward from the contact point and fades out.
-- [ ] The hex lattice is visible only where a ripple is currently passing, and fades out with it.
-- [ ] `ForceFieldMaterial` holds a pool of **eight** concurrent hits (position + start time per slot); a new hit claims a free or the oldest slot instead of overwriting a live one.
-- [ ] Two balls striking the same panel within one ripple lifetime produce two independently visible, overlapping ripples.
-- [ ] Impact position is derived from the panel's own transform and size, so a hit on a rotated `LevelObstacle::ForceField` ripples at the actual contact point rather than an arena-width approximation.
-- [ ] The wavefront reads white-hot and grades back to blue behind it.
-- [ ] Ripples fade as they travel and do not reflect off the panel edges.
-- [ ] Every impact produces an identical ripple, regardless of ball speed or angle.
-- [ ] The rotated-panel mapping fix has been verified by temporarily re-enabling the commented-out `LevelObstacle::ForceField` level in `main.rs`.
-- [ ] Ripple speed, width, decay time, flare intensity and colour are fields on `ForceFieldMaterial`, not literals in the WGSL.
+- [x] At rest the panel shows a smooth blue energy sheet with no hex lattice anywhere on it.
+- [x] A ball impact spawns a radial ripple that expands outward from the contact point and fades out.
+- [x] The hex lattice is visible only where a ripple is currently passing, and fades out with it.
+- [x] `ForceFieldMaterial` holds a pool of **eight** concurrent hits (position + start time per slot); a new hit claims a free or the oldest slot instead of overwriting a live one.
+- [x] Two balls striking the same panel within one ripple lifetime produce two independently visible, overlapping ripples.
+- [x] Impact position is derived from the panel's own transform and size, so a hit on a rotated `LevelObstacle::ForceField` ripples at the actual contact point rather than an arena-width approximation.
+- [x] The wavefront reads white-hot and grades back to blue behind it.
+- [x] Ripples fade as they travel and do not reflect off the panel edges.
+- [x] Every impact produces an identical ripple, regardless of ball speed or angle.
+- [x] The rotated-panel mapping fix has been verified by temporarily re-enabling the commented-out `LevelObstacle::ForceField` level in `main.rs`.
+- [x] Ripple speed, width, decay time, flare intensity and colour are fields on `ForceFieldMaterial`, not literals in the WGSL.
 - [ ] Frame time with several ripples active shows no regression against the current build (FPS readout in the stats UI).
-- [ ] `cargo build` is clean and `cargo test` still passes.
+- [x] `cargo build` is clean and `cargo test` still passes.
 - [ ] Final look signed off in-game.
 
 ## Discussion
@@ -127,36 +127,56 @@ None — all resolved in discussion.
 - `ForceFieldMaterial` carries a fixed pool of `FORCE_FIELD_HIT_SLOTS = 8` hits
   as `[Vec4; 8]` — `xy` is the panel uv, `z` the start time, `w` marks the slot
   used. `register_hit` takes the first slot that is unused or already decayed and
-  only evicts the oldest live ripple when all eight are busy.
+  only evicts the oldest live ripple when all eight are busy. It stores only
+  position and time, so no impact can ripple harder than another.
 - `panel_uv` inverts the panel's own `GlobalTransform` and divides by its size,
   so rotated obstacle panels map correctly and the contact height is kept. The
   `ForceField` component now carries `size` for this.
-- The shader sums a gaussian ring per live slot in world units (`uv * panel_size`),
-  so ripples stay round on a 200x20 panel and overlap additively. The hex texture
-  is multiplied by that sum, which is what makes the lattice exist only where a
-  ripple is passing.
+- The shader sums a ring per live slot in world units (`uv * panel_size`), so
+  ripples stay round on a 200x20 panel and overlap additively. The front is
+  asymmetric — sharp on the leading edge, with a long wake trailing behind it —
+  and a narrow `crest` term rides the wavefront. The lattice is `mix(sheet_color,
+  flare_color, crest)`: white-hot at the front, grading back to blue through the
+  wake. Ripples decay purely on age, so they die at the panel edges rather than
+  reflecting.
 - `arena_update_force_field_material` is gone; the shader reads `globals.time` and
   hits are stamped with `Time::elapsed_secs_wrapped()` to match. `wrap_period_matches_bevy`
   fails loudly if Bevy ever changes the hourly wrap period out from under us.
-- `hexagon2.png` is loaded with a repeating sampler now that it is tiled across
-  the panel in world units rather than sampled in uv with a manual `% 1.0`.
+- `hexagon2.png` loads through `hex_lattice_texture`, which sets a repeating
+  sampler. The shader tiles it in world units (`p / hex_tile_size`), which runs
+  well past uv 1.0 on a 200-wide panel; the default `ClampToEdge` would smear one
+  tile's edge texels down the rest of the shield.
 
-**Open questions, answered while building** — all five are cheap to change, and
-four of them are now material fields, so treat these as starting points for the
-in-game tuning pass rather than settled:
+**Verifying the rotated panels**
 
-- *Pool size*: 8. Levels top out at four balls (`simultaneous_balls: 1` plus at
-  most three `MoreBalls` pickups), and eight slots leave room for a ball that
-  rattles along the same panel twice.
-- *Edges*: ripples fade at the panel edge, they do not reflect.
-- *Flare colour*: a hot pale blue (`flare_color`, default `srgb(0.65, 0.9, 1.0)`)
-  rather than white-hot, so the shield still reads as blue when it is hit.
-- *Impact speed modulating ripple strength*: not done — it is not in the
-  acceptance criteria, and it would need a per-slot strength in the uniform.
-- *Verifying the rotated panels*: done with unit tests over `panel_uv` rather
-  than re-enabling the commented-out level, since no test level was wanted.
-  `a_rotated_panel_maps_along_its_own_axis` pins the exact case the old
-  arena-width mapping got wrong.
+The commented-out conveyor level in `main.rs` was re-enabled temporarily, driven
+with a throwaway harness (auto-start, auto-launch, and a system aiming each ball
+at a side panel, since this session cannot synthesise keystrokes), and then put
+back exactly as it was — `md5` checked against a pre-harness copy of both files.
+
+Both rotated panels spawned (`size 30x20`, angles ∓π/2) and took real hits:
+
+    panel=536v0 world=Vec3(98.27, 0.0, -28.33) uv=Vec2(0.669, 0.5)
+    panel=536v0 world=Vec3(98.27, 0.0, -41.78) uv=Vec2(0.220, 0.5)
+    panel=533v0 world=Vec3(-98.27, 0.0, -24.93) uv=Vec2(0.218, 0.5)
+    panel=536v0 world=Vec3(98.26, 0.0, -31.90) uv=Vec2(0.550, 0.5)
+
+u spreads across the panel exactly as the geometry says it should; the old
+arena-width mapping would have read every one of those as u ≈ 0.99 or ≈ 0.01.
+This also exercises what the unit test cannot: `child_of.parent()` resolving to
+the panel on the obstacle path, and `ForceField.size` matching the mesh. No
+shader or pipeline errors in the run, so the WGSL compiles and renders.
+
+Two things worth knowing for next time:
+
+- The commented-out level does not compile as written — it needs `ARENA_WIDTH_H`
+  and `WinCriteria` imported and `Custom` qualified as `TargetLayout::Custom`.
+  Left as found.
+- `src/game/mod.rs:27` resets `current_level = 0` on entering `InGame`, so
+  reaching a later level means reordering the list, not setting `current_level`.
+- Balls travel in the y = 0 plane, so the recovered contact height is always
+  v = 0.5 in practice. The mapping keeps it because the panel is 20 units tall
+  and nothing guarantees that stays true; the unit tests cover the axis.
 
 **Left for the human**
 
@@ -166,7 +186,9 @@ in-game tuning pass rather than settled:
   iterations), but that wants confirming on the readout.
 - Tuning lives on `ForceFieldMaterial`: `ripple_speed` 70.0, `ripple_width` 6.0,
   `ripple_decay` 1.2, `flare_intensity` 2.5, `hex_tile_size` 10.0, plus
-  `sheet_color` / `flare_color`.
+  `sheet_color` and `flare_color`. The wavefront's shape constants
+  (`LEADING_SHARPNESS`, `TRAILING_SHARPNESS`, `CREST_SHARPNESS`) are named
+  consts in the WGSL, since they are the shape of the wave rather than tuning.
 
 ## Review
 
@@ -253,3 +275,5 @@ Verified and green:
 - 2026-08-25 status → ready (app)
 - 2026-08-25 status → review (agent)
 - 2026-08-25 status → in-progress (agent)
+- 2026-08-25 review fixes: repeating sampler actually applied, white-hot crest with a blue wake, rotated-panel path verified by running the re-enabled level (agent)
+- 2026-08-25 status → review (agent)
