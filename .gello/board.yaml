@@ -1,0 +1,4 @@
+columns: [inbox, discuss, backlog, ready, in-progress, review, done]
+types: [task, issue]
+wip_limits:
+  in-progress: 2
