@@ -1628,3 +1628,77 @@
 [c0007] → Bash(date +%Y-%m-%dT%H:%M:%S)
 [c0007] → Bash(grep -n "^## Log" .gello/epics/e01-level-editor/c0007-grid-painting.md)
 [c0007] → Bash(python3 - <<'EOF' import io p = ".gello/epics/e01-level-editor/c0007-grid-painting.md" s = open(p).read() review = """##…)
+[c0007] **Verdict: pass** — recorded in a new `## Review` section on `.gello/epics/e01-level-editor/c0007-grid-painting.md`, above `## Log`. The card stays in `review`; I didn't move it.
+[c0007] What I checked and found:
+[c0007] - **All seven criteria hold in the code**, each with a test behind it. The brush is a real resource with block type, behaviour, trigger and erase mode; painting goes `editor_paint → paint_cell → set_cell`; erase writes `EMPTY_SLOT`; `Z` needs no special case; blocks spawn in the same frame the cell is painted; a drag is one press / many cells / one release; and the round trip back through `interpret_grid` is asserted per block, plus a walk of all 2295 tokens the format defines.
+[c0007] - **`cargo test`: 106 passed, 0 failed** — the number the card claims, 26 of them new in `bef6615`. No test ignored, skipped or weakened; the diff removes no assertion.
+[c0007] - **`cargo build`: clean at 19 warnings**, all pre-existing and none in the files this card touched. There is no lint/typecheck step in this repo beyond build and test — `cargo clippy` is not configured and I did not run it.
+[c0007] - **Diff stays inside the What**: only the card, `block/mod.rs`, `editor/mod.rs`, `level/layout/mod.rs`. The `block_material` extraction is a pure move out of `block_spawn`, pinned by a test asserting the colours are the ones the game already used. No debug leftovers.
+[c0007] Two things I noted without failing the card: the mesh/material half of "appear as blocks" is not test-covered (there is no glTF in a headless test), so it rests on the card's run in the real game; and `block_token` silently drops a trigger whose group has no digit — deliberate and documented, only reachable from a hand-built brush, but `c0009`'s palette should not be able to offer a group above 9.
+[c0007] One aside: the working tree carries unrelated uncommitted changes in 21 other files. The test run above is of the tree as it stands, and it is green with them in it.
+[c0007] ✓ 44 in / 14635 out tokens, $1.6033, 28 turns, 246.0s
+[c0008] I'll pick up the card first.
+[c0008] → ToolSearch(select:mcp__gello__set_status,mcp__gello__add_question)
+[c0008] → mcp__gello__set_status(in-progress)
+[c0008] Card picked up. Now let me read it and the surrounding context.
+[c0008] → Bash(cat .gello/epics/e01-level-editor/c0008-grid-resize.md)
+[c0008] → Bash(ls .gello/epics/e01-level-editor/ && cat .gello/board.yaml)
+[c0008] → Bash(cat .gello/epics/e01-level-editor/epic.md && echo "=== c0007 ===" && cat .gello/epics/e01-level-editor/c0007-grid-painti…)
+[c0008] → Bash(ls src/editor src/level src/level/layout 2>/dev/null && wc -l src/editor/mod.rs src/level/layout/mod.rs)
+[c0008] → Bash(sed -n '1,400p' src/level/layout/mod.rs)
+[c0008] → Bash(sed -n '400,835p' src/level/layout/mod.rs)
+[c0008] Now the editor module.
+[c0008] → Bash(sed -n '1,320p' src/editor/mod.rs)
+[c0008] → Bash(sed -n '320,700p' src/editor/mod.rs)
+[c0008] → Bash(sed -n '700,1000p' src/editor/mod.rs)
+[c0008] → Bash(sed -n '1000,1400p' src/editor/mod.rs)
+[c0008] → Bash(sed -n '1400,1693p' src/editor/mod.rs)
+[c0008] → Bash(grep -n "ARENA_WIDTH\|ARENA_HEIGHT\|BLOCK_WIDTH\|BLOCK_DEPTH\|BLOCK_GAP" src/config/mod.rs | head -40)
+[c0008] → Bash(grep -rn "Text\b\|TextFont\|Node {" src/ui/mod.rs | head -30; echo ---; ls assets/fonts 2>/dev/null | head)
+[c0008] → Bash(grep -rn "Orbitron\|TextFont\|Text::new\|TextColor" src --include=*.rs | head -20)
+[c0008] → Bash(grep -rn "Orbitron\|TextFont\|Text::new\|TextColor" src | head -20)
+[c0008] → Bash(sed -n '75,135p' src/ui/game/mod.rs)
+[c0008] → Bash(sed -n '1,80p' src/level/campaign.rs; echo "=== asset ==="; cat src/level/asset.rs; echo "=== level mod head ==="; sed -…)
+[c0008] → Bash(sed -n '80,200p' src/level/campaign.rs; echo "=== grep write_level/save ==="; grep -n "pub fn" src/level/campaign.rs)
+[c0008] → Bash(grep -n "fn \|SystemLabels\|add_systems" src/level/mod.rs | sed -n '1,60p')
+[c0008] → Bash(sed -n '204,300p' src/level/mod.rs; echo "=== test helpers ==="; sed -n '395,470p' src/level/mod.rs)
+[c0008] → Bash(grep -rn "ArrowUp\|ArrowLeft\|KeyCode::" src | grep -v "^src/editor" | head -20)
+[c0008] → Bash(grep -rn "FontSize" src | head; echo ---; sed -n '1,20p' src/ui/game/mod.rs)
+[c0008] Now I'll write the layout tests first.
+[c0008] → Bash(cat > /tmp/layout_tests.rs <<'EOF' // --- resizing ---------------------------------------------------------- /// The gr…)
+[c0008] → Bash(cargo test --lib level::layout 2>&1 | tail -25)
+[c0008] → Bash(timeout 600 cargo test level::layout 2>&1 | tail -25)
+[c0008] → Bash(cargo test level::layout 2>&1 | tail -25)
+[c0008] Tests fail as expected. Now the implementation:
+[c0008] → Bash(cat > /tmp/layout_impl.rs <<'EOF' /// One side of the grid, as the author looking at it names it. /// /// [`Edge::Top`] …)
+[c0008] Now refactor `set_cell` onto the shared grid helpers:
+[c0008] → Bash(python3 - <<'PY' p='src/level/layout/mod.rs' s=open(p).read() old = '''pub fn set_cell(layout: &str, col: usize, row: us…)
+[c0008] → Bash(python3 - <<'PY' p='src/level/layout/mod.rs' s=open(p).read() old="""/// A write outside the grid is not a write: the la…)
+[c0008] Now the editor tests:
+[c0008] → Bash(cat > /tmp/editor_tests.rs <<'EOF' // --- resizing --------------------------------------------------------- fn arrow(ed…)
+[c0008] Now the editor implementation:
+[c0008] → Bash(cat > /tmp/editor_impl.rs <<'EOF' /// Adds and removes rows and columns at the edges of the grid. /// /// An arrow key g…)
+[c0008] Now the resources, `EditorLevel` methods, constants and imports:
+[c0008] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() # --- imports --------------------------------------------------…)
+[c0008] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() # --- EditorLevel resize methods -------------------------------…)
+[c0008] Now wire it into the plugin, teardown, paint and the highlight helper:
+[c0008] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() # --- plugin ---------------------------------------------------…)
+[c0008] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() # the key map, logged on the way in old = """fn editor_setup(mut…)
+[c0008] → Bash(cargo test editor:: 2>&1 | grep -B5 -A15 "^error" | head -50)
+[c0008] → Bash(cargo test editor:: 2>&1 | grep -A20 "E0422" | head -40)
+[c0008] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old="Mesh3d, MouseButton, NextState, OnEnter, OnExit, PositionTy…)
+[c0008] → Bash(cargo test editor::tests::leaving_the_editor_forgets_the_warning 2>&1 | tail -40)
+[c0008] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = """ app.init_asset::<BlockMaterial>();""" new = """ app.in…)
+[c0008] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = ''' #[test] fn shift_and_an_arrow_key_takes_that_edge_away…)
+[c0008] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = """ let Some((cols, rows, gap)) = editor_level.grid() else…)
+[c0008] → Bash(cargo test 2>&1 | tail -3; cat "/Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/running-the…)
+[c0008] → Bash(ls -la src/diagnostics/ 2>/dev/null; git status --short src/ | head)
+[c0008] Tests pass. Now let me verify in the real game, driving the keys through the actual input path:
+[c0008] → Bash(cat > /tmp/probe.rs <<'EOF' // --- TEMPORARY: drives the editor from a synthetic keyboard, c0008 only --- fn editor_prob…)
+[c0008] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() probe=open('/tmp/probe.rs').read() assert probe in s s=s.replace…)
+[c0008] → Bash(git diff --stat src/; git diff src/editor/mod.rs | head -120)
+[c0008] → Bash(git show --stat bef6615 | head -20; echo ===; git show --stat 58769f5 | head)
+[c0008] → Bash(git show --stat --format="" bef6615; echo "-----"; git log -1 --format=%B 58769f5)
+[c0008] → Bash(git diff -U0 src/level/layout/mod.rs src/editor/mod.rs | grep -c "^+ fn \|^+ #\[test\]"; git diff -U0 src/level/layout/m…)
+[c0008] Now the card:
+[c0008] → Bash(python3 - <<'PY' p='.gello/epics/e01-level-editor/c0008-grid-resize.md' s=open(p).read() s = s.replace("""- [ ] Rows can…)
