@@ -608,3 +608,9 @@
 [c0001] → Bash(python3 - <<'PY' p='src/materials/force_field.rs' s=open(p).read() s=s.replace('''impl ForceFieldMaterial { /// Records …)
 [c0001] Red confirmed — 10 failing on the stubs. Now the implementation:
 [c0001] → Bash(python3 - <<'PY' p='src/materials/force_field.rs' s=open(p).read() s=s.replace('''pub fn hit_age(now: f32, start: f32) -…)
+[c0001] All 26 tests pass. Now the shader itself:
+[c0001] → Bash(cat > assets/shaders/force_field_material.wgsl <<'WGSL' #import bevy_pbr::{ forward_io::VertexOutput, mesh_view_bindings…)
+[c0001] → Bash(grep -rn "pub use\|pub mod" ~/.cargo/registry/src/*/bevy_image-0.19.1/src/lib.rs | head -20; grep -rn "ImageLoaderSettin…)
+[c0001] → Bash(sed -n 130,175p ~/.cargo/registry/src/*/bevy_image-0.19.1/src/image_loader.rs; grep -n "pub fn linear()\|pub struct Imag…)
+[c0001] → Bash(python3 - <<'PY' p='src/arena/mod.rs' s=open(p).read() s=s.replace('''use bevy::app::{App, Plugin, PostUpdate, Update};'…)
+[c0001] → Bash(cargo build 2>&1 | grep -E "^(error|warning)" -A6 | head -60)

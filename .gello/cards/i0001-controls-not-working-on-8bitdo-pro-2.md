@@ -1,11 +1,11 @@
 ---
 id: i0001
 title: Controls not working on 8bitDo Pro 2
-status: review
+status: done
 type: issue
 created: 2026-08-25
 updated: 2026-08-25
-status-changed: 2026-08-25T22:44:47
+status-changed: 2026-08-25T22:53:48
 usage-tokens: 43198
 usage-cost: 8.511365
 ---
@@ -142,3 +142,4 @@ reaches the process, and the game needs both sticks to twist the paddle.
 - 2026-08-25 status → ready (app)
 - 2026-08-25 status → in-progress (agent)
 - 2026-08-25 status → review (agent)
+- 2026-08-25 status → done (app)
