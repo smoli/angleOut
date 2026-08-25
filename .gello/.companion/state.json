@@ -1,12 +1,24 @@
 {
-  "status": "idle",
-  "ready": [],
+  "status": "running",
+  "ready": [
+    "i0001"
+  ],
   "waiting": [],
-  "runs": [],
-  "updated": "2026-08-25T22:15:18",
+  "runs": [
+    {
+      "cardId": "i0001",
+      "phase": "running",
+      "model": "<synthetic>"
+    }
+  ],
+  "updated": "2026-08-25T22:17:26",
   "pickupDelay": 10,
-  "owned": [],
+  "owned": [
+    "i0001"
+  ],
   "afk": false,
   "paused": false,
-  "firstSeen": {}
+  "firstSeen": {
+    "i0001": "2026-08-25T22:16:56"
+  }
 }
