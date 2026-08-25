@@ -1,11 +1,10 @@
 ---
 id: c0001
 title: Force field
-status: ready
+status: review
 created: 2026-08-25
 updated: 2026-08-25
-status-changed: 2026-08-25T22:46:24
-order: 10
+status-changed: 2026-08-25T23:01:23
 ---
 
 ## What
@@ -174,3 +173,4 @@ in-game tuning pass rather than settled:
 - 2026-08-25 status → in-progress (agent)
 - 2026-08-25 hit pool, panel-relative impact mapping and the new sheet/ripple/flare shader landed; 26 tests green (agent)
 - 2026-08-25 status → ready (app)
+- 2026-08-25 status → review (agent)
