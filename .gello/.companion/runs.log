@@ -528,3 +528,8 @@
 [i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-core-0.6.8 && grep -n "native_ev_codes" -A 80 src/platform/macos/gamepad.rs | sed -n 1,…)
 [i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-core-0.6.8 && grep -n "USAGE_AXIS_\|PAGE_GENERIC_DESKTOP\|PAGE_SIMULATION\|PAGE_BUTTON"…)
 [i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-core-0.6.8 && grep -rn "USAGE_AXIS_LSTICKX\|USAGE_AXIS_RSTICKX\|USAGE_AXIS_RSTICKY\|USA…)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-core-0.6.8 && sed -n 300,340p src/platform/macos/io_kit.rs)
+[i0001] The answer is decisive: **X mode** — left stick works but Y-inverted, right stick dead; **D mode works perfectly**. Let me verify my mechanism against gilrs before designing the fix.
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && grep -rn "SDL_GAMECONTROLLERCONFIG\|env::var\|add_mapping\|insert_mapping" sr…)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && sed -n 455,510p src/mapping/mod.rs)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && sed -n 640,700p src/gamepad.rs; echo "=== bevy_gilrs init ==="; cd ~/.cargo/r…)
