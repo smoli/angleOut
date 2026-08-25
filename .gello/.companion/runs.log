@@ -533,3 +533,29 @@
 [i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && grep -rn "SDL_GAMECONTROLLERCONFIG\|env::var\|add_mapping\|insert_mapping" sr…)
 [i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && sed -n 455,510p src/mapping/mod.rs)
 [i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && sed -n 640,700p src/gamepad.rs; echo "=== bevy_gilrs init ==="; cd ~/.cargo/r…)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && grep -n "AxisMapping\|fn parse_sdl_mapping\|axes\[\|buttons\[" src/mapping/mo…)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/gilrs-0.11.2 && sed -n 267,330p src/mapping/mod.rs)
+[i0001] → Bash(ls -d target/debug 2>/dev/null && du -sh target 2>/dev/null | tail -1; ls target/debug/*.d 2>/dev/null | head -3)
+[i0001] → Bash(cargo check --message-format short 2>&1 | tail -20)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/bevy_gilrs-0.19.1 && sed -n 30,115p src/gilrs_system.rs)
+[i0001] Root cause confirmed. Let me check the exact Bevy 0.19 API surface I need.
+[i0001] → Bash(cd ~/.cargo/registry/src/*/bevy_input-0.19.1 2>/dev/null || cd ~/.cargo/registry/src/*/bevy_input-0.19.0; pwd; grep -n "…)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/bevy_input-0.19.1 && sed -n 110,126p src/gamepad.rs; echo "---"; sed -n 146,160p src/gamepad.…)
+[i0001] → Bash(cd ~/.cargo/registry/src/*/bevy_input-0.19.1 && grep -n "pub enum GamepadAxis" -B 12 -A 25 src/gamepad.rs | head -50; ec…)
+[i0001] Now writing the module, tests first.
+[i0001] → Bash(sed -n 225,265p src/events/mod.rs)
+[i0001] → Bash(mkdir -p src/input && cat > src/input/mod.rs <<'RS' //! Tells the player which gamepad the game is actually seeing, and …)
+[i0001] Now wiring it into the app.
+[i0001] → Bash(grep -n "^mod \|^use crate::ui::UI;\|app.add_plugins(PlayerPlugin);" src/main.rs)
+[i0001] → Bash(python3 - <<'PY' p = "src/main.rs" s = open(p, encoding="utf-8").read() s = s.replace("mod pickups;\n", "mod pickups;\nm…)
+[i0001] → Bash(cargo test --message-format short 2>&1 | grep -v "^warning\|never used\|never read\|never constructed\|snake case\|^\s*$…)
+[i0001] → Bash(python3 - <<'PY' p = "src/input/mod.rs" s = open(p, encoding="utf-8").read() s = s.replace( """use bevy::prelude::{ info…)
+[i0001] → Bash(cargo check --message-format short 2>&1 | grep "src/input" ; echo "(no input warnings above = clean)"; echo "=== README …)
+[i0001] → Bash(cat >> README.md <<'MD' ## Controllers The paddle is twisted with *both* sticks, so a pad that only delivers one of them…)
+[i0001] Now updating the card's Notes with the confirmed root cause and outcome.
+[i0001] → Bash(python3 - <<'PY' p = ".gello/cards/i0001-controls-not-working-on-8bitdo-pro-2.md" s = open(p, encoding="utf-8").read() o…)
+[i0001] One earlier bullet now contradicts the confirmed finding — correcting it so the card isn't self-inconsistent.
+[i0001] → Bash(python3 - <<'PY' p = ".gello/cards/i0001-controls-not-working-on-8bitdo-pro-2.md" s = open(p, encoding="utf-8").read() o…)
+[i0001] Final verification, then commit.
+[i0001] → Bash(cargo test --message-format short 2>&1 | tail -5; echo "=== files I touched ==="; git status --short README.md src/main.…)
+[i0001] → Bash(git diff --stat README.md src/main.rs; echo "=== HEAD vs working, README ==="; git diff README.md | head -60)

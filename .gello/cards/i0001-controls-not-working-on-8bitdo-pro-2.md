@@ -70,11 +70,10 @@ Using the 8bitDo Pro 2 there’s some issue might be that some inversion of axes
   adds no per-device handling. So the whole difference between DualSense and
   8BitDo Pro 2 is decided inside gilrs.
 - On macOS, `gilrs-core` sets `IS_Y_AXIS_REVERSED = true` and `gilrs`
-  (`gamepad.rs:1171`) only applies that flip when the axis has already been
-  *recognised* as `LeftStickY` / `RightStickY` / `DPadY`. An axis that falls
-  through as `Axis::Unknown` is **not** flipped — so a device whose sticks are
-  not resolved by the mapping DB comes out inverted on Y relative to a device
-  that is. That is a concrete mechanism for exactly the reported symptom.
+  (`gamepad.rs:1171`) applies that flip to every axis it recognises as
+  `LeftStickY` / `RightStickY` / `DPadY`, unconditionally — there is no
+  per-device escape. The flip is correct for pads that follow the HID
+  "down is positive" convention and wrong for pads that do not.
 - Recognition is by SDL GUID (bus/vendor/product/version, `macos/gamepad.rs:279`)
   against the bundled `SDL_GameControllerDB`. The DB has `Mac OS X` entries for
   8BitDo Pro 2 under vendor `c82d`, products `0660` (versions `0001`/`0002`) —
@@ -88,18 +87,55 @@ Using the 8bitDo Pro 2 there’s some issue might be that some inversion of axes
   upstream limitation. It does not bite the `Mac OS X` 8BitDo entries (they have
   no `~`), but it would bite any mapping that needs one.
 
-### Why this is blocked
+### Root cause (confirmed against the hardware)
 
-The correct fix differs per root cause, and they are indistinguishable from here
-without the hardware:
+The answer above pinned it down: the pad was in **`X`** (X-input) mode, where the
+left stick works but is Y-inverted and the right stick does nothing at all.
+Moving the switch to **`D`** makes it work perfectly. That is fully explained by
+the audit above:
 
-- pad not matched by the mapping DB → ship a custom SDL mapping for it;
-- pad matched but mapped wrong → override the mapping;
-- only Y inverted → invert at the `ship_articulate` boundary behind a setting;
-- sticks fine but drifting past the deadzone → tune the deadzone instead.
+- gilrs' macOS fallback table (`macos/io_kit.rs:312`) only resolves the HID
+  usages `X`, `Y`, `Z` and `Rz` — mapping them to left-X, left-Y, right-X and
+  right-Y respectively. In `D` mode the Pro 2 puts its right stick on `Z`/`Rz`,
+  which is exactly what that table expects, so everything lines up.
+- In `X` mode the pad follows the Xbox descriptor and puts the right stick on
+  `Rx`/`Ry`, which the table does not cover. Those events become `Axis::Unknown`,
+  and `bevy_gilrs` (`gilrs_system.rs:99`) drops them with `continue` before they
+  reach Bevy. **The right stick is therefore unreachable from game code** — no
+  remapping, deadzone or inversion setting on our side can recover it.
+- The inverted Y has the same origin: gilrs applies its macOS
+  `IS_Y_AXIS_REVERSED` flip unconditionally, which is right for the HID
+  "down is positive" convention that `D` mode follows and wrong for X-input.
 
-Guessing would mean writing an untestable fix for a device that is not attached
-to this machine, so the question below is on the card instead.
+A custom SDL mapping via `SDL_GAMECONTROLLERCONFIG` could in principle re-point
+the right stick, but SDL axis indices resolve against the device's own element
+enumeration order (`mapping/mod.rs:294`), which is not knowable without the pad
+in hand — and it still could not fix the inversion, since gilrs ignores the `~`
+suffix. So `D` mode is the answer, not a code change.
+
+### What was done
+
+Since the defect is outside the game, the fix is to stop it being undiagnosable:
+
+- `src/input/mod.rs` (new, wired up in `src/main.rs`) logs every gamepad that
+  connects with its name and USB vendor/product ids, and warns once when a pad
+  has been steering on the left stick alone for a sustained stretch without a
+  single right-stick event ever arriving — the exact signature of this fault.
+  The evidence logic is pure and unit-tested (8 tests).
+- `README.md` gains a **Controllers** section recording the `D`-mode
+  requirement, why `X` mode cannot work, and the `SDL_GAMECONTROLLERCONFIG`
+  escape hatch.
+
+### Acceptance
+
+- [x] Root cause identified and explained rather than guessed at.
+- [x] The `D`-mode requirement is documented where a player will find it.
+- [x] A pad that loses a stick this way now announces itself in the log instead
+      of failing silently.
+- [x] `cargo test` green (14 passed, 8 new); `cargo check` adds no new warnings.
+
+Not done, deliberately: nothing makes `X` mode playable. The right stick never
+reaches the process, and the game needs both sticks to twist the paddle.
 
 ## Log
 
