@@ -1,13 +1,12 @@
 ---
 id: c0006
 title: Grid picking
-status: ready
+status: in-progress
 epic: e01
 depends: [c0002, c0005]
 created: 2026-08-25
-updated: 2026-08-25
-status-changed: 2026-08-25T22:59:50
-order: 60
+updated: 2026-08-26
+status-changed: 2026-08-26T00:41:05
 ---
 
 ## What
@@ -38,3 +37,4 @@ no geometry there to hit.
 
 - 2026-08-25 created from the e01 epic breakdown
 - 2026-08-25 status → ready (app)
+- 2026-08-26 status → in-progress (agent)

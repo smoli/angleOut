@@ -1336,3 +1336,51 @@
 [c0005] → Bash(git show 60e61e3 -- src/ui/game/mod.rs)
 [c0005] → Bash(git show 60e61e3 -- src/level/layout/mod.rs | sed -n '50,250p')
 [c0005] → Bash(cargo test 2>&1 | tail -60)
+[c0005] → Bash(cargo build 2>&1 | tail -30; echo "=== README ==="; grep -niE "cargo|clippy|fmt|test" README.md | head -30)
+[c0005] → Bash(touch src/editor/mod.rs src/level/layout/mod.rs src/ui/game/mod.rs && cargo build 2>&1 | grep -E "^(warning|error)" -A3 …)
+[c0005] → Bash(cargo build 2>&1 | grep -B4 -A6 "layout/mod.rs:61")
+[c0005] → Bash(sed -n '1,140p' src/main.rs)
+[c0005] → Bash(grep -rn "Camera3d\|Camera2d\|Camera::" src --include=*.rs | grep -v "^src/editor" | head -20)
+[c0005] → Bash(grep -rn "Camera3d\|Camera2d" src | head -20)
+[c0005] → Bash(sed -n '40,110p' src/ui/mod.rs)
+[c0005] → Bash(sed -n 1,100p src/level/layout/mod.rs)
+[c0005] → Bash(grep -n "leafwing" Cargo.toml; ls ~/.cargo/registry/src/*/ 2>/dev/null | grep -i leafwing | head)
+[c0005] → Bash(grep -rn "pub fn consume" ~/.cargo/registry/src/*/leafwing-input-manager-0.21.0/src/action_state.rs | head)
+[c0005] → Bash(grep -rn "pub fn consume" ~/.cargo/registry/src/*/leafwing-input-manager-0.21.0/src/ | head)
+[c0005] → Bash(grep -n "mod tests" src/events/mod.rs src/ui/mod.rs src/state/mod.rs; sed -n '180,240p' src/events/mod.rs)
+[c0005] → Bash(grep -n "ARENA_WIDTH\|ARENA_HEIGHT\|BLOCK_WIDTH\|BLOCK_DEPTH\|BLOCK_GAP" src/config/mod.rs | head)
+[c0005] → Bash(grep -n "Levels\b" src/level/mod.rs | head -30; echo ===; grep -n "init_resource\|insert_resource" src/level/mod.rs | he…)
+[c0005] → Bash(sed -n '190,215p' src/level/mod.rs; grep -n "fn build" -A 25 src/level/mod.rs | sed -n '1,40p')
+[c0005] → Bash(grep -n "pub fn interpret_grid" -A 40 src/level/layout/mod.rs)
+[c0005] → Bash(ls assets/levels/; echo ===; sed -n '1,40p' assets/levels/level0.ron)
+[c0005] → Bash(cat -A assets/levels/level4.ron | head -20)
+[c0005] → Bash(head -25 assets/levels/level4.ron | cat -et)
+[c0005] → Bash(for f in assets/levels/*.ron; do echo "--- $f"; grep -n 'SparseGrid(r"' "$f" | cat -et; done 2>/dev/null | head -40)
+[c0005] → Bash(grep -n "enum TargetLayout" -A 12 src/level/mod.rs; echo "---"; grep -rn "FilledGrid" src assets | head -20)
+[c0005] → Bash(sed -n '260,285p' src/level/mod.rs; echo "---"; grep -n "fn make_filled_grid" -A 12 src/level/layout/mod.rs)
+[c0005] → Bash(date +%Y-%m-%dT%H:%M:%S; grep -n "## Log" src/../.gello/epics/e01-level-editor/c0005-editor-state-and-entry.md)
+[c0005] → Bash(python3 - <<'PY' import io p = ".gello/epics/e01-level-editor/c0005-editor-state-and-entry.md" s = open(p, encoding="utf…)
+[c0005] **c0005 — pass.** The verdict is recorded on the card; it stays in `review` for a human to take to `done`.
+[c0005] What I checked:
+[c0005] - **Tests/build** — `cargo test`: 69 passed, 0 failed. `cargo build`: clean; the 20 warnings are all pre-existing (`world_to_cell` unused since c0002, `triggerStates` naming) and none come from the files this card touched. No lint/typecheck step exists beyond these.
+[c0005] - **All six criteria** hold against the code, not just their checkboxes. The menu→`OpenEditor`→`GameState::Editor` chain is complete and the discriminant/`TryFrom` pairing is pinned by a test — that's the failure mode that would silently make the new entry unreachable. Cursor, teardown, resource survival and camera framing each have a test behind them.
+[c0005] - **Camera framing** — I checked the two cases the shipped-levels test doesn't cover: the blank 9×6 grid (x −75.5..75.5, z −71.8..−16.7) and an 11-column grid (x ±92.5) both sit inside the ±115 / ±85 frame. `OnExit(InGame)` tears down `Environment3d`, so the editor camera is the only one rendering.
+[c0005] - **`Escape` double-binding** — ruled out: `close_on_esc`'s `not(in_state(Editor))` condition still sees `Editor` on the frame `editor_leave` fires, and `just_pressed` is gone by the next one.
+[c0005] - **Diff scope** — `src/ui/game/mod.rs` and `src/state/mod.rs` also carry their bevy 0.19 migration. Strictly outside the card's What, but the tree doesn't compile without it, c0004 set the precedent, and the commit message discloses it. The dropped `ActionState::consume` calls are forced — the method doesn't exist in leafwing-input-manager 0.21, so nothing was weakened to reach green.
+[c0005] Two things I noted on the card rather than failed on: I verified statically and through the suite, not by launching the window, so the "verified in the running game" note is the implementer's claim, not mine. And `grid_dimensions` and `interpret_grid` disagree on blank interior rows and on a first line with a leading space — harmless for every shipped level, but c0006's picking will sit directly on that seam.
+[c0005] ✓ 64 in / 17845 out tokens, $2.0492, 33 turns, 282.9s
+[c0006] I'll start by picking up the card.
+[c0006] → ToolSearch(select:mcp__gello__set_status,mcp__gello__add_question)
+[c0006] → mcp__gello__set_status(in-progress)
+[c0006] Card is picked up. Now let me read it and the surrounding context.
+[c0006] → Bash(cat .gello/epics/e01-level-editor/c0006-grid-picking.md)
+[c0006] → Bash(ls .gello/epics/e01-level-editor/ && cat .gello/epics/e01-level-editor/epic.md)
+[c0006] → Bash(cat .gello/epics/e01-level-editor/c0002-cell-world-conversion.md; echo "=====C0005====="; cat .gello/epics/e01-level-edi…)
+[c0006] → Bash(ls src/ && ls src/editor 2>/dev/null; echo "---"; grep -rn "world_to_cell\|cell_to_world" --include=*.rs src/ | head -50)
+[c0006] → Bash(grep -rn "world_to_cell\|cell_to_world\|grid_bounds\|grid_dimensions\|empty_grid" --include="*.rs" src/ | head -40)
+[c0006] → Bash(wc -l src/editor/mod.rs src/level/layout/mod.rs && cat src/editor/mod.rs)
+[c0006] → Bash(sed -n '1,140p' src/level/layout/mod.rs)
+[c0006] → Bash(grep -rn "TILTED_CAMERA\|CAMERA_TILT" --include="*.rs" src/ | head -20)
+[c0006] → Bash(sed -n '85,130p' src/match/mod.rs; echo "=== config ==="; sed -n '1,40p' src/config/mod.rs)
+[c0006] → Bash(grep -n "^name\|^version\|bevy" Cargo.toml | head -30)
+[c0006] → Bash(find ~/.cargo/registry/src -maxdepth 2 -type d -name "bevy_camera-0.19*" 2>/dev/null; find ~/.cargo/registry/src -maxdep…)

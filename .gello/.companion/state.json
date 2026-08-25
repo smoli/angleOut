@@ -1,7 +1,6 @@
 {
   "status": "running",
   "ready": [
-    "c0006",
     "c0007",
     "c0008",
     "c0009",
@@ -13,16 +12,16 @@
   "waiting": [],
   "runs": [
     {
-      "cardId": "c0005",
+      "cardId": "c0006",
       "phase": "running",
       "activity": {
         "name": "Bash",
-        "arg": "cargo test 2>&1 | tail -60"
+        "arg": "find ~/.cargo/registry/src -maxdepth 2 -type d -name \"bevy_camera-0.19*\" 2>/dev/null; find ~/.cargo/registry/src -maxdepth 2 -type d -name \"bevy_render-0.19*\" 2>/dev/null"
       },
       "model": "claude-opus-5"
     }
   ],
-  "updated": "2026-08-26T00:36:45",
+  "updated": "2026-08-26T00:41:33",
   "pickupDelay": 10,
   "owned": [
     "i0001",
@@ -30,12 +29,12 @@
     "c0002",
     "c0003",
     "c0004",
-    "c0005"
+    "c0005",
+    "c0006"
   ],
   "afk": true,
   "paused": false,
   "firstSeen": {
-    "c0006": "2026-08-25T22:59:50",
     "c0007": "2026-08-25T22:59:53",
     "c0008": "2026-08-25T22:59:56",
     "c0009": "2026-08-25T22:59:58",
