@@ -7,8 +7,8 @@ depends: []
 created: 2026-08-25
 updated: 2026-08-25
 status-changed: 2026-08-25T23:39:32
-usage-tokens: 36650
-usage-cost: 3.600852
+usage-tokens: 51445
+usage-cost: 5.073398
 ---
 
 ## What
@@ -72,6 +72,69 @@ and hot reload arrive in `c0004`.
   `main.rs`.
 - The token grid documentation moved from a comment block in `main.rs` to a doc
   comment on `layout::make_block`, next to the code that parses it.
+
+## Review
+
+### 2026-08-25T23:43:27 — pass
+
+Checked: every acceptance criterion, the commit diff (`2bd8b33`), `cargo build`,
+`cargo test`, a game start off the files, and an independent re-derivation of the
+test module's legacy literals against `main.rs` at `HEAD~1`.
+
+- All seven named types derive `Serialize`/`Deserialize`: `LevelDefinition`,
+  `TargetLayout`, `WinCriteria`, `LevelObstacle` in `src/level/mod.rs`,
+  `BlockType`/`BlockBehaviour` in `src/block/mod.rs:28,37`, `PickupType` in
+  `src/pickups/mod.rs:38`. `distributed_global_pickups` is `#[serde(skip)]`, and
+  `distributed_pickups_are_derived_rather_than_read` proves both halves — empty
+  after loading, and absent from what `level_to_ron` writes.
+- `SparseGrid` keeps the ASCII map: every `*.ron` holds it as a RON raw string,
+  and `a_written_level_keeps_its_layout_a_readable_ascii_map` pins that
+  `escape_strings(false)` writes it back as lines, not one `\n`-riddled string.
+- `main.rs` contains no `LevelDefinition`, `TargetLayout` or `LEVEL*` reference
+  at all — `grep` finds nothing; the resource comes from
+  `campaign::load_levels(&campaign::levels_dir())`, and a missing or malformed
+  file panics naming the path.
+- `campaign.ron` names level0..level6 in the original play order.
+  `every_campaign_entry_names_a_level_that_exists` and
+  `scratch_levels_are_not_part_of_the_campaign` cover the index both ways.
+- Behaviour unchanged is proved, not asserted: I diffed `legacy_campaign()` and
+  `legacy_conveyor()` in `src/level/campaign.rs` against the literals removed
+  from `main.rs` in `2bd8b33` — all ten block maps, the pickup counts, the
+  `Scene11`/`Scene12`/`Scene13` backgrounds, both obstacle sets, the
+  `default_wall_l/r: false` pair and `BlockHitPercentage(0.5)` match line for
+  line, and `the_campaign_is_the_levels_that_used_to_live_in_main` asserts the
+  loaded campaign equals them field for field. `conveyor.ron`'s literal numbers
+  are the originals' expressions evaluated (`-ARENA_WIDTH_H - 20.0` = `-120.0`,
+  `(-18.39 - 48.39) / 2.0` = `-33.39`), and the test compares against the
+  expressions, so the arithmetic is checked rather than trusted.
+- Round trip: `every_level_file_round_trips` parses, writes, re-parses and
+  re-writes every file in `assets/levels/`, asserting both the value and the
+  text are stable.
+- `cargo build` succeeds and `cargo test` is green — 40 passed, 0 failed, 0
+  ignored. No test is `#[ignore]`d, skipped or weakened; the card only adds
+  tests. The repo has no clippy/fmt/typecheck step (README names `cargo build`
+  only), so there was nothing further to run.
+- Game starts off the files: `CARGO_MANIFEST_DIR=<repo> ./target/debug/angle_out`
+  reaches the window with no load panic, so all seven campaign files parse
+  through `FileAssetReader::get_base_path()` at runtime too. I could not play
+  each level through — this session cannot send input to the window — so
+  in-match behaviour rests on the field-for-field equality above.
+
+Three things noted, none blocking:
+
+- `src/level/mod.rs` picked up two gratuitous edits that belong to no
+  criterion: `self.current_level.clone()` in `get_current_level`/`_mut`
+  (`src/level/mod.rs:110,114`) where the plain `usize` read was fine, and
+  `let bc = block_count.clone()` in `distribute_global_pickups`. Noise, not
+  behaviour — worth dropping next time this file is open.
+- `pretty_config` and `level_to_ron` are dead in the binary (two new
+  `never used` warnings among the build's 19). Expected — `c0012` is what
+  calls them — but the criterion's word "clean" only holds in the sense of
+  "no errors".
+- The commit also carries the Bevy 0.9 -> 0.19 edits for `Cargo.toml`,
+  `main.rs`, `block/mod.rs` and `pickups/mod.rs` that were already sitting in
+  the working tree. Scope beyond the What, but disclosed in the commit message
+  and the same arrangement `c0002` was passed with.
 
 ## Log
 

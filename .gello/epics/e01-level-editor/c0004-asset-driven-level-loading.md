@@ -1,13 +1,12 @@
 ---
 id: c0004
 title: Asset-driven level loading and hot reload
-status: ready
+status: in-progress
 epic: e01
 depends: [c0003]
 created: 2026-08-25
 updated: 2026-08-25
-status-changed: 2026-08-25T22:59:37
-order: 40
+status-changed: 2026-08-25T23:44:14
 ---
 
 ## What
@@ -42,3 +41,4 @@ handle-driven rather than owning `Vec<LevelDefinition>` — which touches every
 
 - 2026-08-25 created from the e01 epic breakdown
 - 2026-08-25 status → ready (app)
+- 2026-08-25 status → in-progress (agent)

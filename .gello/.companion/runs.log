@@ -1006,3 +1006,44 @@
 [c0003] → Bash(cat assets/levels/campaign.ron && echo "=== level0" && cat assets/levels/level0.ron && echo "=== conveyor" && cat assets…)
 [c0003] → Bash(cargo test --offline 2>&1 | tail -60)
 [c0003] → Bash(sed -n 200,443p src/level/campaign.rs)
+[c0003] → Bash(cat src/level/mod.rs)
+[c0003] → Bash(git diff HEAD~1 HEAD -- src/main.rs | head -200)
+[c0003] → Bash(cat /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/212274ad-f6d9-463a-87df-f1589b507fe0/tasks/bxatl0hy0.o…)
+[c0003] → Bash(git --no-pager show 2bd8b33 -- src/main.rs | head -400)
+[c0003] → Bash(grep -n "Serialize\|Deserialize\|derive" src/pickups/mod.rs | head -20; echo "=== block"; grep -n "derive\|pub enum Bloc…)
+[c0003] → Bash(sed -n 30,50p src/pickups/mod.rs; echo "=== make_block doc"; git --no-pager show 2bd8b33 -- src/level/layout/mod.rs | he…)
+[c0003] → Bash(cargo build --offline 2>&1 | grep -E "^(warning|error)" | sort | uniq -c | sort -rn | head -20; echo "--- exit/summary:"…)
+[c0003] → Bash(cat /Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/running-the-game-from-a-gello-session.m…)
+[c0003] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut timeout 25 ./target/debug/angle_out > /tmp/c0003_run.log 2>&1; …)
+[c0003] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut ./target/debug/angle_out > /tmp/c0003_run.log 2>&1 & BOOTPID=$!…)
+[c0003] → Bash(git --no-pager show 2bd8b33 --format="" -- src/main.rs | sed -n '340,520p')
+[c0003] → Bash(git --no-pager show 2bd8b33 --format="" -- src/level/mod.rs | head -120)
+[c0003] → Bash(grep -n "^status:" .gello/epics/e01-level-editor/c0002-cell-world-conversion.md; grep -n "Review" -A 12 .gello/epics/e01…)
+[c0003] → Bash(git --no-pager show 2bd8b33 --format="" -- src/block/mod.rs | grep -E "^[-+]" | grep -vE "^(\+\+\+|---)" | head -80)
+[c0003] → Bash(grep -niE "cargo|test|clippy|fmt|lint" README.md | head -20)
+[c0003] → Bash(date +"%Y-%m-%dT%H:%M:%S")
+[c0003] → Bash(python3 - <<'PY' import io p = ".gello/epics/e01-level-editor/c0003-ron-level-format.md" s = io.open(p, encoding="utf-8"…)
+[c0003] → Bash(sed -i '' 's/^Two things noted, neither blocking:$/Three things noted, none blocking:/' .gello/epics/e01-level-editor/c0…)
+[c0003] **c0003 — pass.** The verdict is recorded in a new `## Review` section on the card; the card stays in `review` for a human to take to `done`.
+[c0003] What I verified:
+[c0003] - **All eight criteria hold.** The seven types carry the serde derives, `distributed_global_pickups` is `#[serde(skip)]` and proven derived-not-authored, `SparseGrid` stays a RON raw string that writes back as an ASCII map, `main.rs` has no level data left (grep finds no `LevelDefinition`/`TargetLayout`/`LEVEL*`), and `campaign.ron` drives `Levels` at startup.
+[c0003] - **The migration is genuinely faithful.** I didn't take the equality test on trust — I diffed the test module's `legacy_campaign()`/`legacy_conveyor()` against the literals `2bd8b33` deleted from `main.rs`: all ten block maps, pickup counts, `Scene11/12/13` backgrounds, both obstacle sets, the wall flags and `BlockHitPercentage(0.5)` match. `conveyor.ron`'s numbers are the originals' expressions evaluated, and the test compares against the expressions, so the arithmetic is checked rather than assumed.
+[c0003] - **Checks green.** `cargo build` succeeds, `cargo test` is 40 passed / 0 failed / 0 ignored. Nothing is `#[ignore]`d or weakened — the card only adds tests. The repo has no clippy/fmt step (README names `cargo build` only). The binary boots off the files with no load panic.
+[c0003] Three non-blocking notes on the card: two gratuitous `.clone()` edits in `src/level/mod.rs`, two new dead-code warnings for `level_to_ron`/`pretty_config` (they're for `c0012`), and the Bevy 0.9→0.19 working-tree edits riding along on four files — scope beyond the What, but disclosed in the commit message and the same arrangement `c0002` passed with.
+[c0003] One limit worth stating plainly: I could not play each level through — this session can't send input to the game window — so "behaves exactly as before" rests on the field-for-field equality, not on hands-on play.
+[c0003] ✓ 36 in / 14759 out tokens, $1.4725, 27 turns, 240.8s
+[c0004] I'll pick up the card first, then dig in.
+[c0004] → ToolSearch(select:mcp__gello__set_status,mcp__gello__add_question)
+[c0004] → mcp__gello__set_status(in-progress)
+[c0004] Card is in-progress. Now let me read it and the surrounding context.
+[c0004] → Bash(cat .gello/epics/e01-level-editor/c0004-asset-driven-level-loading.md)
+[c0004] → Bash(ls .gello/epics/e01-level-editor/ && cat .gello/epics/e01-level-editor/epic.md)
+[c0004] → Bash(cat .gello/epics/e01-level-editor/c0003-ron-level-format.md && ls src/ && ls assets/levels/ 2>/dev/null)
+[c0004] → Bash(ls src/level/ && wc -l src/level/*.rs && cat src/level/mod.rs)
+[c0004] → Bash(cat src/level/campaign.rs)
+[c0004] → Bash(grep -rn "get_current_level\|Levels\b\|next_level\|current_level" src/ --include="*.rs")
+[c0004] → Bash(sed -n '70,120p' src/arena/mod.rs; echo ---EVENTS---; sed -n '90,140p' src/events/mod.rs; echo ---PICKUPS---; sed -n '50…)
+[c0004] → Bash(grep -n "levels\|Levels\|campaign\|AssetPlugin\|watch\|DefaultPlugins" -i src/main.rs | head -50; echo ---; grep -n "bev…)
+[c0004] → Bash(sed -n '90,175p' src/main.rs)
+[c0004] → Bash(ls ~/.cargo/registry/src/*/ | grep -i "^bevy_asset-\|^bevy-0.19" | head)
+[c0004] → Bash(B=~/.cargo/registry/src/*/bevy_asset-0.19.1; sed -n '1,120p' $B/src/loader.rs)
