@@ -170,6 +170,43 @@ impl Plugin for BlockPlugin {
 }
 
 
+/// The name of the block mesh inside the game's glTF.
+pub const BLOCK_MESH: &str = "SimpleBlock.001";
+
+
+/// What a block of this type looks like.
+///
+/// Shared, so the editor's preview - and `c0009`'s palette after it - show the
+/// block a match would spawn instead of holding a second opinion about what a
+/// `Concrete` block looks like.
+pub fn block_material(block_type: &BlockType, asset_server: &AssetServer) -> BlockMaterial {
+    let mut color1: Color = ORANGE.into();
+    let mut color2: Color = ORANGE.into();
+    let mut top_bottom_split = false;
+
+    match block_type {
+        BlockType::Simple => {}
+        BlockType::Hardling => color1 = GRAY.into(),
+        BlockType::Concrete => color1 = DARK_GRAY.into(),
+
+        BlockType::SimpleTop => {
+            top_bottom_split = true;
+            color2 = Color::WHITE;
+        }
+
+        BlockType::Obstacle => color1 = Color::WHITE,
+    }
+
+    BlockMaterial {
+        color1,
+        color2,
+        top_bottom_split,
+        color_texture: Some(asset_server.load("wreckage3.png")),
+        ..default()
+    }
+}
+
+
 fn block_spawn(
     mut commands: Commands,
     my: Res<MyAssetPack>,
@@ -181,7 +218,7 @@ fn block_spawn(
 ) {
     if let Some(gltf) = assets_gltf.get(&my.0) {
         let mesh =
-            &assets_gltf_meshes.get(&gltf.named_meshes["SimpleBlock.001"]).unwrap()
+            &assets_gltf_meshes.get(&gltf.named_meshes[BLOCK_MESH]).unwrap()
                 .primitives.get(0).unwrap().mesh;
 
 
@@ -298,10 +335,6 @@ fn block_spawn(
             };
 
 
-            let mut color1: Color = ORANGE.into();
-            let mut color2: Color = ORANGE.into();
-            let mut top_bottom_split = false;
-
             match block.block_type {
                 BlockType::Simple => {
                     block_commands.insert(Hittable {
@@ -317,7 +350,6 @@ fn block_spawn(
                         original_hit_points: 2,
                         ..default()
                     });
-                    color1 = GRAY.into();
                 }
 
                 BlockType::Concrete => {
@@ -326,7 +358,6 @@ fn block_spawn(
                         original_hit_points: 3,
                         ..default()
                     });
-                    color1 = DARK_GRAY.into();
                 }
 
                 BlockType::SimpleTop => {
@@ -335,27 +366,17 @@ fn block_spawn(
                         original_hit_points: 1,
                         only_top: true,
                     });
-                    top_bottom_split = true;
-                    color1 = ORANGE.into();
-                    color2 = Color::WHITE;
                 }
 
                 BlockType::Obstacle => {
                     block_commands.insert({
                         Obstacle
                     });
-                    color1 = Color::WHITE;
                 }
             }
 
             let custom_material =
-                custom_materials.add(BlockMaterial {
-                    color1,
-                    color2,
-                    top_bottom_split,
-                    color_texture: Some(asset_server.load("wreckage3.png")),
-                    ..default()
-                });
+                custom_materials.add(block_material(&block.block_type, &asset_server));
 
             block_commands
                 .insert(Mesh3d(mesh.clone()))
@@ -653,5 +674,58 @@ fn block_update_trigger_targets(
 
             triggerStates.consume(target.group);
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use bevy::app::App;
+    use bevy::asset::{AssetApp, AssetPlugin};
+    use bevy::image::Image;
+
+    fn asset_server() -> AssetServer {
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default());
+        // The texture every block wears is an `Image`, and a handle to one
+        // cannot be handed out before the collection it lives in exists.
+        app.init_asset::<Image>();
+
+        app.world().resource::<AssetServer>().clone()
+    }
+
+    /// The block types are told apart by colour, so an editor showing what has
+    /// been painted - and `c0009`'s palette after it - is only honest if it is
+    /// this same table it reads them out of.
+    #[test]
+    fn every_block_type_has_the_look_it_has_always_had() {
+        let asset_server = asset_server();
+
+        let look = |block_type| {
+            let material = block_material(&block_type, &asset_server);
+
+            (material.color1, material.color2, material.top_bottom_split)
+        };
+
+        assert_eq!(look(BlockType::Simple), (ORANGE.into(), ORANGE.into(), false));
+        assert_eq!(look(BlockType::Hardling), (GRAY.into(), ORANGE.into(), false));
+        assert_eq!(look(BlockType::Concrete), (DARK_GRAY.into(), ORANGE.into(), false));
+        assert_eq!(look(BlockType::SimpleTop), (ORANGE.into(), Color::WHITE, true));
+        assert_eq!(look(BlockType::Obstacle), (Color::WHITE, ORANGE.into(), false));
+    }
+
+    /// Every block wears the same texture, whatever it is - and it has to be one
+    /// that is actually in `assets/`.
+    #[test]
+    fn a_block_is_textured() {
+        let material = block_material(&BlockType::Simple, &asset_server());
+        let texture = material.color_texture.expect("blocks are textured");
+
+        assert_eq!(
+            texture.path().map(|path| path.to_string()),
+            Some("wreckage3.png".to_string())
+        );
     }
 }

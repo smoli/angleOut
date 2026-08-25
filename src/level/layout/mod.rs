@@ -251,6 +251,113 @@ pub fn make_block(b_type: char, b_beh: char, b_trigger: Option<char>, b_trigger_
 }
 
 
+/// The token [`make_block`] would read this block back out of - the inverse of
+/// the format documented above.
+///
+/// The trigger is a type *and* a group or it is neither: a trigger character
+/// with no group character behind it is a token [`make_block`] cannot finish
+/// reading, so a group the format has no room for drops the trigger rather than
+/// writing half of one.
+///
+/// Evader speeds do not survive the trip, because the format has no room for
+/// them either - [`make_block`] reads every evader back at 50.0, which is the
+/// speed every authored level has always had.
+pub fn block_token(
+    block_type: &BlockType,
+    behaviour: &BlockBehaviour,
+    trigger: Option<(&TriggerType, TriggerGroup)>,
+) -> String {
+    let mut token = String::with_capacity(4);
+
+    token.push(match block_type {
+        BlockType::Simple => 'A',
+        BlockType::Hardling => 'B',
+        BlockType::Concrete => 'C',
+        BlockType::SimpleTop => 'D',
+        BlockType::Obstacle => 'Z',
+    });
+
+    token.push(match behaviour {
+        BlockBehaviour::SittingDuck => 'A',
+        BlockBehaviour::Spinner => 'B',
+        BlockBehaviour::Vanisher => 'C',
+        BlockBehaviour::Repuslor => 'D',
+        BlockBehaviour::EvaderR(_) => 'E',
+        BlockBehaviour::EvaderL(_) => 'F',
+        BlockBehaviour::EvaderU(_) => 'G',
+        BlockBehaviour::EvaderD(_) => 'H',
+        BlockBehaviour::Portal => 'I',
+    });
+
+    if let Some((trigger_type, group)) = trigger {
+        if let Some(group) = char::from_digit(group as u32, 10) {
+            token.push(match trigger_type {
+                TriggerType::Start => 'A',
+                TriggerType::Stop => 'B',
+                TriggerType::StartStop => 'C',
+                TriggerType::ReceiverStartingInactive => 'R',
+                TriggerType::ReceiverStartingActive => 'S',
+            });
+            token.push(group);
+        }
+    }
+
+    token
+}
+
+
+/// The layout with cell (`col`, `row`) written as `token`.
+///
+/// Every row comes back the same width, padded with [`EMPTY_SLOT`] out to the
+/// widest one: [`interpret_grid`] takes the whole grid's column count off the
+/// first line, so a ragged grid centres its rows on a width they do not have.
+/// Painting a ragged layout squares it up, which moves its blocks - that is the
+/// repair, not the damage.
+///
+/// A write outside the grid is not a write: the layout comes back untouched.
+/// Growing the grid is `c0008`'s job, not the brush's.
+pub fn set_cell(layout: &str, col: usize, row: usize, token: &str) -> String {
+    let mut rows: Vec<Vec<&str>> = layout
+        .split('\n')
+        .map(|line| slots(line).collect::<Vec<&str>>())
+        .filter(|row| !row.is_empty())
+        .collect();
+
+    let width = rows.iter().map(Vec::len).max().unwrap_or(0);
+
+    if row >= rows.len() || col >= width {
+        return layout.to_string();
+    }
+
+    for row in &mut rows {
+        row.resize(width, EMPTY_SLOT);
+    }
+
+    rows[row][col] = token;
+
+    rows.iter()
+        .map(|row| row.join(" "))
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+
+/// A `cols` x `rows` token grid of the same block over and over - what a
+/// [`FilledGrid`](crate::level::TargetLayout::FilledGrid) says, written out in
+/// the format, so single cells of it can be painted and drawn.
+pub fn filled_grid(
+    cols: usize,
+    rows: usize,
+    block_type: &BlockType,
+    behaviour: &BlockBehaviour,
+) -> String {
+    let token = block_token(block_type, behaviour, None);
+    let row = vec![token.as_str(); cols].join(" ");
+
+    (0..rows).map(|_| row.as_str()).collect::<Vec<&str>>().join("\n")
+}
+
+
 pub fn interpret_grid(layout: &String, gap: f32) -> Option<Vec<Block>> {
 
     let mut res = vec![];
@@ -573,6 +680,147 @@ mod tests {
                     "block at {:?} outside the {cols}x{rows} bounds {bounds:?} of:\n{layout}",
                     block.position
                 );
+            }
+        }
+    }
+
+    /// Every token the format defines, read in and written back out again. If
+    /// `block_token` and `make_block` ever disagree about a letter, an author's
+    /// level changes shape the next time they touch a cell of it.
+    #[test]
+    fn every_token_the_format_defines_survives_the_round_trip() {
+        let mut checked = 0;
+
+        for block_type in "ABCDZ".chars() {
+            for behaviour in "ABCDEFGHI".chars() {
+                let mut triggers: Vec<Option<(char, char)>> = vec![None];
+                for trigger_type in "ABCRS".chars() {
+                    for group in "0123456789".chars() {
+                        triggers.push(Some((trigger_type, group)));
+                    }
+                }
+
+                for trigger in triggers {
+                    let token: String = match trigger {
+                        None => format!("{block_type}{behaviour}"),
+                        Some((t, g)) => format!("{block_type}{behaviour}{t}{g}"),
+                    };
+
+                    let block = make_block(
+                        block_type,
+                        behaviour,
+                        trigger.map(|(t, _)| t),
+                        trigger.map(|(_, g)| g),
+                        Vec2::ZERO,
+                    )
+                        .expect("every letter of the format describes a block");
+
+                    assert_eq!(
+                        block_token(
+                            &block.block_type,
+                            &block.behaviour,
+                            block.trigger_type.as_ref().zip(block.trigger_group),
+                        ),
+                        token
+                    );
+
+                    checked += 1;
+                }
+            }
+        }
+
+        assert_eq!(checked, 5 * 9 * (1 + 5 * 10), "the whole format has to have been walked");
+    }
+
+    /// A trigger the format cannot write is not written at all: half a trigger -
+    /// a type character with no group behind it - is a token `make_block` reads
+    /// back as a trigger with no group, which is not what was asked for.
+    #[test]
+    fn a_trigger_group_the_format_has_no_room_for_writes_no_trigger() {
+        let token = block_token(
+            &BlockType::Simple,
+            &BlockBehaviour::SittingDuck,
+            Some((&TriggerType::Start, 10)),
+        );
+
+        assert_eq!(token, "AA");
+    }
+
+    /// The evader speed the format has no room for comes back as the 50.0 every
+    /// authored level has always had, rather than as a different block.
+    #[test]
+    fn an_evader_keeps_its_direction_but_not_its_speed() {
+        let token = block_token(&BlockType::Simple, &BlockBehaviour::EvaderU(120.0), None);
+
+        assert_eq!(token, "AG");
+        assert_eq!(
+            make_block('A', 'G', None, None, Vec2::ZERO).unwrap().behaviour,
+            BlockBehaviour::EvaderU(50.0)
+        );
+    }
+
+    #[test]
+    fn set_cell_writes_one_cell_and_leaves_the_rest() {
+        let layout = "AA .. AA\n.. AA ..";
+
+        assert_eq!(set_cell(layout, 1, 0, "CB"), "AA CB AA\n.. AA ..");
+        assert_eq!(set_cell(layout, 0, 1, "ZIR3"), "AA .. AA\nZIR3 AA ..");
+        assert_eq!(set_cell(layout, 2, 1, EMPTY_SLOT), layout, "it was empty already");
+        assert_eq!(set_cell(layout, 0, 0, EMPTY_SLOT), ".. .. AA\n.. AA ..");
+    }
+
+    /// The shipped levels indent every line after the first, which is padding
+    /// rather than a column - what comes back has to be the same grid.
+    #[test]
+    fn set_cell_keeps_the_shape_of_a_layout_written_by_hand() {
+        let layout =
+"AA AA AA
+ AA AA AA";
+
+        let painted = set_cell(layout, 2, 1, "CA");
+
+        assert_eq!(grid_dimensions(&painted), (3, 2));
+        assert_eq!(painted, "AA AA AA\nAA AA CA");
+    }
+
+    /// `interpret_grid` takes the column count off the first line, so rows of
+    /// different lengths put their blocks in places the grid does not have.
+    /// Painting squares the grid up.
+    #[test]
+    fn set_cell_squares_up_a_ragged_grid() {
+        let painted = set_cell("AA AA\nAA AA AA AA\nAA", 0, 0, "ZA");
+
+        assert_eq!(painted, "ZA AA .. ..\nAA AA AA AA\nAA .. .. ..");
+        assert_eq!(grid_dimensions(&painted), (4, 3));
+    }
+
+    #[test]
+    fn set_cell_outside_the_grid_writes_nothing() {
+        let layout = "AA .. AA\n.. AA ..";
+
+        assert_eq!(set_cell(layout, 3, 0, "CA"), layout, "past the last column");
+        assert_eq!(set_cell(layout, 0, 2, "CA"), layout, "past the last row");
+        assert_eq!(set_cell("", 0, 0, "CA"), "", "a layout with no cells in it");
+    }
+
+    /// The token grid a `FilledGrid` describes has to spawn exactly the blocks
+    /// the `FilledGrid` itself would, or painting one cell of a filled level
+    /// would move the other twenty-four.
+    #[test]
+    fn a_filled_grid_written_as_tokens_holds_the_blocks_it_describes() {
+        for (cols, rows) in [(5, 5), (4, 3), (1, 1)] {
+            let layout = filled_grid(cols, rows, &BlockType::Concrete, &BlockBehaviour::Spinner);
+
+            assert_eq!(grid_dimensions(&layout), (cols, rows));
+
+            let blocks = interpret_grid(&layout, BLOCK_GAP).unwrap();
+            let positions: Vec<Vec2> = blocks.iter().map(|block| block.position).collect();
+
+            assert_eq!(positions, generate_block_grid(rows, cols, BLOCK_GAP), "{cols}x{rows}");
+
+            for block in &blocks {
+                assert_eq!(block.block_type, BlockType::Concrete);
+                assert_eq!(block.behaviour, BlockBehaviour::Spinner);
             }
         }
     }
