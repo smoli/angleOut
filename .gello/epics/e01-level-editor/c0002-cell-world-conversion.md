@@ -27,12 +27,12 @@ refactor: every shipped level must produce byte-identical block positions.
 
 ## Acceptance criteria
 
-- [ ] A single `cell_to_world(col, row, cols, gap)` is the only place a block's world position is derived from its grid coordinates.
-- [ ] A matching `world_to_cell(pos, cols, gap)` inverts it and returns `None` outside the grid.
-- [ ] `generate_block_grid` and `interpret_grid` both call it; neither computes an origin, a step or a centring offset of its own.
-- [ ] Round-trip unit test: `world_to_cell(cell_to_world(c, r)) == Some((c, r))` for every cell of both an odd-column and an even-column grid.
-- [ ] Block positions for the existing levels are unchanged.
-- [ ] `cargo test` passes and there is no visible change in game.
+- [x] A single `cell_to_world(col, row, cols, gap)` is the only place a block's world position is derived from its grid coordinates.
+- [x] A matching `world_to_cell(pos, cols, gap)` inverts it and returns `None` outside the grid.
+- [x] `generate_block_grid` and `interpret_grid` both call it; neither computes an origin, a step or a centring offset of its own.
+- [x] Round-trip unit test: `world_to_cell(cell_to_world(c, r)) == Some((c, r))` for every cell of both an odd-column and an even-column grid.
+- [x] Block positions for the existing levels are unchanged.
+- [x] `cargo test` passes and there is no visible change in game.
 
 ## Notes
 
@@ -42,9 +42,30 @@ refactor: every shipped level must produce byte-identical block positions.
 - `interpret_grid` derives its column count from the first line only. That quirk
   stays for now; step 7 (`c0008`) makes the writer pad rows so it stays correct.
 - Deliberately no behaviour change — this card exists to make step 5 (`c0006`) safe.
+- `cell_to_world` steps the origin along instead of multiplying: `y0 + row * y_step`
+  differs from the accumulation the old loops did by an ULP or two from row 2 up,
+  so multiplying would have moved every shipped block by ~1e-5. Two tests pin the
+  output against copies of the pre-refactor loops (a mutation check confirmed both
+  fail if the stepping is replaced by a multiply).
+- `world_to_cell` keeps the signature the criteria name, so it bounds columns by
+  `cols` and rows below by row 0, but is open upwards — the caller owns the row
+  count. `c0006` has `rows` to hand and can reject rows above the grid itself.
+- A position is assigned to the cell whose centre is nearest, so the gap between
+  two cells belongs to the nearer of them rather than being dead space.
+- `world_to_cell` is dead code until `c0006` picks it up, so the build carries one
+  more `never used` warning alongside the ~20 already there.
 
 ## Log
 
 - 2026-08-25 created from the e01 epic breakdown
 - 2026-08-25 status → ready (app)
 - 2026-08-25 status → in-progress (agent)
+- 2026-08-25 added `cell_to_world` / `world_to_cell`; `generate_block_grid` and
+  `interpret_grid` now derive every position from them and compute no origin,
+  step or centring of their own
+- 2026-08-25 tests: round trip over every cell of an 11- and a 10-column grid and
+  over every column count 1..=12, nearest-centre snapping, out-of-grid rejection,
+  and byte-identity against the old maths for filled grids (1..=12 cols × 0..=8
+  rows) and for shipped-shaped layouts. `cargo test` 33 passed, `cargo build`
+  clean, game starts without panic (reaching an actual match needs input this
+  session cannot send, so unchanged positions rest on the identity tests)
