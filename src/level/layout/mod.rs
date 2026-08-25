@@ -315,8 +315,45 @@ pub fn block_token(
 /// repair, not the damage.
 ///
 /// A write outside the grid is not a write: the layout comes back untouched.
-/// Growing the grid is `c0008`'s job, not the brush's.
+/// Growing the grid is [`grow`]'s job, not the brush's.
 pub fn set_cell(layout: &str, col: usize, row: usize, token: &str) -> String {
+    let mut rows = slot_grid(layout);
+
+    if row >= rows.len() || col >= rows[row].len() {
+        return layout.to_string();
+    }
+
+    rows[row][col] = token;
+
+    write_grid(&rows)
+}
+
+
+/// One side of the grid, as the author looking at it names it.
+///
+/// [`Edge::Top`] is row 0 - the first line of the layout, the far end of the
+/// arena, and the top of the screen under the editor's camera and the game's
+/// alike. [`cell_to_world`] calls row 0 the bottom row because it works in world
+/// coordinates, where z grows towards the player; it is the same row, named from
+/// the other side.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Edge {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+
+/// The layout as rows of slots, squared up: every row padded with [`EMPTY_SLOT`]
+/// out to the width of the widest one.
+///
+/// This is how every write to the grid reads it, which is what keeps the grids
+/// they write square - [`interpret_grid`] takes the whole grid's column count
+/// off the first line, so a ragged grid centres its rows on a width they do not
+/// have. A layout squared up here has moved the blocks of its short rows; that
+/// is the repair of a grid that was already lying about where they were.
+fn slot_grid(layout: &str) -> Vec<Vec<&str>> {
     let mut rows: Vec<Vec<&str>> = layout
         .split('\n')
         .map(|line| slots(line).collect::<Vec<&str>>())
@@ -325,20 +362,107 @@ pub fn set_cell(layout: &str, col: usize, row: usize, token: &str) -> String {
 
     let width = rows.iter().map(Vec::len).max().unwrap_or(0);
 
-    if row >= rows.len() || col >= width {
-        return layout.to_string();
-    }
-
     for row in &mut rows {
         row.resize(width, EMPTY_SLOT);
     }
 
-    rows[row][col] = token;
+    rows
+}
 
+
+/// The inverse of [`slot_grid`]: rows of slots as a token grid again.
+fn write_grid(rows: &[Vec<&str>]) -> String {
     rows.iter()
         .map(|row| row.join(" "))
         .collect::<Vec<String>>()
         .join("\n")
+}
+
+
+/// Whether a slot holds a block, or is one of the ways of writing an empty cell.
+///
+/// [`make_block`] reads a `.` in either of the first two characters as nothing
+/// there, so this has to agree with it: what is counted here is what would
+/// disappear off the screen.
+fn slot_holds_a_block(slot: &str) -> bool {
+    let mut chars = slot.chars();
+
+    !matches!(chars.next(), Some('.') | None) && !matches!(chars.next(), Some('.') | None)
+}
+
+
+/// The layout with one more row or column, added at `edge`.
+///
+/// The new cells are empty, and every cell that was there is still there - what
+/// moves is the *index* of the cells beyond the new one, since a row added at
+/// the top pushes the rest of the grid down one.
+///
+/// A grid with no cells in it grows into a single cell whichever side it is
+/// grown from: there is no row to widen and no width to add a row of.
+pub fn grow(layout: &str, edge: Edge) -> String {
+    let mut rows = slot_grid(layout);
+
+    if rows.is_empty() {
+        return EMPTY_SLOT.to_string();
+    }
+
+    let width = rows[0].len();
+
+    match edge {
+        Edge::Top => rows.insert(0, vec![EMPTY_SLOT; width]),
+        Edge::Bottom => rows.push(vec![EMPTY_SLOT; width]),
+        Edge::Left => for row in &mut rows { row.insert(0, EMPTY_SLOT) },
+        Edge::Right => for row in &mut rows { row.push(EMPTY_SLOT) },
+    }
+
+    write_grid(&rows)
+}
+
+
+/// The layout with the row or column at `edge` taken away, and whatever was
+/// standing on it with it.
+///
+/// The last row and the last column stay: a grid shrunk away to nothing would
+/// have nothing left on screen to aim at, and no cell to grow back from.
+pub fn shrink(layout: &str, edge: Edge) -> String {
+    let mut rows = slot_grid(layout);
+
+    if !can_shrink(rows.first().map_or(0, Vec::len), rows.len(), edge) {
+        return layout.to_string();
+    }
+
+    match edge {
+        Edge::Top => { rows.remove(0); }
+        Edge::Bottom => { rows.pop(); }
+        Edge::Left => for row in &mut rows { row.remove(0); },
+        Edge::Right => for row in &mut rows { row.pop(); },
+    }
+
+    write_grid(&rows)
+}
+
+
+/// Whether a `cols` x `rows` grid has an `edge` to spare.
+pub fn can_shrink(cols: usize, rows: usize, edge: Edge) -> bool {
+    match edge {
+        Edge::Top | Edge::Bottom => rows > 1,
+        Edge::Left | Edge::Right => cols > 1,
+    }
+}
+
+
+/// How many blocks are standing on `edge` - what taking it away would cost.
+pub fn blocks_on_edge(layout: &str, edge: Edge) -> usize {
+    let rows = slot_grid(layout);
+
+    let counted: Vec<&str> = match edge {
+        Edge::Top => rows.first().cloned().unwrap_or_default(),
+        Edge::Bottom => rows.last().cloned().unwrap_or_default(),
+        Edge::Left => rows.iter().filter_map(|row| row.first().copied()).collect(),
+        Edge::Right => rows.iter().filter_map(|row| row.last().copied()).collect(),
+    };
+
+    counted.iter().filter(|slot| slot_holds_a_block(slot)).count()
 }
 
 
@@ -832,4 +956,182 @@ mod tests {
         assert_eq!(grid_dimensions(&layout), (9, 6));
         assert_eq!(interpret_grid(&layout, BLOCK_GAP).unwrap().len(), 0);
     }
+
+    // --- resizing ----------------------------------------------------------
+
+    /// The grid an author sees, with a block in every corner so a row or column
+    /// arriving or leaving cannot be mistaken for the grid staying put.
+    fn corners() -> &'static str {
+"AA .. BA
+ .. CA ..
+ DA .. ZA"
+    }
+
+    #[test]
+    fn a_row_can_be_added_at_the_top_and_at_the_bottom() {
+        assert_eq!(
+            grow(corners(), Edge::Top),
+            ".. .. ..\nAA .. BA\n.. CA ..\nDA .. ZA"
+        );
+
+        assert_eq!(
+            grow(corners(), Edge::Bottom),
+            "AA .. BA\n.. CA ..\nDA .. ZA\n.. .. .."
+        );
+    }
+
+    #[test]
+    fn a_column_can_be_added_at_the_left_and_at_the_right() {
+        assert_eq!(
+            grow(corners(), Edge::Left),
+            ".. AA .. BA\n.. .. CA ..\n.. DA .. ZA"
+        );
+
+        assert_eq!(
+            grow(corners(), Edge::Right),
+            "AA .. BA ..\n.. CA .. ..\nDA .. ZA .."
+        );
+    }
+
+    #[test]
+    fn a_row_can_be_taken_off_the_top_and_off_the_bottom() {
+        assert_eq!(shrink(corners(), Edge::Top), ".. CA ..\nDA .. ZA");
+        assert_eq!(shrink(corners(), Edge::Bottom), "AA .. BA\n.. CA ..");
+    }
+
+    #[test]
+    fn a_column_can_be_taken_off_the_left_and_off_the_right() {
+        assert_eq!(shrink(corners(), Edge::Left), ".. BA\nCA ..\n.. ZA");
+        assert_eq!(shrink(corners(), Edge::Right), "AA ..\n.. CA\nDA ..");
+    }
+
+    /// Every cell that is kept keeps what was in it - which is the same thing as
+    /// saying a grid grown at an edge and shrunk at it again is the grid it was.
+    #[test]
+    fn growing_an_edge_and_taking_it_away_again_is_the_grid_it_was() {
+        for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+            for layout in sample_layouts() {
+                let squared = set_cell(&layout, 0, 0, slot(&layout, 0, 0));
+
+                assert_eq!(
+                    shrink(&grow(&layout, edge), edge),
+                    squared,
+                    "{edge:?} of:\n{layout}"
+                );
+            }
+        }
+    }
+
+    /// What a cell holds, so a test can talk about cells rather than substrings.
+    fn slot<'a>(layout: &'a str, col: usize, row: usize) -> &'a str {
+        slot_grid(layout)[row][col]
+    }
+
+    /// The card's "existing blocks keep their position relative to the cells
+    /// that are retained", read off the grid: growing at the top moves every
+    /// block down a row and leaves its column alone.
+    #[test]
+    fn the_cells_that_are_kept_hold_what_they_held() {
+        let grown = grow(corners(), Edge::Top);
+
+        for row in 0..3 {
+            for col in 0..3 {
+                assert_eq!(slot(&grown, col, row + 1), slot(corners(), col, row));
+            }
+        }
+
+        let grown = grow(corners(), Edge::Left);
+
+        for row in 0..3 {
+            for col in 0..3 {
+                assert_eq!(slot(&grown, col + 1, row), slot(corners(), col, row));
+            }
+        }
+
+        // The edges that are appended to move nothing at all.
+        for edge in [Edge::Bottom, Edge::Right] {
+            let grown = grow(corners(), edge);
+
+            for row in 0..3 {
+                for col in 0..3 {
+                    assert_eq!(slot(&grown, col, row), slot(corners(), col, row), "{edge:?}");
+                }
+            }
+        }
+    }
+
+    /// A resize writes the whole grid out, so a hand-written layout with rows of
+    /// different lengths comes back square - `interpret_grid` reads the column
+    /// count off the first line, and a ragged grid lies to it.
+    #[test]
+    fn a_resized_grid_is_padded_out_to_one_width() {
+        let ragged = "AA AA\nAA AA AA AA\nAA";
+
+        assert_eq!(grow(ragged, Edge::Right), "AA AA .. .. ..\nAA AA AA AA ..\nAA .. .. .. ..");
+        assert_eq!(grid_dimensions(&grow(ragged, Edge::Top)), (4, 4));
+        assert_eq!(shrink(ragged, Edge::Bottom), "AA AA .. ..\nAA AA AA AA");
+    }
+
+    /// A grid always keeps a cell: shrunk away to nothing there would be nothing
+    /// left on screen to aim at, and no way back.
+    #[test]
+    fn a_grid_never_shrinks_away_to_nothing() {
+        for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+            assert_eq!(shrink("AA", edge), "AA", "{edge:?}");
+            assert_eq!(shrink("", edge), "", "{edge:?}");
+        }
+
+        assert_eq!(shrink("AA BA", Edge::Top), "AA BA", "the only row of a wide grid");
+        assert_eq!(shrink("AA\nBA", Edge::Left), "AA\nBA", "the only column of a tall grid");
+    }
+
+    /// The other end of the same rule: a grid with no cells in it grows into one
+    /// cell, whichever side it is grown from.
+    #[test]
+    fn growing_a_grid_with_no_cells_gives_it_one() {
+        for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+            assert_eq!(grow("", edge), EMPTY_SLOT, "{edge:?}");
+            assert_eq!(grid_dimensions(&grow("", edge)), (1, 1), "{edge:?}");
+        }
+    }
+
+    /// What the editor warns with: how much of the level an author is about to
+    /// lose. Empty cells are not blocks, and a trigger does not make a slot two.
+    #[test]
+    fn blocks_on_an_edge_are_counted_before_it_is_taken_away() {
+        let layout =
+"AA .. AAA1
+ .. CA ..
+ .. .. ..";
+
+        assert_eq!(blocks_on_edge(layout, Edge::Top), 2);
+        assert_eq!(blocks_on_edge(layout, Edge::Bottom), 0);
+        assert_eq!(blocks_on_edge(layout, Edge::Left), 1);
+        assert_eq!(blocks_on_edge(layout, Edge::Right), 1);
+
+        assert_eq!(blocks_on_edge("", Edge::Top), 0, "a grid with no cells has no edge");
+    }
+
+    /// The count has to be the blocks that actually disappear, or the warning is
+    /// a number an author cannot check against the screen.
+    #[test]
+    fn the_count_warned_about_is_the_blocks_that_are_lost() {
+        for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+            for layout in sample_layouts() {
+                let before = interpret_grid(&layout, BLOCK_GAP).unwrap().len();
+                let after = interpret_grid(&shrink(&layout, edge), BLOCK_GAP).unwrap().len();
+
+                if grid_dimensions(&layout) == grid_dimensions(&shrink(&layout, edge)) {
+                    continue;
+                }
+
+                assert_eq!(
+                    before - after,
+                    blocks_on_edge(&layout, edge),
+                    "{edge:?} of:\n{layout}"
+                );
+            }
+        }
+    }
+
 }

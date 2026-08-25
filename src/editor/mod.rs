@@ -16,20 +16,21 @@ use std::f32::consts::FRAC_PI_2;
 use bevy::app::{App, Plugin, Update};
 use bevy::asset::{AssetServer, Assets};
 use bevy::camera::{OrthographicProjection, Projection, ScalingMode};
-use bevy::color::palettes::css::{DIM_GRAY, GRAY, YELLOW};
+use bevy::color::palettes::css::{DIM_GRAY, GRAY, ORANGE_RED, YELLOW};
 use bevy::ecs::change_detection::DetectChangesMut;
 use bevy::gltf::{Gltf, GltfMesh};
 use bevy::light::CascadeShadowConfigBuilder;
 use bevy::pbr::MeshMaterial3d;
-use bevy::log::info;
-use bevy::prelude::{default, in_state, resource_exists_and_changed, ButtonInput, Camera, Camera3d, Color, Commands, Component, DirectionalLight, Entity, Gizmos, GlobalTransform, InfinitePlane3d, Isometry3d, IntoScheduleConfigs, KeyCode, Mesh3d, MouseButton, NextState, OnEnter, OnExit, Quat, Query, Ray3d, Rect, Res, ResMut, Resource, Transform, UVec2, Vec2, Vec3, Visibility, With, Without};
+use bevy::log::{info, warn};
+use bevy::prelude::{default, in_state, resource_changed, resource_exists_and_changed, ButtonInput, Camera, Camera3d, Color, Commands, Component, DirectionalLight, Entity, Gizmos, GlobalTransform, InfinitePlane3d, Isometry3d, IntoScheduleConfigs, KeyCode, Mesh3d, MouseButton, NextState, Node, OnEnter, OnExit, PositionType, Quat, Query, Ray3d, Rect, Res, ResMut, Resource, Text, TextColor, TextFont, Transform, UVec2, Val, Vec2, Vec3, Visibility, With, Without};
+use bevy::text::FontSize;
 use bevy::window::{CursorOptions, PrimaryWindow, Window};
 
 use crate::block::trigger::{TriggerGroup, TriggerType};
 use crate::block::{block_material, Block, BlockBehaviour, BlockType, BLOCK_MESH};
 use crate::config::{ARENA_HEIGHT, ARENA_WIDTH, BLOCK_DEPTH, BLOCK_GAP, BLOCK_WIDTH};
 use crate::level::asset::LevelAsset;
-use crate::level::layout::{block_token, cell_to_world, empty_grid, filled_grid, grid_bounds, grid_dimensions, interpret_grid, set_cell, world_to_cell, EMPTY_SLOT};
+use crate::level::layout::{block_token, blocks_on_edge, can_shrink, cell_to_world, empty_grid, filled_grid, grid_bounds, grid_dimensions, grow, interpret_grid, set_cell, shrink, world_to_cell, Edge, EMPTY_SLOT};
 use crate::level::TargetLayout::{Custom, FilledGrid, SparseGrid};
 use crate::level::{LevelDefinition, Levels, TargetLayout};
 use crate::materials::block::BlockMaterial;
@@ -52,6 +53,13 @@ const NEW_LEVEL_ROWS: usize = 6;
 /// How far above the ground plane the hover highlight is drawn, so it does not
 /// fight the grid gizmo underneath it for the same pixels.
 const HOVER_LIFT: f32 = 0.1;
+
+/// The same, for the edge an author has been warned about - above the hover, so
+/// the cell being pointed at still shows through when it is one of them.
+const WARNING_LIFT: f32 = 0.2;
+
+/// The font the editor writes in - the game's own.
+const EDITOR_FONT: &str = "fonts/Orbitron-Regular.ttf";
 
 /// The level the editor is working on.
 ///
@@ -148,6 +156,73 @@ impl EditorLevel {
         true
     }
 
+    /// Adds a row or a column at `edge`, and says whether it did.
+    ///
+    /// Refused when the grid it would make is one the editor could no longer
+    /// show whole - see [`grid_fits_the_view`].
+    fn grow_grid(&mut self, edge: Edge) -> bool {
+        let Some((cols, rows, gap)) = self.grid() else { return false; };
+
+        let grown = match edge {
+            Edge::Top | Edge::Bottom => (cols.max(1), rows + 1),
+            Edge::Left | Edge::Right => (cols + 1, rows.max(1)),
+        };
+
+        if !grid_fits_the_view(grown.0, grown.1, gap) {
+            return false;
+        }
+
+        self.spread_filled_grid();
+
+        let Some(layout) = self.layout_mut() else { return false; };
+        *layout = grow(layout, edge);
+
+        true
+    }
+
+    /// Takes the row or column at `edge` away, and whatever was standing on it
+    /// with it. Says whether it did.
+    ///
+    /// Nothing here asks whether the author meant it - that is
+    /// [`take_edge_away`]'s, so that the warning is between the press and this
+    /// rather than inside it.
+    fn shrink_grid(&mut self, edge: Edge) -> bool {
+        if !self.can_shrink(edge) {
+            return false;
+        }
+
+        self.spread_filled_grid();
+
+        let Some(layout) = self.layout_mut() else { return false; };
+        *layout = shrink(layout, edge);
+
+        true
+    }
+
+    /// Whether the grid has an `edge` to spare. A level that is not a grid at
+    /// all has not.
+    fn can_shrink(&self, edge: Edge) -> bool {
+        self.grid()
+            .is_some_and(|(cols, rows, _)| can_shrink(cols, rows, edge))
+    }
+
+    /// How many blocks taking `edge` away would take with it.
+    ///
+    /// A `FilledGrid` is counted through the token grid that says the same
+    /// thing, as [`EditorLevel::blocks`] reads it - one path from a level to
+    /// what is standing on it, rather than one per layout kind.
+    fn blocks_on_edge(&self, edge: Edge) -> usize {
+        match &self.level.targets {
+            SparseGrid(layout, _) => blocks_on_edge(layout, edge),
+
+            FilledGrid(cols, rows, block_type, behaviour, _) => {
+                blocks_on_edge(&filled_grid(*cols, *rows, block_type, behaviour), edge)
+            }
+
+            Custom(_) => 0,
+        }
+    }
+
     /// The token grid being edited, if the level is one.
     fn layout_mut(&mut self) -> Option<&mut String> {
         match &mut self.level.targets {
@@ -229,6 +304,62 @@ impl Brush {
     }
 }
 
+/// The row or column an author has asked to remove and been warned about,
+/// waiting for the press that confirms it.
+///
+/// Cleared by anything else the author does, because the warning is about the
+/// level as it stood when it was given: a press has to confirm the warning on
+/// screen, not one from before an edit.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct PendingRemoval(pub Option<DoomedEdge>);
+
+/// An edge that is one press away from being taken away, and what it holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DoomedEdge {
+    pub edge: Edge,
+
+    /// How many blocks go with it. Never 0 - an edge with nothing standing on it
+    /// costs nothing and goes on the first press.
+    pub blocks: usize,
+}
+
+impl DoomedEdge {
+    /// What the author is told, in the one place it is worded.
+    fn warning(&self) -> String {
+        format!(
+            "The {} holds {} block{} - press {} again to remove it",
+            edge_name(self.edge),
+            self.blocks,
+            if self.blocks == 1 { "" } else { "s" },
+            edge_shortcut(self.edge),
+        )
+    }
+}
+
+/// The row or column an author names with an arrow key.
+fn edge_name(edge: Edge) -> &'static str {
+    match edge {
+        Edge::Top => "top row",
+        Edge::Bottom => "bottom row",
+        Edge::Left => "left column",
+        Edge::Right => "right column",
+    }
+}
+
+/// The press that would take it away, as the author has to type it.
+fn edge_shortcut(edge: Edge) -> &'static str {
+    match edge {
+        Edge::Top => "Shift+Up",
+        Edge::Bottom => "Shift+Down",
+        Edge::Left => "Shift+Left",
+        Edge::Right => "Shift+Right",
+    }
+}
+
+/// The warning on screen, so it can be taken off again.
+#[derive(Component)]
+pub struct EditorWarning;
+
 /// The paint in progress: from a mouse button going down to it coming up again.
 ///
 /// A drag is *one* edit and not one per cell, so the stroke is recorded as a
@@ -276,6 +407,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<HoveredCell>()
             .init_resource::<Brush>()
             .init_resource::<PaintStroke>()
+            .init_resource::<PendingRemoval>()
 
             .add_systems(
                 OnEnter(GameState::Editor),
@@ -296,14 +428,18 @@ impl Plugin for EditorPlugin {
                     (
                         editor_pick_cell,
                         editor_paint,
+                        editor_resize,
                         // `resource_exists_and_changed` rather than
                         // `resource_changed`: a run condition is evaluated every
                         // frame whether or not the `in_state` beside it holds,
                         // and outside the editor there is no level for it to
-                        // ask about.
+                        // ask about. `PendingRemoval` below is a
+                        // `init_resource`, so it is always there to ask.
                         editor_show_blocks.run_if(resource_exists_and_changed::<EditorLevel>),
                         editor_dress_blocks,
+                        editor_show_warning.run_if(resource_changed::<PendingRemoval>),
                         editor_draw_hover,
+                        editor_draw_doomed_edge,
                     )
                         .chain(),
                 )
@@ -365,6 +501,11 @@ fn open_current_level(levels: &Levels, level_assets: &Assets<LevelAsset>) -> Edi
 /// `AutoMin` is what makes the framing a promise rather than a hope: whatever
 /// the window's aspect ratio, at least [`editor_view`] is on screen.
 fn editor_setup(mut commands: Commands) {
+    info!(
+        "Editor: left button paints, right button erases; an arrow key adds a \
+         row or column at that edge and Shift+arrow takes it away; Escape leaves"
+    );
+
     let view = editor_view();
 
     commands.spawn((
@@ -464,15 +605,20 @@ pub fn cell_under_ray(ray: Ray3d, cols: usize, rows: usize, gap: f32) -> Option<
 }
 
 
-/// Where the highlight for a cell sits - the cell's own footprint on the ground
-/// plane, lifted clear of the grid gizmo.
-fn hover_highlight(col: usize, row: usize, cols: usize, gap: f32) -> Isometry3d {
+/// Where a highlight for a cell sits - the cell's own footprint on the ground
+/// plane, lifted clear of whatever is drawn underneath it.
+fn cell_highlight(col: usize, row: usize, cols: usize, gap: f32, lift: f32) -> Isometry3d {
     let centre = cell_to_world(col, row, cols, gap);
 
     Isometry3d::new(
-        Vec3::new(centre.x, HOVER_LIFT, centre.y),
+        Vec3::new(centre.x, lift, centre.y),
         Quat::from_rotation_x(FRAC_PI_2),
     )
+}
+
+/// Where the hover highlight sits: clear of the grid gizmo.
+fn hover_highlight(col: usize, row: usize, cols: usize, gap: f32) -> Isometry3d {
+    cell_highlight(col, row, cols, gap, HOVER_LIFT)
 }
 
 
@@ -533,6 +679,7 @@ fn editor_paint(
     hovered: Res<HoveredCell>,
     brush: Res<Brush>,
     mut stroke: ResMut<PaintStroke>,
+    mut pending: ResMut<PendingRemoval>,
     mut editor_level: ResMut<EditorLevel>,
 ) {
     let Some(painting) = brush_in_hand(&buttons, &brush) else {
@@ -557,6 +704,10 @@ fn editor_paint(
             before: editor_level.level.targets.clone(),
             cells: vec![],
         });
+
+        // Painting is not an answer to "remove this row?" - and it is an edit,
+        // so what the warning counted is out of date anyway.
+        pending.set_if_neq(PendingRemoval(None));
     }
 
     let Some((col, row)) = hovered.0 else { return; };
@@ -658,6 +809,160 @@ fn editor_dress_blocks(
 }
 
 
+/// Adds and removes rows and columns at the edges of the grid.
+///
+/// An arrow key grows the grid at the edge it points at; `Shift` and an arrow
+/// takes that edge away again. Up and down are the grid's own top and bottom -
+/// the first and last line of the layout - which is what the author sees at the
+/// top and the bottom of the screen.
+///
+/// An edge with blocks standing on it is not taken away by one press: it is
+/// called out first, and the same press again means it. That is this card's half
+/// of "warns first or is undoable"; `c0011` brings the undo.
+fn editor_resize(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut pending: ResMut<PendingRemoval>,
+    mut editor_level: ResMut<EditorLevel>,
+) {
+    let Some((edge, taking_away)) = resize_asked_for(&keys) else { return; };
+
+    // Written around change detection, as painting is: a resize that is refused
+    // - or one press short of happening - must not look to the rest of the
+    // editor like a level that changed.
+    let level = editor_level.bypass_change_detection();
+
+    let changed = if taking_away {
+        take_edge_away(level, edge, &mut pending)
+    } else {
+        pending.set_if_neq(PendingRemoval(None));
+        level.grow_grid(edge)
+    };
+
+    if changed {
+        editor_level.set_changed();
+    }
+}
+
+/// The second half of [`editor_resize`]: the edge goes, or the author is told
+/// what it would cost and the next press does it.
+fn take_edge_away(
+    level: &mut EditorLevel,
+    edge: Edge,
+    pending: &mut ResMut<PendingRemoval>,
+) -> bool {
+    if !level.can_shrink(edge) {
+        return false;
+    }
+
+    let blocks = level.blocks_on_edge(edge);
+    let already_warned = pending.0.map(|doomed| doomed.edge) == Some(edge);
+
+    if blocks > 0 && !already_warned {
+        let doomed = DoomedEdge { edge, blocks };
+        warn!("{}", doomed.warning());
+        pending.set_if_neq(PendingRemoval(Some(doomed)));
+
+        return false;
+    }
+
+    pending.set_if_neq(PendingRemoval(None));
+    level.shrink_grid(edge)
+}
+
+/// The resize an author is asking for: an arrow key names an edge, and `Shift`
+/// turns adding one into taking it away.
+fn resize_asked_for(keys: &ButtonInput<KeyCode>) -> Option<(Edge, bool)> {
+    let edge = if keys.just_pressed(KeyCode::ArrowUp) {
+        Edge::Top
+    } else if keys.just_pressed(KeyCode::ArrowDown) {
+        Edge::Bottom
+    } else if keys.just_pressed(KeyCode::ArrowLeft) {
+        Edge::Left
+    } else if keys.just_pressed(KeyCode::ArrowRight) {
+        Edge::Right
+    } else {
+        return None;
+    };
+
+    Some((edge, keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])))
+}
+
+/// Whether a `cols` x `rows` grid still fits the frame the editor keeps on
+/// screen - the one promise the editor makes about the level it is showing, and
+/// so the one thing that stops a grid growing.
+///
+/// Whether every cell of it is somewhere the ball can reach is a different
+/// question, and `c0012`'s to warn about.
+fn grid_fits_the_view(cols: usize, rows: usize, gap: f32) -> bool {
+    let view = editor_view();
+    let bounds = grid_bounds(cols, rows, gap);
+
+    view.contains(bounds.min) && view.contains(bounds.max)
+}
+
+/// The cells that make up one edge of a `cols` x `rows` grid.
+fn edge_cells(edge: Edge, cols: usize, rows: usize) -> Vec<(usize, usize)> {
+    match edge {
+        Edge::Top => (0..cols).map(|col| (col, 0)).collect(),
+        Edge::Bottom => (0..cols).map(|col| (col, rows.saturating_sub(1))).collect(),
+        Edge::Left => (0..rows).map(|row| (0, row)).collect(),
+        Edge::Right => (0..rows).map(|row| (cols.saturating_sub(1), row)).collect(),
+    }
+}
+
+/// Draws the row or column an author has been warned about, so the warning
+/// points at something rather than describing it.
+fn editor_draw_doomed_edge(
+    pending: Res<PendingRemoval>,
+    editor_level: Res<EditorLevel>,
+    mut gizmos: Gizmos,
+) {
+    let Some(doomed) = pending.0 else { return; };
+    let Some((cols, rows, gap)) = editor_level.grid() else { return; };
+
+    for (col, row) in edge_cells(doomed.edge, cols, rows) {
+        gizmos.rect(
+            cell_highlight(col, row, cols, gap, WARNING_LIFT),
+            Vec2::new(BLOCK_WIDTH, BLOCK_DEPTH),
+            ORANGE_RED,
+        );
+    }
+}
+
+/// Puts the warning on screen, and takes it away again when there is nothing
+/// left to warn about.
+fn editor_show_warning(
+    pending: Res<PendingRemoval>,
+    shown: Query<Entity, With<EditorWarning>>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    for entity in &shown {
+        commands.entity(entity).despawn();
+    }
+
+    let Some(doomed) = pending.0 else { return; };
+
+    commands.spawn((
+        Text::new(doomed.warning()),
+        TextFont {
+            font: asset_server.load(EDITOR_FONT).into(),
+            font_size: FontSize::Px(24.0),
+            ..default()
+        },
+        TextColor(ORANGE_RED.into()),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(24.0),
+            left: Val::Px(24.0),
+            ..default()
+        },
+        EditorWarning,
+        EditorEntity,
+    ));
+}
+
+
 /// Back to the menu.
 ///
 /// `Escape` is the way out, which is why `close_on_esc` in `main.rs` stands down
@@ -677,6 +982,7 @@ fn editor_teardown(
     editor_entities: Query<Entity, With<EditorEntity>>,
     mut hovered: ResMut<HoveredCell>,
     mut stroke: ResMut<PaintStroke>,
+    mut pending: ResMut<PendingRemoval>,
 ) {
     for entity in &editor_entities {
         commands.entity(entity).despawn();
@@ -688,6 +994,10 @@ fn editor_teardown(
     // A stroke left half-painted is over: the button will have come up
     // somewhere else entirely by the time the editor is back.
     stroke.0 = None;
+
+    // The warning went with the rest of the editor's entities, and a question
+    // that is no longer on screen must not be answerable.
+    pending.set_if_neq(PendingRemoval(None));
 }
 
 /// The game hides the pointer at startup (`primary_cursor_options` in
@@ -723,6 +1033,7 @@ mod tests {
     use bevy::math::Dir3;
     use bevy::prelude::State;
     use bevy::state::app::{AppExtStates, StatesPlugin};
+    use bevy::text::Font;
     use bevy::transform::TransformPlugin;
     use bevy::window::WindowResolution;
     use bevy::MinimalPlugins;
@@ -758,6 +1069,9 @@ mod tests {
         app.init_asset::<Gltf>();
         app.init_asset::<GltfMesh>();
         app.init_asset::<BlockMaterial>();
+        // Same for the font the warning is written in - `TextPlugin` is what
+        // registers it in the game, and a headless app has no text to draw.
+        app.init_asset::<Font>();
         app.insert_state(GameState::InGame);
         app.insert_resource(Levels { handles: vec![], current_level: 0 });
         app.add_plugins(EditorPlugin);
@@ -968,12 +1282,12 @@ mod tests {
             };
 
             let Some((cols, rows, gap)) = editor_level.grid() else { continue; };
-            let bounds = grid_bounds(cols, rows, gap);
 
             assert!(
-                view.contains(bounds.min) && view.contains(bounds.max),
-                "{}: a {cols}x{rows} grid covers {bounds:?}, outside the editor's {view:?}",
-                path.display()
+                grid_fits_the_view(cols, rows, gap),
+                "{}: a {cols}x{rows} grid covers {:?}, outside the editor's {view:?}",
+                path.display(),
+                grid_bounds(cols, rows, gap)
             );
 
             checked += 1;
@@ -1690,4 +2004,368 @@ mod tests {
 
         assert_eq!(hovered(&app), None);
     }
+
+    // --- resizing ---------------------------------------------------------
+
+    fn arrow(edge: Edge) -> KeyCode {
+        match edge {
+            Edge::Top => KeyCode::ArrowUp,
+            Edge::Bottom => KeyCode::ArrowDown,
+            Edge::Left => KeyCode::ArrowLeft,
+            Edge::Right => KeyCode::ArrowRight,
+        }
+    }
+
+    /// Presses a resize shortcut and gives the editor the frame it needs to
+    /// follow it.
+    ///
+    /// The system is run directly, as the `Escape` test has to run
+    /// [`editor_leave`]: `InputPlugin` clears `just_pressed` in `PreUpdate`, so
+    /// a key pressed from a test never survives to `Update`. The `update`
+    /// afterwards is the rest of the editor - the blocks on screen, the warning
+    /// - catching up with what the press did.
+    fn press_resize(app: &mut App, edge: Edge, shrinking: bool) {
+        {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            if shrinking {
+                keys.press(KeyCode::ShiftLeft);
+            }
+            keys.press(arrow(edge));
+        }
+
+        app.world_mut().run_system_once(editor_resize).unwrap();
+
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release_all();
+        app.update();
+    }
+
+    fn grow_at(app: &mut App, edge: Edge) {
+        press_resize(app, edge, false);
+    }
+
+    fn shrink_at(app: &mut App, edge: Edge) {
+        press_resize(app, edge, true);
+    }
+
+    /// What the editor is warning the author about, if anything.
+    fn warning(app: &mut App) -> Option<String> {
+        let world = app.world_mut();
+        let mut warnings = world.query_filtered::<&Text, With<EditorWarning>>();
+
+        warnings.iter(world).next().map(|text| text.0.clone())
+    }
+
+    fn grid(app: &App) -> (usize, usize) {
+        let (cols, rows, _) = editor_level(app).grid().expect("a grid to resize");
+
+        (cols, rows)
+    }
+
+    #[test]
+    fn an_arrow_key_adds_a_row_or_a_column_at_the_edge_it_points_at() {
+        for (edge, grown) in [
+            (Edge::Top, ".. ..\nAA BA"),
+            (Edge::Bottom, "AA BA\n.. .."),
+            (Edge::Left, ".. AA BA"),
+            (Edge::Right, "AA BA .."),
+        ] {
+            let mut app = app_in_the_editor(sparse("AA BA"));
+
+            grow_at(&mut app, edge);
+
+            assert_eq!(layout(&app), grown, "{edge:?}");
+        }
+    }
+
+    /// One block, in the middle, so that every edge is empty - what taking away
+    /// an edge that holds something costs is the next test's.
+    #[test]
+    fn shift_and_an_arrow_key_takes_that_edge_away_again() {
+        for (edge, shrunk) in [
+            (Edge::Top, ".. AA ..\n.. .. .."),
+            (Edge::Bottom, ".. .. ..\n.. AA .."),
+            (Edge::Left, ".. ..\nAA ..\n.. .."),
+            (Edge::Right, ".. ..\n.. AA\n.. .."),
+        ] {
+            let mut app = app_in_the_editor(sparse(".. .. ..\n.. AA ..\n.. .. .."));
+
+            shrink_at(&mut app, edge);
+
+            assert_eq!(layout(&app), shrunk, "{edge:?}");
+        }
+    }
+
+    /// A grid that grew is a grid the author can aim at: the cell that was off
+    /// the grid a moment ago is now the one the pointer finds there.
+    #[test]
+    fn the_pointer_finds_the_cells_a_resize_added() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(3, 2)));
+
+        let new_row = cell_to_world(1, 2, 3, BLOCK_GAP);
+        assert!(point_at(&mut app, new_row));
+        assert_eq!(hovered(&app), None, "there is no third row yet");
+
+        grow_at(&mut app, Edge::Bottom);
+
+        assert_eq!(grid(&app), (3, 3));
+        assert!(point_at(&mut app, new_row));
+        assert_eq!(hovered(&app), Some((1, 2)), "the row that was just added");
+
+        shrink_at(&mut app, Edge::Bottom);
+
+        assert!(point_at(&mut app, new_row));
+        assert_eq!(hovered(&app), None, "and it is gone again");
+    }
+
+    /// The card's "existing blocks keep their position relative to the cells
+    /// that are retained", on screen: a row added at the top pushes every block
+    /// down a cell, and one added at the bottom moves nothing.
+    #[test]
+    fn the_blocks_that_are_kept_keep_their_cells() {
+        let mut app = app_in_the_editor(sparse("AA .. BA"));
+
+        grow_at(&mut app, Edge::Top);
+
+        assert_eq!(
+            blocks_on_screen(&mut app),
+            vec![(at(0, 1, 3), BlockType::Simple), (at(2, 1, 3), BlockType::Hardling)],
+            "the same two cells, a row further down the grid"
+        );
+
+        grow_at(&mut app, Edge::Bottom);
+
+        assert_eq!(
+            blocks_on_screen(&mut app),
+            vec![(at(0, 1, 3), BlockType::Simple), (at(2, 1, 3), BlockType::Hardling)],
+            "a row added below them moves nothing"
+        );
+
+        grow_at(&mut app, Edge::Left);
+
+        assert_eq!(
+            blocks_on_screen(&mut app),
+            vec![(at(1, 1, 4), BlockType::Simple), (at(3, 1, 4), BlockType::Hardling)],
+            "a column added on the left moves them one to the right"
+        );
+    }
+
+    /// An edge with blocks standing on it is not taken away by one press. That
+    /// is this card's half of "warns first or is undoable" - `c0011` brings the
+    /// undo that would make the second press unnecessary.
+    #[test]
+    fn an_edge_with_blocks_on_it_is_called_out_before_it_is_taken_away() {
+        let mut app = app_in_the_editor(sparse("AA .. AA\n.. CA .."));
+
+        shrink_at(&mut app, Edge::Top);
+
+        assert_eq!(layout(&app), "AA .. AA\n.. CA ..", "the first press takes nothing away");
+        assert_eq!(grid(&app), (3, 2));
+
+        let warned = warning(&mut app).expect("the author has to be told what it would cost");
+        assert!(warned.contains("2 blocks"), "{warned}");
+        assert!(warned.contains("top row"), "{warned}");
+
+        shrink_at(&mut app, Edge::Top);
+
+        assert_eq!(layout(&app), ".. CA ..", "the same press again means it");
+        assert_eq!(warning(&mut app), None, "and there is nothing left to warn about");
+    }
+
+    /// An edge with nothing on it costs nothing, so it goes on the first press.
+    #[test]
+    fn an_empty_edge_needs_no_warning() {
+        let mut app = app_in_the_editor(sparse(".. .. ..\nAA CA AA"));
+
+        shrink_at(&mut app, Edge::Top);
+
+        assert_eq!(layout(&app), "AA CA AA");
+        assert_eq!(warning(&mut app), None);
+    }
+
+    /// The warning is about the level as it stood when it was given. Anything
+    /// else the author does in between makes it stale, and a stale warning must
+    /// not be what a press is taken as confirming.
+    #[test]
+    fn a_warning_does_not_survive_the_author_doing_something_else() {
+        let mut app = app_in_the_editor(sparse("AA .. AA\n.. CA .."));
+
+        shrink_at(&mut app, Edge::Top);
+        assert!(warning(&mut app).is_some());
+
+        paint(&mut app, &[(1, 1)]);
+        assert_eq!(warning(&mut app), None, "painting is not confirming");
+
+        shrink_at(&mut app, Edge::Top);
+        assert_eq!(layout(&app), "AA .. AA\n.. AA ..", "the row is still there, warned about again");
+        assert!(warning(&mut app).is_some());
+
+        // A different edge is a different question.
+        shrink_at(&mut app, Edge::Left);
+        assert_eq!(layout(&app), "AA .. AA\n.. AA ..");
+
+        let warned = warning(&mut app).expect("the left column holds a block too");
+        assert!(warned.contains("left column"), "{warned}");
+    }
+
+    /// Growing is not a confirmation of anything either.
+    #[test]
+    fn growing_the_grid_drops_a_warning_rather_than_confirming_it() {
+        let mut app = app_in_the_editor(sparse("AA AA\nAA AA"));
+
+        shrink_at(&mut app, Edge::Top);
+        assert!(warning(&mut app).is_some());
+
+        grow_at(&mut app, Edge::Bottom);
+
+        assert_eq!(warning(&mut app), None);
+        assert_eq!(grid(&app), (2, 3), "the row was added, and none was taken away");
+    }
+
+    /// The editor promises to keep the whole grid on screen, so it will not make
+    /// one it cannot show.
+    #[test]
+    fn the_grid_stops_growing_where_the_editor_can_no_longer_show_it() {
+        let mut app = app_in_the_editor(sparse("AA"));
+
+        for _ in 0..40 {
+            grow_at(&mut app, Edge::Right);
+            grow_at(&mut app, Edge::Bottom);
+        }
+
+        let (cols, rows) = grid(&app);
+
+        assert!(grid_fits_the_view(cols, rows, BLOCK_GAP), "a {cols}x{rows} grid is off screen");
+        assert!(!grid_fits_the_view(cols + 1, rows, BLOCK_GAP), "it stopped short of the edge");
+        assert!(!grid_fits_the_view(cols, rows + 1, BLOCK_GAP), "it stopped short of the edge");
+
+        // The shipped levels are 3 to 11 columns wide, so the editor has room
+        // for every one of them and then some.
+        assert_eq!((cols, rows), (13, 16));
+    }
+
+    /// A grid always keeps a cell: there would be nothing left to aim at, and no
+    /// way back.
+    #[test]
+    fn the_last_row_and_the_last_column_stay() {
+        let mut app = app_in_the_editor(sparse("AA"));
+
+        for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+            shrink_at(&mut app, edge);
+
+            assert_eq!(layout(&app), "AA", "{edge:?}");
+            assert_eq!(warning(&mut app), None, "{edge:?}: nothing to warn about, nothing happens");
+        }
+    }
+
+    /// Resizing a `FilledGrid` is the same trade painting one is: a grid with a
+    /// row of empty cells on it is no longer "the same block everywhere".
+    #[test]
+    fn resizing_a_filled_grid_turns_it_into_a_token_grid() {
+        let filled = LevelDefinition {
+            targets: FilledGrid(3, 2, BlockType::Hardling, BlockBehaviour::Vanisher, BLOCK_GAP),
+            ..default()
+        };
+
+        let mut app = app_in_the_editor(filled);
+
+        grow_at(&mut app, Edge::Bottom);
+
+        assert_eq!(layout(&app), "BC BC BC\nBC BC BC\n.. .. ..");
+        assert_eq!(blocks_on_screen(&mut app).len(), 6, "the blocks that were there stayed");
+    }
+
+    /// A refused resize leaves the level exactly as it was - a `FilledGrid` that
+    /// cannot grow is still a `FilledGrid`.
+    #[test]
+    fn a_resize_that_does_not_happen_changes_nothing() {
+        let filled = LevelDefinition {
+            targets: FilledGrid(1, 1, BlockType::Hardling, BlockBehaviour::Vanisher, BLOCK_GAP),
+            ..default()
+        };
+
+        let mut app = app_in_the_editor(filled.clone());
+
+        shrink_at(&mut app, Edge::Left);
+
+        assert_eq!(editor_level(&app).level, filled);
+    }
+
+    /// A `Custom` level is built in code: there is no grid to add a row to.
+    #[test]
+    fn a_level_that_is_not_a_grid_cannot_be_resized() {
+        let custom = LevelDefinition {
+            targets: Custom("Conveyor".to_string()),
+            ..default()
+        };
+
+        let mut app = app_in_the_editor(custom.clone());
+
+        for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+            grow_at(&mut app, edge);
+            shrink_at(&mut app, edge);
+        }
+
+        assert_eq!(editor_level(&app).level, custom);
+        assert_eq!(warning(&mut app), None);
+    }
+
+    #[test]
+    fn leaving_the_editor_forgets_the_warning() {
+        let mut app = app_in_the_editor(sparse("AA AA\nAA AA"));
+
+        shrink_at(&mut app, Edge::Top);
+        assert!(warning(&mut app).is_some());
+
+        go_to(&mut app, GameState::InGame);
+
+        assert_eq!(app.world().resource::<PendingRemoval>(), &PendingRemoval(None));
+        assert_eq!(warning(&mut app), None, "the warning went with the rest of the editor");
+    }
+
+    /// The card's last criterion. Saving is `c0012`'s, so this is the trip a
+    /// save will make: the resized level written as RON, read back off disk, and
+    /// read out again as the blocks a match would spawn.
+    #[test]
+    fn a_resized_level_saves_and_reloads_and_plays() {
+        let mut app = app_in_the_editor(sparse("AA .. AA\n.. CA ..\nZA .. ZA"));
+
+        grow_at(&mut app, Edge::Right);
+        grow_at(&mut app, Edge::Top);
+
+        // The bottom row holds two obstacles, so it takes the second press.
+        shrink_at(&mut app, Edge::Bottom);
+        shrink_at(&mut app, Edge::Bottom);
+
+        let edited = editor_level(&app).level.clone();
+        assert_eq!(grid(&app), (4, 3));
+
+        let path = std::env::temp_dir().join("angleout_c0008_resized.ron");
+        fs::write(&path, campaign::level_to_ron(&edited).expect("a level has to serialize"))
+            .expect("writing the level");
+
+        let reloaded = campaign::load_level(&path).expect("what was written has to read back");
+        fs::remove_file(&path).ok();
+
+        assert_eq!(reloaded, edited, "the resized level survives the trip through disk");
+
+        let SparseGrid(reloaded_layout, gap) = &reloaded.targets else {
+            panic!("a resized level is a token grid: {:?}", reloaded.targets);
+        };
+
+        let played: Vec<(Vec3, BlockType)> = interpret_grid(reloaded_layout, *gap)
+            .expect("the grid a match spawns from")
+            .iter()
+            .map(|block| (Vec3::new(block.position.x, 0.0, block.position.y), block.block_type.clone()))
+            .collect();
+
+        let mut played = played;
+        played.sort_by(|a, b| a.0.to_array().partial_cmp(&b.0.to_array()).unwrap());
+
+        assert_eq!(
+            played,
+            blocks_on_screen(&mut app),
+            "the blocks a match spawns have to be the blocks the editor was showing"
+        );
+    }
+
 }
