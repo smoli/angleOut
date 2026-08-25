@@ -1,12 +1,14 @@
 ---
 id: c0002
 title: Shared cell/world conversion
-status: in-progress
+status: review
 epic: e01
 depends: []
 created: 2026-08-25
 updated: 2026-08-25
-status-changed: 2026-08-25T23:22:07
+status-changed: 2026-08-25T23:26:51
+usage-tokens: 17384
+usage-cost: 1.381578
 ---
 
 ## What
@@ -69,3 +71,4 @@ refactor: every shipped level must produce byte-identical block positions.
   rows) and for shipped-shaped layouts. `cargo test` 33 passed, `cargo build`
   clean, game starts without panic (reaching an actual match needs input this
   session cannot send, so unchanged positions rest on the identity tests)
+- 2026-08-25 status → review (agent)

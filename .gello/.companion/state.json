@@ -20,12 +20,12 @@
       "phase": "running",
       "activity": {
         "name": "Bash",
-        "arg": "wc -l src/level/layout/mod.rs && cat src/level/layout/mod.rs"
+        "arg": "git show c424a67 -- src/level/layout/mod.rs"
       },
       "model": "claude-opus-5"
     }
   ],
-  "updated": "2026-08-25T23:22:14",
+  "updated": "2026-08-25T23:27:16",
   "pickupDelay": 10,
   "owned": [
     "i0001",

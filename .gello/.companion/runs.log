@@ -859,3 +859,42 @@
 [c0002] → Bash(cat .gello/epics/e01-level-editor/c0002-cell-world-conversion.md)
 [c0002] → Bash(ls .gello/epics/e01-level-editor/ && cat .gello/epics/e01-level-editor/epic.md)
 [c0002] → Bash(wc -l src/level/layout/mod.rs && cat src/level/layout/mod.rs)
+[c0002] → Bash(grep -n "BLOCK_WIDTH\|BLOCK_DEPTH\|BLOCK_HEIGHT" src/config/mod.rs)
+[c0002] → Bash(grep -rn "generate_block_grid\|interpret_grid" src/ | grep -v "src/level/layout/mod.rs")
+[c0002] → Bash(sed -n 150,215p src/level/mod.rs)
+[c0002] → Bash(grep -rn "FilledGrid\|SparseGrid" src/ | head -40)
+[c0002] → Bash(grep -n "BLOCK_GAP" src/config/mod.rs; awk '/LEVEL[0-9]: &str|LEVEL[0-9]:/{print}' src/main.rs | head; grep -n "const LE…)
+[c0002] → Bash(python3 -c " import numpy as np f=np.float32 BW=f(15.0); BWH=f(7.5); BD=f(7.51); gap=f(2.0) xs=f(BW+gap); ys=f(BD+gap) b…)
+[c0002] Now I'll write the refactor, test-first in the same file.
+[c0002] → Bash(python3 - <<'PY' import io p='src/level/layout/mod.rs' s=open(p).read() new_head = '''use bevy::math::Vec2; use bevy::pr…)
+[c0002] → Bash(sed -n 100,210p src/level/layout/mod.rs)
+[c0002] → Bash(python3 - <<'PY' p='src/level/layout/mod.rs' s=open(p).read() s = s[:s.index('#[cfg(test)]\nmod tests {')] + '''#[cfg(te…)
+[c0002] → Bash(cargo test 2>&1 | tail -50)
+[c0002] Tests pass. Let me verify the byte-identity tests aren't vacuous by temporarily breaking the implementation.
+[c0002] → Bash(cp src/level/layout/mod.rs /tmp/layout.rs.bak python3 - <<'PY' p='src/level/layout/mod.rs' s=open(p).read() s=s.replace(…)
+[c0002] → Bash(cp /tmp/layout.rs.bak src/level/layout/mod.rs && cargo test 2>&1 | grep -E "test result|^error" && cargo build 2>&1 | gr…)
+[c0002] → Bash(cat /Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/running-the-game-from-a-gello-session.m…)
+[c0002] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut timeout 25 cargo run 2>&1 | tail -20; echo "exit:$?")
+[c0002] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut cargo run > /tmp/angleout_run.log 2>&1 & BGPID=$! python3 -c "i…)
+[c0002] Runs clean. Now updating the card.
+[c0002] → Bash(python3 - <<'PY' p='.gello/epics/e01-level-editor/c0002-cell-world-conversion.md' s=open(p).read() s=s.replace('- [ ] ',…)
+[c0002] Card updated. Committing the code and the card together.
+[c0002] → Bash(git add src/level/layout/mod.rs .gello/epics/e01-level-editor/c0002-cell-world-conversion.md && git status --short && gi…)
+[c0002] → Bash(git log -1 226d022 --format='%B' | head -30; git branch --show-current)
+[c0002] → Bash(git commit -q -F - <<'EOF' c0002: one cell↔world conversion, stepped so the levels do not move `generate_block_grid` and…)
+[c0002] → mcp__gello__set_status(review)
+[c0002] c0002 is in `review`, committed as `c424a67`.
+[c0002] **What changed** — `src/level/layout/mod.rs`:
+[c0002] - `cell_to_world(col, row, cols, gap)` is now the only place a block's world position comes from its grid coordinates. `generate_block_grid` and `interpret_grid` both call it and compute no origin, step or centring themselves. `interpret_grid` counts columns as it walks a line instead of carrying an x cursor; its first-line column count and the "slots under two chars don't advance" quirk are untouched (that's `c0008`'s job).
+[c0002] - `world_to_cell(pos, cols, gap)` inverts it, snapping to the nearest cell centre so the gap belongs to the nearer cell. It's dead code until `c0006` — one more `never used` warning alongside the ~20 already in the build.
+[c0002] **The one judgement call worth knowing about**: I kept the step accumulation (a loop) rather than `y0 + row * y_step`. The two loops this replaces accumulated, and multiplying disagrees with that by an ULP or two from row 2 up — ~1e-5 of drift nobody would see, but the card asked for byte-identical positions, and stepping is cheap enough to actually mean it. There's a comment on the function saying so, since it otherwise looks like something to "optimise".
+[c0002] Two tests pin the output against copies of the pre-refactor loops (filled grids 1..=12 cols × 0..=8 rows, plus layouts shaped like the shipped levels). I checked they're not vacuous: swapping the stepping for a multiply fails both, and I restored the file afterwards.
+[c0002] Also note `world_to_cell` keeps the signature the card names, so it bounds columns and rows-below-zero but is open upwards — `c0006` has the row count to hand and can reject rows above the grid itself. That's recorded in the card's Notes in case you'd rather it took `rows`.
+[c0002] **Verification**: `cargo test` 33 passed, `cargo build` clean, game starts without panic. I could not drive it into an actual match — this session can't send keystrokes — so "no visible change in game" rests on the identity tests and a clean startup, not on looking at it.
+[c0002] ✓ 46 in / 17338 out tokens, $1.3816, 26 turns, 298.8s
+[c0002] I'll start by reading the card.
+[c0002] → Bash(cat .gello/epics/e01-level-editor/c0002-cell-world-conversion.md)
+[c0002] → Bash(cat .gello/board.yaml; echo ---; ls .gello/epics/e01-level-editor/)
+[c0002] → Bash(git log --oneline -5 && echo "=== files ===" && git show --stat c424a67)
+[c0002] → Bash(git status --porcelain | head -60)
+[c0002] → Bash(git show c424a67 -- src/level/layout/mod.rs)
