@@ -1,13 +1,12 @@
 ---
 id: c0009
 title: Palette UI and shortcuts
-status: ready
+status: in-progress
 epic: e01
 depends: [c0007]
 created: 2026-08-25
-updated: 2026-08-25
-status-changed: 2026-08-25T22:59:58
-order: 90
+updated: 2026-08-26
+status-changed: 2026-08-26T01:48:18
 ---
 
 ## What
@@ -37,7 +36,20 @@ it corresponds to in the file format.
 - Built from the `Node` / `Text` UI already used elsewhere; no widget toolkit is
   in the project.
 
+- **Groundwork established before asking the question below** (so it is not
+  re-done): Bevy 0.19's `Interaction` is driven by `ui_focus_system`, which needs
+  the whole UI stack up - `UiPlugin`, layout, `UiStack`, visibility propagation
+  and a camera with a `RenderTarget`. Added to the editor's headless test app it
+  panics in two nameless systems on a missing resource, so a click on a palette
+  entry could not be tested the way `c0006`/`c0007` test a click on a cell -
+  through the real window and the real pointer. The palette will therefore hit-test
+  itself against rectangles it computes, which is the same trade the editor already
+  makes for the grid (`world_to_cell`, not mesh picking): one pure layout function
+  gives every entry its rect, the spawner draws that rect and the click reads it,
+  so what is on screen and what is clickable cannot drift.
+
 ## Log
 
 - 2026-08-25 created from the e01 epic breakdown
 - 2026-08-25 status → ready (app)
+- 2026-08-26 status → in-progress (agent)

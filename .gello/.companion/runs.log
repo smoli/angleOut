@@ -1756,3 +1756,47 @@
 [c0008] → Bash(git show 7dd5600 -- src/level/layout/mod.rs | grep -n "assert!(false)"; echo "in-commit hits above (none = pre-existing)…)
 [c0008] → Bash(date +%Y-%m-%dT%H:%M:%S)
 [c0008] → Bash(python3 - <<'PY' import io p = ".gello/epics/e01-level-editor/c0008-grid-resize.md" s = io.open(p, encoding="utf-8").rea…)
+[c0008] **Verdict: pass** — recorded in a new `## Review` section on `.gello/epics/e01-level-editor/c0008-grid-resize.md`. The card stays in `review`; I did not move it, tick anything, or touch the code.
+[c0008] What I checked:
+[c0008] - **All six criteria hold against the code**, not just the checkboxes. `grow`/`shrink`/`blocks_on_edge`/`can_shrink` in `src/level/layout/mod.rs`, driven by `resize_asked_for` → `editor_resize` → `take_edge_away` in `src/editor/mod.rs`. Each criterion has a test behind it, pure and through a real app.
+[c0008] - **`Edge::Top` really is the screen's top** — the card argues this at length, so I traced it: `interpret_grid` maps layout line 0 to `cell_to_world` row 0 (most negative z), and the editor camera's up hint puts -z at the top of the frame. The arrows point where they claim to.
+[c0008] - **Padding**: `slot_grid`/`write_grid` are the only way a grid is written, so `grow`, `shrink` and `set_cell` cannot emit a ragged one, and every slot is ≥2 chars — which is what `interpret_grid`'s unfiltered first-line `split(" ")` count needs.
+[c0008] - **Checks**: `cargo test` 132 passed / 0 failed (the claimed count; 26 new tests all present, none ignored). `cargo build` clean at 19 warnings, none in the two touched files. `cargo clippy --all-targets` exits 0 — one new lint, `needless_lifetimes` on the test helper `slot<'a>`; clippy isn't a documented repo check.
+[c0008] - **Diff stays in scope**: two files, nothing unrelated, no test removed or weakened — the one deletion inside an existing test is the shipped-levels-fit assertion rewritten onto the new `grid_fits_the_view`, asserting the same thing.
+[c0008] Two non-blocking notes went on the card:
+[c0008] - The warning's count can go stale mid-drag: `editor_paint` clears `PendingRemoval` only where a stroke *starts*, so painting more cells into a warned-about row while the button stays held leaves the old count standing. The criterion is still met (the press did warn first) and `c0011`'s undo makes it moot, but the Notes claim painting always drops a warning, and in that one path it doesn't.
+[c0008] - I could not confirm the orange text and doomed-edge outline actually render — the tests assert entities and strings only, same limit the implementer recorded.
+[c0008] One thing worth knowing: the working tree has a lot of unrelated modified `src/*` files and an untracked `src/diagnostics/`. `git diff 7dd5600 -- src/editor src/level` is empty, so the checks ran on exactly this card's committed code.
+[c0008] ✓ 66 in / 19165 out tokens, $2.2979, 37 turns, 324.4s
+[c0009] I'll start by picking up the card.
+[c0009] → ToolSearch(select:mcp__gello__set_status,mcp__gello__add_question)
+[c0009] → mcp__gello__set_status(in-progress)
+[c0009] Card is picked up. Now let me read it and the surrounding context.
+[c0009] → Bash(cat .gello/epics/e01-level-editor/c0009-palette-ui.md)
+[c0009] → Bash(ls .gello/epics/e01-level-editor/ && cat .gello/board.yaml)
+[c0009] → Bash(cat .gello/epics/e01-level-editor/c0007-grid-painting.md && echo "=====EPIC=====" && cat .gello/epics/e01-level-editor/e…)
+[c0009] → Bash(ls -R src | head -100)
+[c0009] → Bash(wc -l src/editor/mod.rs src/block/mod.rs src/level/layout/mod.rs src/ui/mod.rs && sed -n '1,200p' src/editor/mod.rs)
+[c0009] → Bash(sed -n '200,700p' src/editor/mod.rs)
+[c0009] → Bash(sed -n '700,1150p' src/editor/mod.rs)
+[c0009] → Bash(grep -n "block_material\|pub enum BlockType\|pub enum BlockBehaviour" -A 40 src/block/mod.rs | head -120)
+[c0009] Now the layout format — the token alphabet:
+[c0009] → Bash(grep -n "fn block_token\|fn make_block\|EMPTY_SLOT\|fn trigger_\|TriggerGroup\|TriggerType" src/level/layout/mod.rs | he…)
+[c0009] → Bash(sed -n '180,310p' src/level/layout/mod.rs)
+[c0009] → Bash(cat src/ui/mod.rs && echo "======START======" && sed -n '1,200p' src/ui/start/mod.rs)
+[c0009] → Bash(cat Cargo.toml && grep -n 'name = "bevy"' -A 2 Cargo.lock)
+[c0009] → Bash(ls ~/.cargo/registry/src/*/ | grep -i "^bevy_ui\|^bevy_picking\|^bevy_internal" | head)
+[c0009] → Bash(cd ~/.cargo/registry/src/*/bevy_ui-0.19.1 && sed -n '1,140p' src/lib.rs)
+[c0009] → Bash(cd ~/.cargo/registry/src/*/bevy_ui-0.19.1 && sed -n '140,330p' src/lib.rs && echo "=====FOCUS=====" && sed -n '1,80p' sr…)
+[c0009] → Bash(grep -n "DefaultPlugins\|EditorPlugin\|add_plugins" src/main.rs | head -40)
+[c0009] → Bash(grep -n "fn point_at\|fn click\|fn press\|fn release\|MouseButton\|cursor_position\|set_cursor\|fn drag\|CursorMoved" sr…)
+[c0009] → Bash(sed -n '1480,1680p' src/editor/mod.rs)
+[c0009] → Bash(cd ~/.cargo/registry/src/*/bevy_ui-0.19.1 && sed -n '120,330p' src/focus.rs)
+[c0009] Let me spike whether Bevy's `Interaction` works in a headless test, since that decides the palette's design.
+[c0009] → Bash(grep -n "mod tests" src/editor/mod.rs && tail -20 src/editor/mod.rs)
+[c0009] → Bash(cp src/editor/mod.rs /tmp/editor_backup.rs && python3 - <<'EOF' import re p='src/editor/mod.rs' s=open(p).read() spike =…)
+[c0009] → Bash(sed -i '' 's| use bevy::render::view::VisibilityPlugin;||; s| use bevy::camera::RenderTarget;||' src/editor/mod.rs && ca…)
+[c0009] → Bash(python3 - <<'EOF' p='src/editor/mod.rs' s=open(p).read() s=s.replace(" app.add_plugins(UiPlugin);"," app.add_plugins((be…)
+[c0009] → Bash(cp /tmp/editor_backup.rs src/editor/mod.rs && git diff --stat src/editor/mod.rs)
+[c0009] The spike shows Bevy's `Interaction` needs the full UI stack (not headless-testable here), so the palette will do its own hit-testing — same idiom the grid already uses. But first there's a genuine fork I shouldn't guess at: the format's letters collide across the three axes.
+[c0009] → Bash(python3 - <<'PY' p='.gello/epics/e01-level-editor/c0009-palette-ui.md' s=open(p).read() notes_add = """ - **Groundwork e…)
