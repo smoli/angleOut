@@ -24,7 +24,7 @@ cells and need drag handles, which is a separate problem.
 
 ## Definition of done
 
-- [ ] No level data remains in `main.rs`; every shipped level lives in `assets/levels/*.ron` and the game plays them all exactly as it does today.
+- [ ] No level data remains in `main.rs`; every shipped level lives in `assets/levels/*.ron`, campaign order comes from `assets/levels/campaign.ron`, and the game plays them all exactly as it does today.
 - [ ] A level round-trips through disk: load → edit → save → reload reproduces the same level, and hand-editing a file hot-reloads it into a running game.
 - [ ] An existing hand-written level (e.g. `LEVEL4`) can be rebuilt from scratch in the editor using the mouse, saved, and played.
 - [ ] The editor covers block type, behaviour, trigger type and trigger group on the grid, plus background asset, scroll velocity, simultaneous balls, win criteria, global pickups and both side walls.

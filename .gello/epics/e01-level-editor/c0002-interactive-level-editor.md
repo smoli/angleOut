@@ -17,8 +17,12 @@ layout kept as the existing multi-line token grid embedded inside it** — so th
 ASCII map stays readable and hand-editable while the other ten fields become
 expressible on disk for the first time.
 
+Campaign order lives in an index file, `assets/levels/campaign.ron`, so levels
+can exist off-campaign as scratch and the editor can append a new one.
+
 The editor is reachable from the main menu, paints the block grid by clicking
-cells, and has a settings panel for the non-grid fields (background, scroll
+cells (including growing and shrinking the grid), and has a settings panel for
+the non-grid fields (background, scroll
 velocity, simultaneous balls, win criteria, global pickups, side walls).
 Free-floating `LevelObstacle`s are **out of scope** — they need drag handles and
 are a separate problem. Undo/redo is in scope. You can playtest the level you are
@@ -30,10 +34,15 @@ This is epic-sized, not a single card — see the suggested breakdown below.
 
 - [ ] `LevelDefinition` and its field types round-trip through RON, with the block layout stored as the existing multi-line token string.
 - [ ] Shipped levels live in `assets/levels/*.ron`; `main.rs` no longer contains level literals.
+- [ ] Campaign order is read from `assets/levels/campaign.ron`, and the editor can append a newly created level to it.
 - [ ] Hand-editing a level file while the game is running hot-reloads it.
 - [ ] An "Editor" entry in the main menu enters a `GameState::Editor`; the mouse cursor becomes visible there and is hidden again on leaving.
 - [ ] Clicking a grid cell places the current brush and the erase brush clears it — including on empty cells, so placement uses a ray/ground-plane hit rather than mesh picking.
 - [ ] A palette shows block type, behaviour, trigger type and trigger group, is fully clickable, and each entry has a keyboard shortcut matching its letter in the file format.
+- [ ] Palette entries show the block's actual colour with its format letter on it; behaviour entries carry a text label.
+- [ ] `Z` / `BlockType::Obstacle` is available as a brush.
+- [ ] The editor can add and remove grid rows and columns.
+- [ ] Saving warns — but never refuses — on trigger receivers with no matching trigger in their group, portals with no trigger, and levels with no breakable blocks.
 - [ ] A settings panel edits background asset, scroll velocity, simultaneous balls, win criteria, global pickups and both side walls.
 - [ ] Undo and redo cover both cell edits and settings changes.
 - [ ] Saving writes a RON file that reloads to an identical level.
@@ -58,6 +67,19 @@ This is epic-sized, not a single card — see the suggested breakdown below.
 - Undo/redo is required.
 - Done means authoring one of the existing levels end to end, which implies the
   migration off `main.rs` is part of the epic rather than a follow-up.
+- The grid is resizable by rows and columns. The shipped levels run from 3 to 11
+  columns wide, so a fixed extent could not express them all.
+- `Z` / `BlockType::Obstacle` is a normal brush. Despite the name it is a grid
+  cell that happens to be unbreakable and excluded from the win count — unrelated
+  to `LevelObstacle`, so excluding those from the epic does not exclude this.
+  `LEVEL4` needs it.
+- Saving validates structurally and warns without ever blocking: receivers with
+  no matching trigger in their group, portals with no trigger, levels with no
+  breakable blocks.
+- Campaign order comes from `assets/levels/campaign.ron`. Levels not listed are
+  scratch, and the editor can append to it.
+- Palette entries are a colour swatch carrying the format letter; behaviour needs
+  a text label since it does not affect colour.
 
 **Rejected**
 
@@ -71,17 +93,21 @@ This is epic-sized, not a single card — see the suggested breakdown below.
 - A separate user data directory for authored levels.
 - Keyboard-only brush selection, or a palette with no shortcuts.
 - No undo.
+- A fixed grid extent, whether chosen at creation or global to all levels.
+- Blocking saves on validation failure, and skipping validation entirely.
+- Filename-prefix ordering, and a per-level `order` field.
+- Text-only palette entries, and rendered 3D block previews.
 
 **Suggested breakdown**
 
-1. RON level format + serde derives; migrate the hardcoded levels out of `main.rs`.
+1. RON level format + serde derives; campaign index; migrate the hardcoded levels out of `main.rs`.
 2. `AssetLoader` + hot reload; `Levels` becomes handle-driven.
 3. `GameState::Editor`, menu entry, cursor visibility, grid picking.
-4. Grid painting + brush model.
+4. Grid painting + brush model + grid resize.
 5. Palette UI + shortcuts.
 6. Settings panel.
 7. Undo/redo command stack.
-8. Save to disk.
+8. Save to disk + structural validation warnings.
 9. Playtest round trip.
 
 **Implementation notes**
@@ -110,15 +136,7 @@ This is epic-sized, not a single card — see the suggested breakdown below.
 
 **Open questions**
 
-- Does the editor support resizing the grid (adding/removing rows and columns),
-  or is the extent fixed per level?
-- Is there a brush for the `Z`/obstacle block type, given free-floating
-  `LevelObstacle`s are out of scope? They are different things that read similarly.
-- Should the editor validate a level before saving (e.g. trigger receivers with
-  no matching trigger, unreachable blocks)?
-- Level ordering and identity: does the campaign order come from filenames, an
-  index file, or a field in each level?
-- Does the palette need a preview of the block, or is a label enough?
+None — all resolved in discussion.
 
 **Origin**
 

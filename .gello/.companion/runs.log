@@ -595,3 +595,16 @@
 [c0001] → Bash(grep -n "pub fn wrap_period\|pub fn elapsed_secs_wrapped\|pub fn elapsed_wrapped" ~/.cargo/registry/src/*/bevy_time-0.19…)
 [c0001] → Bash(cargo test --no-run 2>&1 | tail -5)
 [c0001] Now writing the tests first, with the new logic stubbed out.
+[c0001] → Bash(cat > src/materials/force_field.rs <<'RSEOF' use bevy::asset::{Asset, Handle}; use bevy::math::{Vec2, Vec4}; use bevy::p…)
+[c0001] → Bash(grep -rn "ForceField\b" src/ --include=*.rs | grep -v "materials/force_field.rs")
+[c0001] → Bash(grep -rn "ForceField" src/ | grep -v "src/materials/force_field.rs")
+[c0001] Now the arena wiring:
+[c0001] → Bash(python3 - <<'PY' import re p='src/arena/mod.rs' s=open(p).read() # 1. ForceField component carries its own size s = s.re…)
+[c0001] → Bash(grep -n "Color\|ARENA_WIDTH" src/arena/mod.rs | head -20; echo ---; sed -n 300,345p src/arena/mod.rs)
+[c0001] → Bash(cargo test 2>&1 | tail -40)
+[c0001] → Bash(cargo test 2>&1 | grep -B5 -A12 "^error" | head -40)
+[c0001] → Bash(cargo test 2>&1 | grep -A15 "E0596" | head -30)
+[c0001] → Bash(sed -i '' 's/ let Some(mat) = materials.get_mut(\&material.0) else {/ let Some(mut mat) = materials.get_mut(\&material.0…)
+[c0001] → Bash(python3 - <<'PY' p='src/materials/force_field.rs' s=open(p).read() s=s.replace('''impl ForceFieldMaterial { /// Records …)
+[c0001] Red confirmed — 10 failing on the stubs. Now the implementation:
+[c0001] → Bash(python3 - <<'PY' p='src/materials/force_field.rs' s=open(p).read() s=s.replace('''pub fn hit_age(now: f32, start: f32) -…)

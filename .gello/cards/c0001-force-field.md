@@ -16,7 +16,9 @@ reacts properly to ball impacts.
 At rest the panel is a **smooth energy sheet** — a soft, near-transparent blue
 plane with slow movement, and no hex lattice visible. On impact a **radial
 ripple** expands outward from the contact point and fades, and the hex lattice
-lights up only where that ripple passes. `hexagon2.png` is demoted from
+lights up only where that ripple passes — the wavefront runs white-hot and
+grades back to blue behind it, and ripples simply fade as they travel rather
+than reflecting off the panel edges. `hexagon2.png` is demoted from
 permanent base texture to an impact-only flare mask: the shield's structure is
 invisible until it is doing work, and a hit briefly exposes the honeycomb it is
 made of.
@@ -30,9 +32,13 @@ fixing the impact-position mapping, not just the visuals.
 - [ ] At rest the panel shows a smooth blue energy sheet with no hex lattice anywhere on it.
 - [ ] A ball impact spawns a radial ripple that expands outward from the contact point and fades out.
 - [ ] The hex lattice is visible only where a ripple is currently passing, and fades out with it.
-- [ ] `ForceFieldMaterial` holds a fixed pool of concurrent hits (position + start time per slot); a new hit claims a free or the oldest slot instead of overwriting a live one.
+- [ ] `ForceFieldMaterial` holds a pool of **eight** concurrent hits (position + start time per slot); a new hit claims a free or the oldest slot instead of overwriting a live one.
 - [ ] Two balls striking the same panel within one ripple lifetime produce two independently visible, overlapping ripples.
 - [ ] Impact position is derived from the panel's own transform and size, so a hit on a rotated `LevelObstacle::ForceField` ripples at the actual contact point rather than an arena-width approximation.
+- [ ] The wavefront reads white-hot and grades back to blue behind it.
+- [ ] Ripples fade as they travel and do not reflect off the panel edges.
+- [ ] Every impact produces an identical ripple, regardless of ball speed or angle.
+- [ ] The rotated-panel mapping fix has been verified by temporarily re-enabling the commented-out `LevelObstacle::ForceField` level in `main.rs`.
 - [ ] Ripple speed, width, decay time, flare intensity and colour are fields on `ForceFieldMaterial`, not literals in the WGSL.
 - [ ] Frame time with several ripples active shows no regression against the current build (FPS readout in the stats UI).
 - [ ] `cargo build` is clean and `cargo test` still passes.
@@ -53,6 +59,18 @@ fixing the impact-position mapping, not just the visuals.
 - Ripple parameters are exposed as material fields so they can be tuned from one
   place (and later driven by gameplay or an inspector).
 - Done = mechanical guardrails above, plus a visual sign-off.
+- Pool holds **eight** hits. `MoreBalls` pickups stack, so the real ceiling is not
+  bounded by a level's `simultaneous_balls`; eight `vec4`s and a fixed loop is
+  cheap enough to size once and forget.
+- Ripples fade as they travel — no edge reflection. The panel's existing bright
+  edge falloff already gives the wave somewhere to wash into.
+- The flare is white-hot at the wavefront, grading back to blue behind it, for
+  maximum contrast against the smooth blue sheet.
+- Every hit ripples identically. Ball speed is clamped to a constant
+  (`MIN_BALL_SPEED == MAX_BALL_SPEED == 130`), so speed-scaling would be
+  invisible; angle-scaling was considered and dropped to keep the read consistent.
+- The rotated-panel fix is verified by temporarily re-enabling the commented-out
+  level in `main.rs` and then commenting it back out.
 
 **Rejected**
 
@@ -69,6 +87,12 @@ fixing the impact-position mapping, not just the visuals.
 - Tuning purely through WGSL constants (hot-reload) — rejected in favour of
   material fields.
 - A dedicated test level or debug toggle for firing hits at known positions.
+- Edge reflection, and a rim flare as the wave reaches the panel bounds.
+- Keeping the flare in the blue family, or shifting it to cyan.
+- Scaling ripple strength by impact speed or incidence angle.
+- A four-slot pool (could silently drop hits once pickups stack) or sixteen.
+- Permanently re-enabling the commented-out level, or adding rotated panels to a
+  level that already ships.
 
 **Implementation notes**
 
@@ -87,13 +111,7 @@ fixing the impact-position mapping, not just the visuals.
 
 **Open questions**
 
-- Pool size: 4 or 8? Depends on the highest `simultaneous_balls` worth supporting.
-- Does a ripple reflect off the panel edges, or simply fade at them?
-- Flare colour — white-hot, or a brighter blue than the sheet?
-- Should impact speed modulate ripple strength?
-- Rotated panels are only used by the commented-out level in `main.rs`. Re-enable
-  it to verify the mapping fix, or verify some other way? (No test level was
-  wanted.)
+None — all resolved in discussion.
 
 **Origin**
 
