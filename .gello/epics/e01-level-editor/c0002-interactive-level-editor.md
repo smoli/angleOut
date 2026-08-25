@@ -8,9 +8,123 @@ status-changed: 2026-08-25T22:37:48
 epic: e01
 ---
 
-I want to be able to create levels in game using the mouse. 
+## What
 
-Levels files should be saved as text files.
+An in-game, mouse-driven level editor, with levels persisted as text files.
+
+A level file is **RON covering the whole `LevelDefinition`, with the block
+layout kept as the existing multi-line token grid embedded inside it** — so the
+ASCII map stays readable and hand-editable while the other ten fields become
+expressible on disk for the first time.
+
+The editor is reachable from the main menu, paints the block grid by clicking
+cells, and has a settings panel for the non-grid fields (background, scroll
+velocity, simultaneous balls, win criteria, global pickups, side walls).
+Free-floating `LevelObstacle`s are **out of scope** — they need drag handles and
+are a separate problem. Undo/redo is in scope. You can playtest the level you are
+editing and come back with unsaved edits intact.
+
+This is epic-sized, not a single card — see the suggested breakdown below.
+
+## Acceptance criteria
+
+- [ ] `LevelDefinition` and its field types round-trip through RON, with the block layout stored as the existing multi-line token string.
+- [ ] Shipped levels live in `assets/levels/*.ron`; `main.rs` no longer contains level literals.
+- [ ] Hand-editing a level file while the game is running hot-reloads it.
+- [ ] An "Editor" entry in the main menu enters a `GameState::Editor`; the mouse cursor becomes visible there and is hidden again on leaving.
+- [ ] Clicking a grid cell places the current brush and the erase brush clears it — including on empty cells, so placement uses a ray/ground-plane hit rather than mesh picking.
+- [ ] A palette shows block type, behaviour, trigger type and trigger group, is fully clickable, and each entry has a keyboard shortcut matching its letter in the file format.
+- [ ] A settings panel edits background asset, scroll velocity, simultaneous balls, win criteria, global pickups and both side walls.
+- [ ] Undo and redo cover both cell edits and settings changes.
+- [ ] Saving writes a RON file that reloads to an identical level.
+- [ ] Playtesting from the editor enters a match and returns to the editor with unsaved edits intact.
+- [ ] An existing hand-written level (e.g. `LEVEL4`) can be rebuilt from scratch in the editor, saved, and played.
+- [ ] `cargo build` is clean and `cargo test` still passes.
+
+## Discussion
+
+**Decisions**
+
+- Scope is the block grid plus the scalar level settings. `LevelObstacle`
+  placement is explicitly excluded.
+- Format is RON for the whole `LevelDefinition` with the token grid embedded as a
+  multi-line string. `serde` and `ron` are already in the lock file.
+- Entry is a main menu item and a new `GameState::Editor` — the unused "Settings"
+  slot already sits next to it.
+- Files live in `assets/levels/`, loaded through the asset server so hot reload
+  picks up hand edits.
+- Playtest is a full round trip: edit → play → back, edits preserved.
+- Palette is clickable *and* keyboard-shortcutted on the format's own letters.
+- Undo/redo is required.
+- Done means authoring one of the existing levels end to end, which implies the
+  migration off `main.rs` is part of the epic rather than a follow-up.
+
+**Rejected**
+
+- Grid-only editing with settings left in Rust — too little to be worth the
+  editor.
+- Plain `.txt` token grids — cannot express the other ten `LevelDefinition`
+  fields.
+- Fully structured RON, or JSON — both lose the at-a-glance ASCII map.
+- Dev-only launch flag, or a cargo-feature-gated menu entry.
+- Save-and-restart, or a one-way jump into play that discards unsaved edits.
+- A separate user data directory for authored levels.
+- Keyboard-only brush selection, or a palette with no shortcuts.
+- No undo.
+
+**Suggested breakdown**
+
+1. RON level format + serde derives; migrate the hardcoded levels out of `main.rs`.
+2. `AssetLoader` + hot reload; `Levels` becomes handle-driven.
+3. `GameState::Editor`, menu entry, cursor visibility, grid picking.
+4. Grid painting + brush model.
+5. Palette UI + shortcuts.
+6. Settings panel.
+7. Undo/redo command stack.
+8. Save to disk.
+9. Playtest round trip.
+
+**Implementation notes**
+
+- `distributed_global_pickups` is *derived* at runtime by
+  `distribute_global_pickups`, not authored — it must be `#[serde(skip)]`.
+- `Levels` currently owns `Vec<LevelDefinition>`. Hot reload means it has to
+  become handle-driven (`Vec<Handle<...>>`), which touches every
+  `get_current_level()` caller.
+- Saving cannot go through the asset server (read-only) — it needs `std::fs`.
+  Writing into `assets/levels/` will then trigger our own hot-reload watcher, so
+  a self-inflicted reload must not clobber in-editor state.
+- The cursor is hidden globally via `primary_cursor_options` in `main.rs`; the
+  editor has to flip `CursorOptions.visible` on the primary window on enter/exit.
+- Cell↔world maths is currently **duplicated** between `generate_block_grid` and
+  `interpret_grid` (same origin `-30.0 - 4.0 * (BLOCK_DEPTH + gap)`, same
+  odd/even column centring). The editor needs one shared conversion or the three
+  will drift apart.
+- `interpret_grid` takes its column count from the first line only, so a ragged
+  grid silently misaligns. The writer should always pad rows to equal width.
+- The playtest round trip has to survive `match_despawn` and the
+  `OnExit(PostMatch)` teardown, so the edited level must live in a resource, not
+  in entities.
+- Undo history should be invalidated if the file changes on disk underneath the
+  editor.
+
+**Open questions**
+
+- Does the editor support resizing the grid (adding/removing rows and columns),
+  or is the extent fixed per level?
+- Is there a brush for the `Z`/obstacle block type, given free-floating
+  `LevelObstacle`s are out of scope? They are different things that read similarly.
+- Should the editor validate a level before saving (e.g. trigger receivers with
+  no matching trigger, unreachable blocks)?
+- Level ordering and identity: does the campaign order come from filenames, an
+  index file, or a field in each level?
+- Does the palette need a preview of the block, or is a label enough?
+
+**Origin**
+
+> I want to be able to create levels in game using the mouse.
+>
+> Levels files should be saved as text files.
 
 ## Log
 

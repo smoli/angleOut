@@ -1,13 +1,13 @@
 ---
 id: i0001
 title: Controls not working on 8bitDo Pro 2
-status: in-progress
+status: review
 type: issue
 created: 2026-08-25
 updated: 2026-08-25
-status-changed: 2026-08-25T22:24:22
-usage-tokens: 14395
-usage-cost: 3.204238
+status-changed: 2026-08-25T22:44:47
+usage-tokens: 43198
+usage-cost: 8.511365
 ---
 
 I traced the whole input path (details in **Notes** above) and the fix depends on facts only the attached hardware can give. Two things I need:
@@ -141,3 +141,4 @@ reaches the process, and the game needs both sticks to twist the paddle.
 
 - 2026-08-25 status → ready (app)
 - 2026-08-25 status → in-progress (agent)
+- 2026-08-25 status → review (agent)

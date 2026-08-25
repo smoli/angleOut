@@ -1,19 +1,9 @@
 {
-  "status": "running",
+  "status": "idle",
   "ready": [],
   "waiting": [],
-  "runs": [
-    {
-      "cardId": "i0001",
-      "phase": "running",
-      "activity": {
-        "name": "Bash",
-        "arg": "git diff --stat README.md src/main.rs; echo \"=== HEAD vs working, README ===\"; git diff README.md | head -60"
-      },
-      "model": "claude-opus-5"
-    }
-  ],
-  "updated": "2026-08-25T22:43:29",
+  "runs": [],
+  "updated": "2026-08-25T22:45:29",
   "pickupDelay": 10,
   "owned": [
     "i0001",

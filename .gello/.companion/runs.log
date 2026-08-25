@@ -559,3 +559,25 @@
 [i0001] Final verification, then commit.
 [i0001] → Bash(cargo test --message-format short 2>&1 | tail -5; echo "=== files I touched ==="; git status --short README.md src/main.…)
 [i0001] → Bash(git diff --stat README.md src/main.rs; echo "=== HEAD vs working, README ==="; git diff README.md | head -60)
+[i0001] → Bash(git show HEAD:Cargo.toml | sed -n 1,15p; echo "=== last commit touching src/ ==="; git log --oneline -3 -- src/ Cargo.to…)
+[i0001] The working tree is an uncommitted Bevy 0.9 → 0.19 migration, so I'll commit only my own work and keep the migration out of it.
+[i0001] → Bash(cd /Users/stephan/CLionProjects/angleOut cp README.md /tmp/readme_work.md python3 - <<'PY' work = open("/tmp/readme_work…)
+[i0001] → Bash(git status --short .gello/cards/i0001-controls-not-working-on-8bitdo-pro-2.md; echo "---"; git diff --cached --name-only)
+[i0001] → Bash(git log --oneline -5; echo "=== does HEAD card contain my new notes? ==="; git show HEAD:.gello/cards/i0001-controls-not…)
+[i0001] → Bash(git commit -q -F - <<'EOF' i0001: surface gamepads that arrive with a stick the input stack drops The 8BitDo Pro 2 only …)
+[i0001] → Bash(cargo test --message-format short 2>&1 | tail -4)
+[i0001] → mcp__gello__set_status(review)
+[i0001] i0001 is in **review**.
+[i0001] ## Root cause
+[i0001] Your answer confirmed it. In **X** mode the Pro 2 follows the Xbox HID descriptor and puts its right stick on the `Rx`/`Ry` usages. gilrs' macOS table (`macos/io_kit.rs:312`) only resolves `X`, `Y`, `Z` and `Rz` — so those events become `Axis::Unknown`, and `bevy_gilrs` discards them with `continue` in `convert_axis` (`gilrs_system.rs:99`) before Bevy ever sees them. **The right stick never reaches the process**, so no remapping, deadzone or invert setting on our side could have recovered it.
+[i0001] The inverted left-stick Y is the same root: gilrs applies its macOS `IS_Y_AXIS_REVERSED` correction unconditionally. That's right for the HID "down is positive" convention — which is what **D** mode uses, hence D working perfectly — and wrong for X-input.
+[i0001] I checked the `SDL_GAMECONTROLLERCONFIG` route as a possible fix and it doesn't close the gap: SDL axis indices resolve against the device's own element enumeration order (`mapping/mod.rs:294`), and gilrs parses but never applies the `~` invert suffix, so a mapping couldn't fix the inversion anyway.
+[i0001] ## What I did
+[i0001] Since the defect sits outside the game, the fix is to stop it being undiagnosable:
+[i0001] - **`src/input/mod.rs`** (new) logs every gamepad that connects with its name and USB vendor/product ids, and warns once when a pad has been steering on the left stick alone for a sustained stretch with no right-stick event ever arriving — the exact signature of this fault. The evidence logic is pure and unit-tested (8 new tests; 14 pass total).
+[i0001] - **`README.md`** gains a Controllers section: DualSense works as-is, Pro 2 needs **D** mode, why X mode can't work, and the `SDL_GAMECONTROLLERCONFIG` escape hatch.
+[i0001] ## Two things to flag
+[i0001] **Nothing makes X mode playable.** The right stick doesn't reach the process and the paddle needs both sticks to twist. D mode is the answer, and it's now documented rather than folklore.
+[i0001] **The commit is partial, deliberately.** `5ee8400` contains `src/input/mod.rs` and my README section only. The three lines registering the plugin in `src/main.rs` are still in the working tree — that file is mid Bevy 0.9 → 0.19 migration along with ~35 others, and committing it alone would leave a 0.19 `main.rs` against a 0.9 HEAD and break the build at that commit. I also kept the unrelated in-flight README edit out by staging only my own hunk. Please fold the `main.rs` wiring in when you commit the migration. Nothing pushed.
+[i0001] I left the stale `src/diagnostics/` module alone — it's untracked, Bevy 0.9-era, and unwired.
+[i0001] ✓ 72 in / 28731 out tokens, $5.3071, 36 turns, 480.9s
