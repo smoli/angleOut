@@ -2393,3 +2393,15 @@
 [c0013] → Bash(cargo clippy 2>&1 | grep -E "^(warning|error)" -A 4 | grep -E "editor/playtest.rs" -B 4 | head -30; echo "--- exit: ${PI…)
 [c0013] → Bash(date +%Y-%m-%dT%H:%M:%S)
 [c0013] → Bash(python3 - <<'PY' import io p = ".gello/epics/e01-level-editor/c0013-playtest-round-trip.md" s = io.open(p, encoding="utf…)
+[c0013] Review recorded on the card as **pass**.
+[c0013] **What I verified**
+[c0013] - **All six criteria hold in code.** `Levels` gains `playtest: Option<Handle<LevelAsset>>` and `current_handle()` prefers it over the campaign, so arena, blocks, win criteria and readiness all follow one field. `start_playtest` adds a *clone* of `EditorLevel.level` via `Assets::add`, so nothing on the path reads the file. Return is `playtest_leave` (Escape, gated `in_state(InMatch).and_then(playtesting)`) plus win/lose routing to `GameState::Editor` in `game_flow_handler`. `EditorLevel` is a resource and `editor_open` returns early when it exists, so edits survive. `next_level()` refuses while playtesting and `game_start` clears a stray playtest.
+[c0013] - **The teardown query is exactly the union of the game's own despawn queries** — `Arena`, `Ship`, `Ball`, `Block`, `Pickup`, plus `PointsDisplay`, `MatchStatsUI`, `Environment3d`; `Match` and particles are correctly left to `OnExit(InMatch)`, which the trip does pass through.
+[c0013] - **Checks:** `cargo test` 243 passed / 0 failed; `cargo build` clean (its 17 warnings are pre-existing dead code and `non_snake_case` in `block/`). `cargo clippy` (not a repo-declared check) flags two idiom warnings in `playtest.rs` — 8 system params and the `Or<..>` query type — both Bevy noise.
+[c0013] - **No test weakened.** Existing edits are `..default()` for the new field; the chrome test was strengthened from two rects to four with both original assertions intact.
+[c0013] **Caveats I recorded rather than failed on**
+[c0013] - The `match_despawn` / `OnExit(PostMatch)` criterion is met by construction, not by a test: the editor's test app carries only `EditorPlugin` + `EventsPlugin`, so no test runs a real `match_despawn` around a playtest.
+[c0013] - `coming_back_from_a_playtest_leaves_no_match_behind` asserts with the *same* component list the system queries, so it catches regressions in the listed kinds but not a new kind of match entity going unnamed — contrary to the card's claim that it "fails rather than rots quietly".
+[c0013] - The bevy 0.19 migration of `ui/mod.rs`, `ui/stats/mod.rs`, `game/mod.rs`, `player/mod.rs` rides along; it is load-bearing (`MatchStatsUI`, `Environment3d`, `stop_playtest`) and matches what c0004/c0005 did on this branch. I read the stats rewrite through — faithful port, no readout dropped.
+[c0013] - I did not run the interactive round trip in the game; it needs a controller and a window.
+[c0013] ✓ 52 in / 18965 out tokens, $2.3792, 34 turns, 276.6s
