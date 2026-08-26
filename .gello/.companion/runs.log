@@ -2485,3 +2485,32 @@
 [c0009] All deletions are mine. Committing:
 [c0009] → Bash(git add src/editor/palette.rs src/editor/mod.rs src/block/mod.rs .gello/epics/e01-level-editor/c0009-palette-ui.md && gi…)
 [c0009] → Bash(git diff --cached --stat)
+[c0009] → Bash(git commit -F - <<'EOF' c0009: choose what you are painting, by swatch or by letter The editor could paint any token the…)
+[c0009] → Bash(git status --porcelain -- .gello/ && git log -1 --stat --format="" | head)
+[c0009] → Bash(git log --oneline -4 && git log -1 --format="" --stat 5eec2e6~1 | head -5 && echo "=== card in HEAD? ===" && git show HE…)
+[c0009] The card content was committed by the gello companion as `cc1c1a2` just before my code commit — nothing lost. Marking the card for review:
+[c0009] → mcp__gello__set_status(review)
+[c0009] c0009 is done and in `review`.
+[c0009] **What shipped** — `src/editor/palette.rs`, plus `block_colours` extracted out of `block_material` and the wiring in `src/editor/mod.rs`. Four rows down the right of the window, one per character of the token: blocks as swatches in their own colours, behaviours and triggers as words beside their letters, groups as ten digits. All six acceptance criteria pass.
+[c0009] **The decision you made** worked out, with one wrinkle I had to handle: `Alt` for triggers keeps `Ctrl` free, but `entry_typed` also has to refuse anything under `commanding` outright — otherwise `Ctrl+Z` would undo an edit *and* pick up the `Z` block on the way past. There's a test for each of those chords.
+[c0009] **Three judgement calls worth flagging:**
+[c0009] - **The palette sits down the right.** The rest of the epic landed while I was waiting for your answer, and the left column is now four panels deep (settings → history → save → playtest, reaching y=572 before the save report grows). The palette is 598 tall on its own, so it went to the far side — making it the one panel that has to know the window's width.
+[c0009] - **Erase is the sixth swatch of the block row.** The card didn't ask for erase, but `.` is the format's own "no block here", so it's the same character of the same token. Without it the only way to clear a cell would still be the right mouse button `c0007` added as a stopgap for this card.
+[c0009] - **A `BrushGroup` resource sits beside the brush.** `c0007` fused trigger type and group into one field so half a trigger can't exist — which leaves nowhere to put a group chosen *before* a type. Without somewhere, the digit row would be dead half the time.
+[c0009] **Verification** — 25 new tests, 268 green, build clean at 17 warnings (all pre-existing, none in the new code). I mutation-checked four behaviours (behaviours on bare letters, `commanding` dropped, swatches re-picking colours, group forgotten) and each takes down between one and four tests.
+[c0009] I also ran the real game, which caught something no headless test could: **your window runs at scale factor 2 where every test runs at 1.** The hit test reads `Window::cursor_position` against `Val::Px` rectangles — both logical — so a click on the Concrete swatch at logical (1299, 94) set the brush to `CA` correctly. What I could *not* do is confirm how it looks: `screencapture` can't reach the display from this session, so the visual rests on the layout numbers (84 nodes, none collapsed, every one exactly its intended size) and on the colours being `block_spawn`'s own table.
+[c0009] Committed as `5eec2e6`, not pushed.
+[c0009] ✓ 130 in / 106214 out tokens, $10.6964, 67 turns, 1747.0s
+[c0009] I'll start by reading the card and the board context.
+[c0009] → Bash(cat .gello/epics/e01-level-editor/c0009-palette-ui.md)
+[c0009] → Bash(ls .gello/epics/e01-level-editor/ && cat .gello/board.yaml)
+[c0009] → Bash(git log --oneline -25 && echo "=== commits naming c0009 ===" && git log --oneline --all --grep="c0009")
+[c0009] → Bash(git show --stat 5eec2e6)
+[c0009] → Bash(git show 5eec2e6 -- src/block/mod.rs)
+[c0009] → Bash(git status --porcelain src/editor src/block | head -20)
+[c0009] → Bash(sed -n 170,230p src/block/mod.rs)
+[c0009] → Bash(git show 5eec2e6 -- src/editor/mod.rs | sed -n '1,80p')
+[c0009] → Bash(git diff 5eec2e6^ 5eec2e6 -- src/editor/mod.rs)
+[c0009] → Bash(wc -l src/editor/palette.rs && sed -n '1,260p' src/editor/palette.rs)
+[c0009] → Bash(sed -n '260,600p' src/editor/palette.rs)
+[c0009] → Bash(sed -n '600,830p' src/editor/palette.rs)

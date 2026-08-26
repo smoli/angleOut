@@ -1,14 +1,14 @@
 ---
 id: c0009
 title: Palette UI and shortcuts
-status: in-progress
+status: review
 epic: e01
 depends: [c0007]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T01:48:18
-usage-tokens: 13256
-usage-cost: 1.826775
+status-changed: 2026-08-26T06:55:08
+usage-tokens: 119600
+usage-cost: 12.52314
 ---
 
 ## How should the palette's keyboard shortcuts resolve the format's letter collisions?
@@ -176,3 +176,4 @@ and the module, the chain and the pointer in `src/editor/mod.rs`.
 - 2026-08-26 `src/editor/palette.rs`: the four rows, the letters read back out of
   `block_token`, `BrushGroup` beside the brush, `block_colours` shared out of
   `block_material`; 25 new tests, 268 green, checked in the running game
+- 2026-08-26 status → review (agent)
