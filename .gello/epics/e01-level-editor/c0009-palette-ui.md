@@ -7,7 +7,43 @@ depends: [c0007]
 created: 2026-08-25
 updated: 2026-08-26
 status-changed: 2026-08-26T01:48:18
+awaiting: input
+usage-tokens: 13256
+usage-cost: 1.826775
 ---
+
+```gelloquestion
+## How should the palette's keyboard shortcuts resolve the format's letter collisions?
+
+Criterion 5 asks for "a keyboard shortcut matching its letter in the file
+format". The format reuses its letters across the three axes, so a bare letter
+key cannot name one entry:
+
+| letter | block type | behaviour | trigger type |
+|---|---|---|---|
+| `A` | Simple | SittingDuck | Start |
+| `B` | Hardling | Spinner | Stop |
+| `C` | Concrete | Vanisher | StartStop |
+| `D` | SimpleTop | Repulsor | — |
+| `E`–`I` | — | Evaders, Portal | — |
+| `R`, `S` | — | — | the two receivers |
+| `Z` | Obstacle | — | — |
+
+The token resolves this by *position* (1st char is the type, 2nd the behaviour,
+3rd the trigger); a keyboard has no positions. Trigger group is `0`–`9` and
+collides with nothing either way.
+
+Which do you want?
+
+- [ ] **A — one modifier per axis.** Bare `A`–`D`/`Z` set the block type, `Shift`+`A`–`I` set the behaviour, `Alt`+`A`/`B`/`C`/`R`/`S` set the trigger type, `0`–`9` set the group. Non-modal: every entry is one press, always, and the block type — the thing you change most — keeps the bare letter. (`Alt` rather than `Ctrl` so that `c0011`'s `Ctrl+Z` undo and `c0012`'s `Ctrl+S` save do not later collide with trigger `Z`… `S`.)
+- [ ] **B — type the token.** Press `A` `A` and you have typed `AA`; a third and fourth press add the trigger and its group. Matches the file format exactly, and nothing needs a modifier — but it is modal, and changing *just* the behaviour of the current brush means retyping the type first.
+- [ ] **C — bare letters, one axis wins each.** `A`–`D` and `Z` go to the block type, `E`–`I` to the behaviour, `R`/`S` to the trigger receivers, `0`–`9` to the group; the colliding behaviours (SittingDuck…Repulsor) and triggers (Start/Stop/StartStop) are then click-only, with no shortcut. Simplest to use, but leaves the most common behaviour of all — `A`, SittingDuck — unreachable from the keyboard, so criterion 5 is only partly met.
+- [ ] Something else (say what)
+
+My recommendation is **A**: it is the only one that gives every entry its own
+one-press shortcut without a mode, and the modifier still "matches the letter"
+the format uses.
+```
 
 ## What
 

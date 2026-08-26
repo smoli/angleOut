@@ -1,24 +1,44 @@
 {
   "status": "running",
   "ready": [
-    "c0010",
     "c0011",
     "c0012",
     "c0013"
   ],
-  "waiting": [],
+  "waiting": [
+    "c0009"
+  ],
   "runs": [
     {
       "cardId": "c0009",
+      "phase": "waiting-for-input",
+      "usage": {
+        "inputTokens": 54,
+        "outputTokens": 13202,
+        "cacheReadTokens": 1551987,
+        "cacheCreationTokens": 71932,
+        "totalCostUsd": 1.8267745,
+        "numTurns": 29,
+        "durationMs": 248069,
+        "permissionDenials": 0
+      },
+      "activity": {
+        "name": "mcp__gello__add_question",
+        "arg": "## How should the palette's keyboard shortcuts resolve the format's letter collisions?\n\nCriterion 5 asks for \"a keyboard shortcut matching its letter in the file\nformat\". The format reuses its letters across the three axes, so a bare letter\nkey cannot name one entry:\n\n| letter | block type | behaviour | trigger type |\n|---|---|---|---|\n| `A` | Simple | SittingDuck | Start |\n| `B` | Hardling | Spinner | Stop |\n| `C` | Concrete | Vanisher | StartStop |\n| `D` | SimpleTop | Repulsor | — |\n| `E`–`I` | — | Evaders, Portal | — |\n| `R`, `S` | — | — | the two receivers |\n| `Z` | Obstacle | — | — |\n\nThe token resolves this by *position* (1st char is the type, 2nd the behaviour,\n3rd the trigger); a keyboard has no positions. Trigger group is `0`–`9` and\ncollides with nothing either way.\n\nWhich do you want?\n\n- [ ] **A — one modifier per axis.** Bare `A`–`D`/`Z` set the block type, `Shift`+`A`–`I` set the behaviour, `Alt`+`A`/`B`/`C`/`R`/`S` set the trigger type, `0`–`9` set the group. Non-modal: every entry is one press, always, and the block type — the thing you change most — keeps the bare letter. (`Alt` rather than `Ctrl` so that `c0011`'s `Ctrl+Z` undo and `c0012`'s `Ctrl+S` save do not later collide with trigger `Z`… `S`.)\n- [ ] **B — type the token.** Press `A` `A` and you have typed `AA`; a third and fourth press add the trigger and its group. Matches the file format exactly, and nothing needs a modifier — but it is modal, and changing *just* the behaviour of the current brush means retyping the type first.\n- [ ] **C — bare letters, one axis wins each.** `A`–`D` and `Z` go to the block type, `E`–`I` to the behaviour, `R`/`S` to the trigger receivers, `0`–`9` to the group; the colliding behaviours (SittingDuck…Repulsor) and triggers (Start/Stop/StartStop) are then click-only, with no shortcut. Simplest to use, but leaves the most common behaviour of all — `A`, SittingDuck — unreachable from the keyboard, so criterion 5 is only partly met.\n- [ ] Something else (say what)\n\nMy recommendation is **A**: it is the only one that gives every entry its own\none-press shortcut without a mode, and the modifier still \"matches the letter\"\nthe format uses.\n"
+      },
+      "model": "claude-opus-5"
+    },
+    {
+      "cardId": "c0010",
       "phase": "running",
       "activity": {
         "name": "Bash",
-        "arg": "python3 - <<'PY'\np='.gello/epics/e01-level-editor/c0009-palette-ui.md'\ns=open(p).read()\nnotes_add = \"\"\"\n- **Groundwork established before asking the question below** (so it is not\n  re-done): Bevy 0.19's `Interaction` is driven by `ui_focus_system`, which needs\n  the whole UI stack up - `UiPlugin`, layout, `UiStack`, visibility propagation\n  and a camera with a `RenderTarget`. Added to the editor's headless test app it\n  panics in two nameless systems on a missing resource, so a click on a palette\n  entry could not be tested the way `c0006`/`c0007` test a click on a cell -\n  through the real window and the real pointer. The palette will therefore hit-test\n  itself against rectangles it computes, which is the same trade the editor already\n  makes for the grid (`world_to_cell`, not mesh picking): one pure layout function\n  gives every entry its rect, the spawner draws that rect and the click reads it,\n  so what is on screen and what is clickable cannot drift.\n\"\"\"\ns = s.replace(\"\\n## Log\", notes_add + \"\\n## Log\")\nopen(p,'w').write(s)\nPY\ngrep -n \"Groundwork\" .gello/epics/e01-level-editor/c0009-palette-ui.md"
+        "arg": "python3 - <<'PY'\np='.gello/epics/e01-level-editor/c0010-settings-panel.md'\ns=open(p).read()\n\ns = s.replace(\"\"\"- [ ] The panel edits background asset, background scroll velocity, simultaneous balls, win criteria, global pickups, `default_wall_l` and `default_wall_r`.\n- [ ] Changes apply to the in-memory level immediately and are included when it is saved.\n- [ ] Every edited value round-trips through RON unchanged.\n- [ ] Invalid or out-of-range input is rejected without crashing.\"\"\",\n\"\"\"- [x] The panel edits background asset, background scroll velocity, simultaneous balls, win criteria, global pickups, `default_wall_l` and `default_wall_r`.\n- [x] Changes apply to the in-memory level immediately and are included when it is saved.\n- [x] Every edited value round-trips through RON unchanged.\n- [x] Invalid or out-of-range input is rejected without crashing.\"\"\")\n\ns = s.replace(\"\"\"## Log\n\n- 2026-08-25 created from the e01 epic breakdown\n- 2026-08-25 status → ready (app)\n- 2026-08-26 status → in-progress (agent)\"\"\",\n\"\"\"## How it came out\n\n`src/editor/settings.rs` - nine rows in a panel top left, each a label, the\nvalue, and a `<` and a `>` that walk it. `src/editor/mod.rs` gained the two\nsystems that drive it (`editor_settings_click`, `editor_show_settings`) and one\nguard in `cell_under_cursor`.\n\n**Every setting is a stepper.** There is no text entry anywhere in this game to\ntype a number into, and a stepper needs none - it also means no setting ever\nholds an invalid value, because the step is what keeps it in range. `time_limit`\nwas cheap on those terms, so it is in: below the shortest limit is `None`.\n\n**Ranges, and why they are where they are.** Scroll velocity stops at 0 because\n`arena_update_background` only wraps a segment that has run off the near end, so\na negative velocity sends the backdrop away and never brings it back. Balls at\nonce starts at 1 because `MatchEvent::BallSpawn` only adds one while\n`balls_in_play` is under it, so 0 is a level that can never be launched. The win\npercentage covers the whole 0-100%: it is the fraction of blocks hit rather than\nlost, so 0% is \"clear the level, however badly\" and is meaningful.\n\n**Backgrounds are a named list, not free text.** `BACKGROUNDS` holds the four\nscenes the levels use. Offering every scene in `ship3_003.glb` would offer the\nball and the paddle as backdrops; free text would need somewhere to type it. A\nlevel naming a background the panel does not know is still *shown* - stepping it\njoins the list at the end it was stepped from.\n\n**The pickup rows count pickups, not amounts.** `Extra balls` and `Grabbers` are\nthe number of each kind in `global_pickups`; the panel adds `MoreBalls(1)` and\n`Grabber(1)` and takes back the last of that kind. A level that hand-authored a\n`MoreBalls(3)` keeps it and gains and loses whole pickups either side of it. The\namounts are read nowhere in the game today. This is where `Grabber` becomes\nreachable, as the card asked.\n\n**The panel hit-tests its own rectangles** rather than going through\n`Interaction`, for the reason `c0009` worked out: Bevy 0.19's `ui_focus_system`\nneeds the whole UI stack, which a headless test app cannot stand up. One\n`settings_rows()` is both what is drawn and what a click is read against, so the\ntwo cannot drift - the same trade the grid already makes with `world_to_cell`.\nA click on the panel is also *not* a click on the play field: `cell_under_cursor`\nhands back no cell for a pointer inside `panel_rect()`, so the highlight goes\ntoo rather than a covered cell sitting there looking armed.\n\n**Not verified on screen.** The panel is covered by 25 tests, including through\na real window and a real pointer, but every screenshot taken from this session\ncomes back black - in the editor and in the menu alike - so how it *looks* is\nunconfirmed. Worth a glance when you next run it.\n\n## Log\n\n- 2026-08-25 created from the e01 epic breakdown\n- 2026-08-25 status → ready (app)\n- 2026-08-26 status → in-progress (agent)\n- 2026-08-26 settings panel built: `src/editor/settings.rs`, wired into the\n  editor's schedule; 25 new tests, `cargo test` 157 passing, build clean\"\"\")\n\nopen(p,'w').write(s)\nPY\ngit status --short src/editor .gello/epics/e01-level-editor/c0010-settings-panel.md"
       },
       "model": "claude-opus-5"
     }
   ],
-  "updated": "2026-08-26T01:52:01",
+  "updated": "2026-08-26T02:10:23",
   "pickupDelay": 10,
   "owned": [
     "i0001",
@@ -30,12 +50,12 @@
     "c0006",
     "c0007",
     "c0008",
-    "c0009"
+    "c0009",
+    "c0010"
   ],
   "afk": true,
   "paused": false,
   "firstSeen": {
-    "c0010": "2026-08-25T23:00:01",
     "c0011": "2026-08-25T23:00:03",
     "c0012": "2026-08-25T23:00:06",
     "c0013": "2026-08-25T23:00:09"
