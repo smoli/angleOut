@@ -2012,3 +2012,39 @@
 [c0011] → Bash(git log --oneline -5 -- .gello/epics/e01-level-editor/c0011-undo-redo.md; echo "---"; git log --oneline -3)
 [c0011] The companion app commits board changes itself. Committing just the code:
 [c0011] → Bash(git commit -q -F - <<'EOF' c0011: every edit is one you can take back An undo/redo stack over the editor, where an edit …)
+[c0011] → mcp__gello__set_status(review)
+[c0011] **c0011 — Undo and redo** is in `review`, committed as `b917494`.
+[c0011] ## What landed
+[c0011] A new `src/editor/history.rs` holds the stack, the keys and the bar. An `Edit` is the two levels either side of it rather than a hand-written inverse — a `LevelDefinition` is a token grid plus ten small fields, so the pair is cheap, and it is the only form that reverses without an argument (the inverse of "take the top row away" has to carry the blocks that stood on it anyway).
+[c0011] The three editing systems record through it. A drag is one entry because `c0007` already recorded the stroke as a whole; `finish_stroke` is now called by resize, settings and undo too, so anything the author does mid-drag ends that stroke rather than being swallowed by it.
+[c0011] `Ctrl+Z` undoes, `Ctrl+Y` and `Ctrl+Shift+Z` redo, `Cmd` counts as `Ctrl`. The **History** bar sits under the settings panel, says what each step would take back ("painting 3 cells", "removing the bottom row", "changing Time limit"), and is hit-tested and kept off the play field exactly as that panel is.
+[c0011] `EditorLevel::source` became the `Handle<LevelAsset>` instead of the path string — that is what an `AssetEvent::Modified` can be matched against, which is how a hand edit to the file underneath drops the history. `source_path()` is what `c0012` will save through.
+[c0011] Two things fell out along the way: `c0008` left "warns first *or* is undoable" half-done, and it is now both; and a stroke left half-painted on the way out of the editor used to be dropped, making it the one edit that could not be taken back.
+[c0011] ## Verification
+[c0011] `cargo test` — 179 pass (22 new), `cargo build` clean, and the game boots without complaint. One caveat I recorded on the card: I could not look at the bar. This session can drive neither the keyboard nor `screencapture`, so the layout is arithmetic rather than a screenshot — I sized the columns against the longest string each can hold and moved the shortcuts into the title so the button would not overflow, but it is worth one human glance.
+[c0011] One thing to know for merging: **c0009 (palette UI) is in-progress in a parallel session** and is waiting on a question about shortcut keys. It will touch `src/editor/mod.rs` too, and it will likely want a third UI rect excluded from cell picking — the same one-line spot in `cell_under_cursor` I edited.
+[c0011] ✓ 126 in / 79473 out tokens, $7.1669, 70 turns, 1144.7s
+[c0011] I'll start by reading the card.
+[c0011] → Bash(cat .gello/epics/e01-level-editor/c0011-undo-redo.md)
+[c0011] → Bash(cat .gello/board.yaml 2>/dev/null; echo "---CLAUDE---"; cat CLAUDE.md 2>/dev/null | head -50)
+[c0011] → Bash(git log --oneline -8; echo "---"; git show --stat b917494 | head -60)
+[c0011] → Bash(sed -n '50,200p' CLAUDE.md; echo "=== README ==="; grep -n -i -E "cargo|test|clippy|fmt|build" README.md | head -40)
+[c0011] → Bash(cat /Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/running-the-game-from-a-gello-session.m…)
+[c0011] → Bash(cargo test --offline 2>&1 | tail -60)
+[c0011] → Bash(git status --short src/editor/; echo "--- diff stat vs HEAD ---"; git diff --stat | tail -5)
+[c0011] → Bash(cat src/editor/history.rs)
+[c0011] → Bash(git show b917494 -- src/editor/settings.rs)
+[c0011] → Bash(git show b917494 -- src/editor/mod.rs | head -450)
+[c0011] → Bash(tail -30 /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/df36dd5c-ac0d-4872-aa6e-892dbddd816c/tasks/b6fdck…)
+[c0011] → Bash(git show b917494 -- src/editor/mod.rs | sed -n '450,1000p')
+[c0011] → Bash(sed -n '455,530p' src/editor/mod.rs)
+[c0011] → Bash(grep -rn "\.source" src --include=*.rs | grep -v "^src/editor/mod.rs" | head -20; echo "--- panel_rect ---"; grep -n "fn…)
+[c0011] → Bash(grep -rn "source" src --include="*.rs" | grep -v "^src/editor/" | head -20; echo "=== SETTINGS len ==="; grep -n "const …)
+[c0011] → Bash(cargo clippy --offline --all-targets 2>&1 | tail -30)
+[c0011] → Bash(grep -n "fn a_drag_is_one_edit" -A 30 src/editor/mod.rs; echo "=== debug leftovers ==="; grep -rn "dbg!\|println!\|TODO\…)
+[c0011] → Bash(grep -E "^(warning|error)" /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/df36dd5c-ac0d-4872-aa6e-892dbdd…)
+[c0011] → Bash(git show b917494 --stat --numstat; echo "=== any other files touched? ==="; git show b917494 --name-only --format="")
+[c0011] → Bash(grep -n -B4 -A12 "this assertion is always" /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/df36dd5c-ac0d-…)
+[c0011] → Bash(grep -n "editor_level\.\|level\.level = \|set_changed\|bypass_change_detection" src/editor/mod.rs | grep -v "^.*fn " | s…)
+[c0011] → Bash(date +%Y-%m-%dT%H:%M:%S)
+[c0011] → Bash(cat > /tmp/c0011-review.md <<'EOF' ## Review ### 2026-08-26T02:36:25 — pass Checked: the five acceptance criteria agains…)
