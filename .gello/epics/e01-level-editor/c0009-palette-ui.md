@@ -1,14 +1,14 @@
 ---
 id: c0009
 title: Palette UI and shortcuts
-status: in-progress
+status: review
 epic: e01
 depends: [c0007]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T06:59:20
-usage-tokens: 133944
-usage-cost: 14.317585
+status-changed: 2026-08-26T07:18:38
+usage-tokens: 178660
+usage-cost: 23.96981
 ---
 
 ## How should the palette's keyboard shortcuts resolve the format's letter collisions?
@@ -302,3 +302,4 @@ Verified and sound otherwise:
   redraw is driven by a width comparison rather than an event, `palette_left` is
   clamped clear of the left column, and every click test now reads the drawn
   node; 6 new tests, 274 green, the review's own resize scenario run in the game
+- 2026-08-26 status → review (agent)
