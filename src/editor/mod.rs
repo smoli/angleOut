@@ -50,12 +50,14 @@ use crate::level::{LevelDefinition, Levels};
 use crate::editor::history::{editor_history_click, editor_show_history, editor_undo_redo, editor_watch_the_file, history_rect, remember, EditHistory, HistoryStep};
 use crate::editor::playtest::{editor_playtest_click, editor_playtest_shortcut, editor_show_playtest, playtest_end, playtest_leave, playtest_rect, playtest_teardown, playtesting, LastPlaytest};
 use crate::editor::save::{editor_save_click, editor_save_shortcut, editor_show_save, save_rect, LastSave, LevelsOnDisk, SaveReport};
+use crate::editor::palette::{editor_palette_click, editor_palette_shortcut, editor_show_palette, palette_rect, BrushGroup};
 use crate::editor::settings::{panel_rect, setting_at, spawn_settings_panel, SettingsPanel};
 use crate::materials::block::BlockMaterial;
 use crate::state::GameState;
 use crate::MyAssetPack;
 
 pub mod history;
+pub mod palette;
 pub mod playtest;
 pub mod save;
 pub mod settings;
@@ -486,6 +488,7 @@ impl Plugin for EditorPlugin {
         app
             .init_resource::<HoveredCell>()
             .init_resource::<Brush>()
+            .init_resource::<BrushGroup>()
             .init_resource::<PaintStroke>()
             .init_resource::<PendingRemoval>()
             .init_resource::<EditHistory>()
@@ -516,7 +519,7 @@ impl Plugin for EditorPlugin {
                     // home without going through the `OnExit(PostMatch)` the
                     // rest of the game takes a match apart in.
                     (editor_open, playtest_end, playtest_teardown),
-                    (editor_setup, editor_show_cursor, editor_show_history, editor_show_save, editor_show_playtest),
+                    (editor_setup, editor_show_cursor, editor_show_history, editor_show_save, editor_show_playtest, editor_show_palette),
                 )
                     .chain(),
             )
@@ -553,9 +556,19 @@ impl Plugin for EditorPlugin {
                         editor_save_shortcut,
                         // And for the panel under that one. A playtest leaves
                         // the editor, so this is the last thing a click can be
-                        // aimed at before painting.
+                        // aimed at down this side.
                         editor_playtest_click,
                         editor_playtest_shortcut,
+                        // And for the column down the other side. Before
+                        // painting for the same reason as the four above it -
+                        // though the palette is also cut out of
+                        // `editor_pick_cell`, so there is no cell under it to
+                        // paint by accident even if this ran late.
+                        //
+                        // Nested rather than laid out flat because a chain is a
+                        // tuple, and tuples run out of arity before this editor
+                        // runs out of panels.
+                        (editor_palette_click, editor_palette_shortcut).chain(),
                         editor_paint,
                         editor_resize,
                         // After the three systems that edit, so that a drag
@@ -585,8 +598,17 @@ impl Plugin for EditorPlugin {
                         editor_show_playtest.run_if(
                             resource_changed::<LastPlaytest>.or_else(resource_changed::<SaveReport>),
                         ),
-                        editor_draw_hover,
-                        editor_draw_doomed_edge,
+                        // The outline follows what the brush is set to, and
+                        // the group the next trigger will join is remembered
+                        // beside the brush rather than in it - so both move it.
+                        (
+                            editor_show_palette.run_if(
+                                resource_changed::<Brush>.or_else(resource_changed::<BrushGroup>),
+                            ),
+                            editor_draw_hover,
+                            editor_draw_doomed_edge,
+                        )
+                            .chain(),
                     )
                         .chain(),
                 )
@@ -805,7 +827,8 @@ fn cell_under_cursor(
     report: &SaveReport,
 ) -> Option<(usize, usize)> {
     let (cols, rows, gap) = editor_level.grid()?;
-    let cursor = windows.iter().next()?.cursor_position()?;
+    let window = windows.iter().next()?;
+    let cursor = window.cursor_position()?;
 
     // The editor's own column of panels is in front of the play field, and a
     // click on any of them is aimed at what it says rather than at the cell it
@@ -816,6 +839,7 @@ fn cell_under_cursor(
         || history_rect().contains(cursor)
         || save_rect(report).contains(cursor)
         || playtest_rect(report).contains(cursor)
+        || palette_rect(window.width()).contains(cursor)
     {
         return None;
     }
@@ -2841,29 +2865,40 @@ mod tests {
     /// the cell underneath - so the highlight goes too, rather than the panel
     /// sitting on top of a cell that still looks armed.
     ///
-    /// The same for `c0011`'s history bar under it: the editor's chrome is what
-    /// the play field is not, whichever piece of it the pointer is on.
+    /// The same for `c0011`'s history bar under it, and for `c0009`'s palette
+    /// down the other side: the editor's chrome is what the play field is not,
+    /// whichever piece of it the pointer is on.
     #[test]
     fn the_pointer_over_the_editors_own_panels_is_not_over_a_cell() {
         let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
 
-        // Tall and narrow: the camera keeps the whole play field on screen
-        // whatever the window's shape, which on this one puts the far corner of
-        // the grid behind the panel.
-        resize_the_window(&mut app, UVec2::new(400, 800));
+        // Square, and small: the camera keeps the whole play field on screen
+        // whatever the window's shape, which on this one leaves the grid wide
+        // enough to run under both columns of chrome and still show between
+        // them. (The window the game runs in is wider, and the grid clears them
+        // both - but a palette that only works on a big enough window is a
+        // palette that stops working on somebody's laptop.)
+        const WINDOW: UVec2 = UVec2::new(800, 800);
+        resize_the_window(&mut app, WINDOW);
 
-        // Every piece of the editor's chrome, top to bottom. The two lower
-        // panels are in the list because they are part of the answer, not
+        // Every piece of the editor's chrome: the column down the left, top to
+        // bottom, and the palette down the right. The two lower panels of the
+        // column are in the list because they are part of the answer, not
         // because this window is narrow enough for them to reach a cell - only
-        // the two above them are asserted to have caught one.
+        // the two above them, and the palette, are asserted to have caught one.
+        //
+        // The palette comes last, so a cell behind both columns - which this
+        // window is narrow enough for - is counted against the one it was
+        // hidden behind first.
         let chrome = [
             panel_rect(),
             history_rect(),
             save_rect(&SaveReport::default()),
             playtest_rect(&SaveReport::default()),
+            palette_rect(WINDOW.x as f32),
         ];
 
-        let mut covered = [0; 4];
+        let mut covered = [0; 5];
         let mut clear = 0;
 
         for (col, row) in cells(9, 6) {
@@ -2889,7 +2924,316 @@ mod tests {
 
         assert!(covered[0] > 0, "no cell ended up behind the settings panel - this proves nothing");
         assert!(covered[1] > 0, "no cell ended up behind the history bar - nor does this");
+        assert!(covered[4] > 0, "no cell ended up behind the palette - nor does that");
         assert!(clear > 0, "every cell ended up behind the chrome - so does this");
+    }
+
+
+    // --- the palette ------------------------------------------------------
+
+    use bevy::ui::{BackgroundColor, BorderColor};
+
+    use crate::block::block_colours;
+    use crate::editor::palette::{block_types, palette_entries, palette_items, PaletteChoice, PaletteEntry, PaletteItemKind, PalettePanel};
+
+    /// The window every palette test lays out against - the one `editor_app`
+    /// gives them.
+    const PALETTE_WINDOW: f32 = VIEWPORT.x as f32;
+
+    fn brush(app: &App) -> Brush {
+        app.world().resource::<Brush>().clone()
+    }
+
+    fn brush_group(app: &App) -> BrushGroup {
+        *app.world().resource::<BrushGroup>()
+    }
+
+    /// Where an entry is drawn, which is where it is clicked.
+    fn rect_of(entry: &PaletteEntry) -> Rect {
+        palette_items(PALETTE_WINDOW)
+            .into_iter()
+            .find_map(|item| match item.kind {
+                PaletteItemKind::Entry(drawn) if drawn == *entry => Some(item.rect),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("{entry:?} is not on screen"))
+    }
+
+    /// Clicks an entry the way an author does: pointer on it, press, release.
+    fn click_palette(app: &mut App, entry: &PaletteEntry) {
+        put_the_pointer_at(app, Some(rect_of(entry).center()));
+        click(app);
+    }
+
+    /// Types an entry's shortcut, modifier and all.
+    fn type_palette(app: &mut App, entry: &PaletteEntry) {
+        let shortcut = entry.shortcut().expect("every entry can be typed");
+
+        {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            for modifier in shortcut.modifier.keys() {
+                keys.press(*modifier);
+            }
+            keys.press(shortcut.key);
+        }
+
+        app.world_mut().run_system_once(editor_palette_shortcut).unwrap();
+
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release_all();
+        app.update();
+    }
+
+    fn palette_entities(app: &mut App) -> usize {
+        let world = app.world_mut();
+        let mut shown = world.query_filtered::<Entity, With<PalettePanel>>();
+        shown.iter(world).count()
+    }
+
+    /// Everything the palette has written on screen.
+    fn palette_says(app: &mut App) -> Vec<String> {
+        let world = app.world_mut();
+        let mut texts = world.query_filtered::<&Text, With<PalettePanel>>();
+        texts.iter(world).map(|text| text.0.clone()).collect()
+    }
+
+    /// How the panel drew an entry: what it filled it with, and what it
+    /// outlined it with.
+    fn drawn_for(app: &mut App, entry: &PaletteEntry) -> Option<(Color, Color)> {
+        let world = app.world_mut();
+        let mut choices = world.query::<(&PaletteChoice, &BackgroundColor, &BorderColor)>();
+
+        choices
+            .iter(world)
+            .find(|(choice, _, _)| choice.0 == *entry)
+            .map(|(_, background, border)| (background.0, border.top))
+    }
+
+    /// The entries the panel has drawn an outline around.
+    fn outlined(app: &mut App) -> Vec<PaletteEntry> {
+        palette_entries()
+            .into_iter()
+            .filter(|entry| {
+                drawn_for(app, entry).is_some_and(|(_, border)| border != Color::NONE)
+            })
+            .collect()
+    }
+
+    /// The card's fourth criterion, asked of every entry there is: a click on an
+    /// entry sets that entry's part of the brush and leaves the rest where it
+    /// was.
+    ///
+    /// Walked cumulatively rather than from a fresh brush each time, so the
+    /// brush is carrying something in every field by the time the later rows are
+    /// clicked - which is where "and leaves the rest alone" has anything to say.
+    #[test]
+    fn clicking_every_palette_entry_sets_that_part_of_the_brush() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+
+        for entry in palette_entries() {
+            let (mut expected, mut expected_group) = (brush(&app), brush_group(&app));
+            entry.apply(&mut expected, &mut expected_group);
+
+            click_palette(&mut app, &entry);
+
+            assert_eq!(brush(&app), expected, "after clicking {entry:?}");
+            assert_eq!(brush_group(&app), expected_group, "after clicking {entry:?}");
+        }
+    }
+
+    /// The card's fifth criterion. Two ways in that ever came to mean different
+    /// things would be worse than one, so they are asked the same question in
+    /// the same order and have to give the same answer.
+    #[test]
+    fn every_palette_shortcut_sets_what_clicking_the_entry_sets() {
+        let mut clicked = app_in_the_editor(sparse(&empty_grid(9, 6)));
+        let mut typed = app_in_the_editor(sparse(&empty_grid(9, 6)));
+
+        for entry in palette_entries() {
+            click_palette(&mut clicked, &entry);
+            type_palette(&mut typed, &entry);
+
+            assert_eq!(brush(&typed), brush(&clicked), "after {entry:?}");
+            assert_eq!(brush_group(&typed), brush_group(&clicked), "after {entry:?}");
+        }
+
+        // And the walk actually went somewhere - a palette that ignored every
+        // press would pass the comparison above without complaint.
+        assert_ne!(brush(&clicked), Brush::default(), "nothing was chosen at all");
+    }
+
+    /// The card's first criterion. The colour is read off the screen and
+    /// compared with `block_spawn`'s own table, so a palette that re-picked its
+    /// colours would say so here.
+    #[test]
+    fn every_swatch_wears_the_block_s_own_colour() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+
+        for block_type in block_types() {
+            let entry = PaletteEntry::Block(Some(block_type.clone()));
+            let (colour, _, _) = block_colours(&block_type);
+
+            let (drawn, _) = drawn_for(&mut app, &entry)
+                .unwrap_or_else(|| panic!("{block_type:?} has no swatch on screen"));
+
+            assert_eq!(drawn, colour, "the {block_type:?} swatch");
+        }
+
+        // `SimpleTop` is two colours, and the swatch shows the second one too -
+        // a block that is orange under white cannot be told from a plain orange
+        // one by its first colour alone.
+        let (_, white, split) = block_colours(&BlockType::SimpleTop);
+        assert!(split, "SimpleTop is the split one");
+
+        let world = app.world_mut();
+        let mut backgrounds = world.query_filtered::<&BackgroundColor, With<PalettePanel>>();
+        assert!(
+            backgrounds.iter(world).any(|background| background.0 == white),
+            "the split swatch shows nothing of its second colour"
+        );
+
+        // And the letter the format writes it with is on it.
+        assert!(palette_says(&mut app).contains(&"D".to_string()));
+    }
+
+    /// The card's second and third criteria, read off the screen: every
+    /// behaviour and every trigger is there in words as well as in its letter,
+    /// because neither of them changes a block's colour.
+    #[test]
+    fn every_behaviour_and_trigger_is_on_screen_in_words() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+        let said = palette_says(&mut app);
+
+        for entry in palette_entries() {
+            assert!(
+                said.contains(&entry.letter().to_string()),
+                "{entry:?} has no letter on screen"
+            );
+
+            if !entry.label().is_empty() {
+                assert!(
+                    said.contains(&entry.label().to_string()),
+                    "{entry:?} has no label on screen"
+                );
+            }
+        }
+    }
+
+    /// The card's last criterion: what the brush is set to is on screen, spelled
+    /// as the token it paints - which is the string the file will be holding.
+    #[test]
+    fn the_palette_says_what_the_brush_is_set_to() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+
+        let says_the_token = |app: &mut App| {
+            let token = brush(app).token();
+            assert!(
+                palette_says(app).iter().any(|said| said.ends_with(&token)),
+                "the palette does not say {token}, only {:?}",
+                palette_says(app)
+            );
+        };
+
+        says_the_token(&mut app);
+
+        for entry in [
+            PaletteEntry::Block(Some(BlockType::Concrete)),
+            PaletteEntry::Behaviour(BlockBehaviour::Portal),
+            PaletteEntry::Group(6),
+            PaletteEntry::Trigger(Some(TriggerType::Start)),
+            PaletteEntry::Block(None),
+        ] {
+            click_palette(&mut app, &entry);
+            says_the_token(&mut app);
+        }
+    }
+
+    /// The same criterion, asked of the outline: one entry of each of the four
+    /// rows is marked, and they are the four the brush is made of.
+    #[test]
+    fn the_entries_the_brush_is_made_of_are_the_ones_outlined() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+
+        let chosen = [
+            PaletteEntry::Block(Some(BlockType::Hardling)),
+            PaletteEntry::Behaviour(BlockBehaviour::Spinner),
+            PaletteEntry::Group(2),
+            PaletteEntry::Trigger(Some(TriggerType::StartStop)),
+        ];
+
+        for entry in &chosen {
+            click_palette(&mut app, entry);
+        }
+
+        assert_eq!(brush(&app).token(), "BBC2", "the brush the four entries make");
+
+        let mut marked = outlined(&mut app);
+        let mut expected = chosen.to_vec();
+        marked.sort_by_key(|entry| format!("{entry:?}"));
+        expected.sort_by_key(|entry| format!("{entry:?}"));
+
+        assert_eq!(marked, expected);
+    }
+
+    /// The palette is the editor's, and goes home with it.
+    #[test]
+    fn the_palette_is_up_while_the_editor_is_and_gone_again_afterwards() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+        assert!(palette_entities(&mut app) > 0, "the editor opens with a palette");
+
+        go_to(&mut app, GameState::InGame);
+        assert_eq!(palette_entities(&mut app), 0, "and takes it with it");
+
+        go_to(&mut app, GameState::Editor);
+        assert!(palette_entities(&mut app) > 0, "and puts it back up on the way in");
+    }
+
+    /// Choosing what to paint is not painting. The window is the one from
+    /// `the_pointer_over_the_editors_own_panels_is_not_over_a_cell`, where the
+    /// grid does run under the palette - on a wider one this would pass without
+    /// having asked anything.
+    #[test]
+    fn choosing_a_brush_does_not_paint_the_cell_behind_the_palette() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+        resize_the_window(&mut app, UVec2::new(800, 800));
+
+        // The pixel every cell of the grid shows up at, so an entry that is
+        // sitting on top of one can be found rather than guessed at.
+        let occupied: Vec<Vec2> = {
+            let world = app.world_mut();
+            let mut cameras = world.query_filtered::<(&Camera, &GlobalTransform), With<EditorCamera>>();
+            let (camera, transform) = cameras.iter(world).next().expect("the editor has a camera");
+
+            cells(9, 6)
+                .into_iter()
+                .filter_map(|(col, row)| {
+                    let centre = cell_to_world(col, row, 9, BLOCK_GAP);
+                    camera.world_to_viewport(transform, Vec3::new(centre.x, 0.0, centre.y)).ok()
+                })
+                .collect()
+        };
+
+        let (entry, rect) = palette_items(800.0)
+            .into_iter()
+            .find_map(|item| match item.kind {
+                PaletteItemKind::Entry(entry)
+                    if occupied.iter().any(|pixel| item.rect.contains(*pixel)) =>
+                {
+                    Some((entry, item.rect))
+                }
+                _ => None,
+            })
+            .expect("no entry of the palette is over a cell - this would prove nothing");
+
+        let before = layout(&app);
+        let (mut expected, mut expected_group) = (brush(&app), brush_group(&app));
+        entry.apply(&mut expected, &mut expected_group);
+
+        put_the_pointer_at(&mut app, Some(rect.center()));
+        click(&mut app);
+
+        assert_eq!(brush(&app), expected, "the click chose {entry:?}");
+        assert_eq!(layout(&app), before, "and painted nothing with it");
+        assert_eq!(hovered(&app), None, "nor left a cell looking armed under the palette");
     }
 
 

@@ -174,12 +174,14 @@ impl Plugin for BlockPlugin {
 pub const BLOCK_MESH: &str = "SimpleBlock.001";
 
 
-/// What a block of this type looks like.
+/// The colours a block of this type is painted in: the colour of the block, the
+/// colour of its other half, and whether it has one.
 ///
-/// Shared, so the editor's preview - and `c0009`'s palette after it - show the
-/// block a match would spawn instead of holding a second opinion about what a
-/// `Concrete` block looks like.
-pub fn block_material(block_type: &BlockType, asset_server: &AssetServer) -> BlockMaterial {
+/// The one table of what a block looks like, with no material - and so no asset
+/// server - around it, because `c0009`'s palette draws a block type as a flat
+/// swatch rather than as a mesh, and a swatch in a colour of its own would be a
+/// palette that lies about what it paints.
+pub fn block_colours(block_type: &BlockType) -> (Color, Color, bool) {
     let mut color1: Color = ORANGE.into();
     let mut color2: Color = ORANGE.into();
     let mut top_bottom_split = false;
@@ -196,6 +198,18 @@ pub fn block_material(block_type: &BlockType, asset_server: &AssetServer) -> Blo
 
         BlockType::Obstacle => color1 = Color::WHITE,
     }
+
+    (color1, color2, top_bottom_split)
+}
+
+
+/// What a block of this type looks like.
+///
+/// Shared, so the editor's preview - and `c0009`'s palette after it - show the
+/// block a match would spawn instead of holding a second opinion about what a
+/// `Concrete` block looks like.
+pub fn block_material(block_type: &BlockType, asset_server: &AssetServer) -> BlockMaterial {
+    let (color1, color2, top_bottom_split) = block_colours(block_type);
 
     BlockMaterial {
         color1,
