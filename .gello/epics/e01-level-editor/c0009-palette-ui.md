@@ -1,14 +1,14 @@
 ---
 id: c0009
 title: Palette UI and shortcuts
-status: review
+status: in-progress
 epic: e01
 depends: [c0007]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T06:55:08
-usage-tokens: 119600
-usage-cost: 12.52314
+status-changed: 2026-08-26T06:59:20
+usage-tokens: 133944
+usage-cost: 14.317585
 ---
 
 ## How should the palette's keyboard shortcuts resolve the format's letter collisions?
@@ -166,6 +166,76 @@ and the module, the chain and the pointer in `src/editor/mod.rs`.
   from this session, so how it *looks* rests on the layout numbers above and on
   the colours being `block_spawn`'s own.
 
+## Review
+
+### 2026-08-26T06:58:24 — fail
+
+Checked: the six acceptance criteria against `src/editor/palette.rs` and
+`src/editor/mod.rs`, the diff of `5eec2e6`, `cargo test`, `cargo build`
+warnings. No lint or typecheck step exists in this repo beyond `cargo build`,
+so none was run.
+
+- Criteria 4 and 6 are unmet once the window is resized. `editor_show_palette`
+  spawns the panel from `palette_rect(window.width())` into absolute
+  `Val::Px` nodes, and it only runs `OnEnter(Editor)` and under
+  `resource_changed::<Brush>.or_else(resource_changed::<BrushGroup>)`
+  (`src/editor/mod.rs:522`, `:605`). Nothing in the repo listens for
+  `WindowResized`, and `main.rs` leaves Bevy's `resizable: true` default. So
+  the drawn palette keeps the width it was spawned at while
+  `editor_palette_click` and `cell_under_cursor` read `window.width()` live —
+  the one thing the module's own doc comment promises cannot happen ("what is
+  on screen and what is clickable cannot come apart"). Concretely: open the
+  editor in the game's 1512px window, where the entries are drawn across
+  x=1156..1480, then drag the window to 1200px. `palette_entry_at` now answers
+  for x=844..1184 only, so a click on the visibly-drawn `Obstacle` swatch at
+  x≈1400 chooses nothing, falls past `palette_rect(1200.0)` in
+  `cell_under_cursor`, and paints the cell behind the panel; a click at x≈900,
+  where nothing is drawn, is swallowed as a palette click. The current-brush
+  row is drawn 300px off the right edge, so it is no longer visible either.
+  No test covers this: `choosing_a_brush_does_not_paint_the_cell_behind_the_palette`
+  and `the_pointer_over_the_editors_own_panels_is_not_over_a_cell` both resize
+  the window but then read `palette_items`/`palette_rect` directly rather than
+  the nodes `editor_show_palette` spawned, so the drift is invisible to them.
+- Related, same root: `palette_left` has no lower bound, so on a narrow window
+  the palette walks left into the settings column and past x=0 (at 400px —
+  the width `the_pointer_over_the_editors_own_panels_is_not_over_a_cell` used
+  before this card — `palette_left` is 44, and the palette overlaps the left
+  column). Widening that test to 800x800 keeps its own assertions honest and is
+  not a weakening, but it does mean nothing now exercises a window narrower
+  than the palette's own two columns.
+
+Verified and sound otherwise:
+
+- Criterion 1: `every_swatch_wears_the_block_s_own_colour` reads the spawned
+  `BackgroundColor` back and compares it with `block_colours`, which is
+  `block_material`'s own table extracted rather than re-picked — orange,
+  gray, dark gray, the orange/white `SimpleTop` split and white all come from
+  the one place, and the split swatch draws its second colour too.
+- Criteria 2 and 3: `every_behaviour_and_trigger_is_on_screen_in_words` reads
+  every letter and label off the spawned `Text`; `every_letter_the_format_defines_is_in_the_palette`
+  pins the rows to `ABCDZ.` / `ABCDEFGHI` / `.ABCRS` / `0123456789`, all taken
+  back out of `block_token` rather than restated.
+- Criterion 4 (unresized): `clicking_every_palette_entry_sets_that_part_of_the_brush`
+  walks all 31 entries cumulatively through the real click path, and
+  `choosing_the_entries_of_a_token_paints_that_token` walks all 2295 tokens
+  with the group chosen before the trigger.
+- Criterion 5: `every_entry_can_be_typed`, `no_two_entries_answer_to_the_same_press`,
+  `a_press_belongs_to_exactly_one_row` and `every_palette_shortcut_sets_what_clicking_the_entry_sets`
+  cover the one-modifier-per-axis scheme the question settled on, and
+  `a_chord_the_editor_owns_is_not_also_a_palette_entry` covers the `commanding`
+  guard. Cross-checked against the editor's other bindings: `F5`, `Escape`,
+  the arrows and the `Ctrl` chords are all clear of `A`–`I`/`R`/`S`/`Z`/digits.
+- Diff scope is the card's What: `src/editor/palette.rs`, the `block_colours`
+  extraction in `src/block/mod.rs`, and the module/chain/pointer wiring in
+  `src/editor/mod.rs`. No debug code left in, no test skipped or `.only`'d.
+- `cargo test`: 268 passed, 0 failed — the count the card claims. `cargo build`
+  is clean at 17 warnings, all pre-existing (`config`, `match/state`, `state`,
+  `events`, `ship`, `block`, `level/campaign`, `player`, `powerups`), none in
+  the new code.
+- Not verified: the in-game check the Notes describe (84 nodes, the 2x scale
+  factor, the click on the `Concrete` swatch). That rests on the implementer's
+  own run.
+
 ## Log
 
 - 2026-08-25 created from the e01 epic breakdown
@@ -177,3 +247,4 @@ and the module, the chain and the pointer in `src/editor/mod.rs`.
   `block_token`, `BrushGroup` beside the brush, `block_colours` shared out of
   `block_material`; 25 new tests, 268 green, checked in the running game
 - 2026-08-26 status → review (agent)
+- 2026-08-26 status → in-progress (agent)
