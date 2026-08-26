@@ -1921,3 +1921,51 @@
 [c0010] → Bash(date +%Y-%m-%dT%H:%M:%S)
 [c0010] → Bash(grep -n "^## Log" src/../.gello/epics/e01-level-editor/c0010-settings-panel.md)
 [c0010] → Bash(python3 - <<'PY' import io p = '.gello/epics/e01-level-editor/c0010-settings-panel.md' s = io.open(p, encoding='utf-8').…)
+[c0010] **c0010 — pass.** The review entry is written to `.gello/epics/e01-level-editor/c0010-settings-panel.md`; the card stays in `review`.
+[c0010] What I checked and found:
+[c0010] - **All four criteria hold against the code**, not just against their checkboxes. `SETTINGS` in `src/editor/settings.rs` covers every `LevelDefinition` field except `targets` and `obstacles` — the nine the card names plus `time_limit`. `PickupType` has exactly two variants, so the two pickup rows are complete coverage of `global_pickups`, and `Setting::Grabbers` is genuinely the first `PickupType::Grabber` constructor in the tree.
+[c0010] - **Immediacy is structural, not incidental**: `.chain()` in `EditorPlugin::build` orders `editor_settings_click` before `editor_show_settings`, and the test asserts the on-screen text, not just the resource.
+[c0010] - **"Included when it is saved"** is verified as far as it can be — c0012 hasn't built a save path, so the tests write `EditorLevel.level` through `campaign::level_to_ron`, the serializer a save will use. That's the strongest available check, not a gap the implementer papered over.
+[c0010] - **Round-trip is tested per rung**, not just once: `every_rung_of_every_ladder_round_trips_through_ron` walks the whole scroll / win-percentage / time-limit ladders through RON, which is where a float would quietly drift.
+[c0010] - **Checks**: `cargo test` 157 passed / 0 failed (19 under `editor::settings`, 25 new in total — matches the log). `cargo check --tests` clean; all 17 warnings are pre-existing elsewhere in the tree. The repo has no CI, lint or typecheck step beyond that.
+[c0010] - **Diff scope is clean** — two files, both the card's. The two existing test helpers that changed were generalised from the `VIEWPORT` constant to read the live window size (needed for the resize test); no assertion was removed, nothing ignored or skipped.
+[c0010] Two things recorded but not failing:
+[c0010] - The panel's *appearance* is unverified — I did not run the game, so the card's own "not verified on screen" note stands. Nothing in the criteria turns on it, but it's still worth a glance.
+[c0010] - A press that starts on a panel button and is then dragged onto the field does begin a paint stroke: `editor_paint` opens the stroke from the button being held, and the `panel_rect()` guard only suppresses the cells under the panel. Harmless for a stepper, but the panel swallows the covered cells rather than the whole gesture.
+[c0010] ✓ 44 in / 13640 out tokens, $1.5907, 28 turns, 219.2s
+[c0011] I'll start by picking up the card.
+[c0011] → ToolSearch(select:mcp__gello__set_status,mcp__gello__add_question)
+[c0011] → Bash(cat /Users/stephan/CLionProjects/angleOut/.gello/epics/e01-level-editor/c0011-undo-redo.md)
+[c0011] → mcp__gello__set_status(in-progress)
+[c0011] Card is in-progress. Now let me understand the existing editor code.
+[c0011] → Bash(cat .gello/epics/e01-level-editor/epic.md 2>/dev/null | head -80; echo "=== cards ==="; ls .gello/epics/e01-level-editor…)
+[c0011] → Bash(find src -type d | sort && echo "=== editor files ===" && find src -path '*editor*' -name '*.rs' | sort | xargs wc -l)
+[c0011] → Bash(git status --short | head -60 && echo "=== branch ===" && git branch --show-current && echo "=== card statuses ===" && g…)
+[c0011] → Bash(sed -n '1,140p' src/editor/mod.rs)
+[c0011] → Bash(cat .gello/.companion/owned.json 2>/dev/null; echo "=== sessions ==="; cat .gello/.companion/sessions.json 2>/dev/null |…)
+[c0011] → Bash(sed -n '140,420p' src/editor/mod.rs)
+[c0011] → Bash(sed -n '420,700p' src/editor/mod.rs)
+[c0011] → Bash(sed -n '700,1000p' src/editor/mod.rs)
+[c0011] → Bash(sed -n '1000,1130p' src/editor/mod.rs)
+[c0011] → Bash(grep -n "^fn \|^pub fn \|^mod tests\|^#\[cfg(test)\]\| fn \|^}" src/editor/mod.rs | sed -n '1,400p' | grep -n "tests")
+[c0011] → Bash(sed -n '1130,1400p' src/editor/mod.rs)
+[c0011] → Bash(grep -n "fn \|#\[test\]" src/editor/mod.rs | sed -n '/1400/,$p' | awk -F: '$1>1400' | head -80)
+[c0011] → Bash(grep -n " fn \|#\[test\]\| // ---" src/editor/mod.rs | awk -F: '$1>1400' | head -100)
+[c0011] → Bash(grep -n " fn \|#\[test\]\| // ---" src/editor/mod.rs | awk -F: '$1>2360' | head -40; echo "=== 1727-1800 ==="; sed -n '1…)
+[c0011] Now let me look at the settings module and the level asset/hot-reload story.
+[c0011] → Bash(sed -n '1,120p' src/editor/settings.rs)
+[c0011] → Bash(ls src/level; echo "=== asset.rs ==="; sed -n '1,120p' src/level/asset.rs)
+[c0011] → Bash(sed -n '120,330p' src/editor/settings.rs)
+[c0011] → Bash(sed -n '330,560p' src/editor/settings.rs)
+[c0011] → Bash(grep -n "pub struct Levels\|impl Levels\|pub fn \|AssetEvent\|current_handle\|handles" src/level/mod.rs | head -60)
+[c0011] → Bash(grep -rn "AssetEvent" src/ | head -20)
+[c0011] → Bash(sed -n '290,345p' src/level/mod.rs)
+[c0011] → Bash(sed -n '420,530p' src/level/mod.rs)
+[c0011] → Bash(grep -rn "\.source\b\|source:" src/editor/ src/level/ | head -20; echo "=== campaign ==="; grep -n "pub fn \|pub const" …)
+[c0011] → Bash(tail -20 .gello/.companion/runs.log; echo "=== state ==="; cat .gello/.companion/state.json | head -40)
+[c0011] → Bash(grep -n "pub struct LevelDefinition" -A 40 src/level/mod.rs | head -60; echo "=== TargetLayout ==="; grep -n "pub enum T…)
+[c0011] → Bash(sed -n '2105,2200p' src/editor/mod.rs; echo "=== settings tests? ==="; grep -n "cfg(test)" src/editor/settings.rs)
+[c0011] → Bash(sed -n '578,620p' src/editor/settings.rs; echo "=== app_in_the_editor / click helpers ==="; sed -n '1577,1650p' src/edit…)
+[c0011] → Bash(sed -n '552,580p' src/editor/settings.rs; echo "=== 1928-1980 mod.rs ==="; sed -n '1928,1980p' src/editor/mod.rs)
+[c0011] Now I'll write the plan into the card, then implement.
+[c0011] → Bash(python3 - <<'EOF' import re, io p = '.gello/epics/e01-level-editor/c0011-undo-redo.md' s = open(p).read() notes = """## …)

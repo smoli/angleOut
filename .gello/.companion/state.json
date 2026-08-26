@@ -1,7 +1,6 @@
 {
   "status": "running",
   "ready": [
-    "c0011",
     "c0012",
     "c0013"
   ],
@@ -29,16 +28,16 @@
       "model": "claude-opus-5"
     },
     {
-      "cardId": "c0010",
+      "cardId": "c0011",
       "phase": "running",
       "activity": {
         "name": "Bash",
-        "arg": "python3 - <<'PY'\nimport io\np = '.gello/epics/e01-level-editor/c0010-settings-panel.md'\ns = io.open(p, encoding='utf-8').read()\n\nentry = \"\"\"## Review\n\n### 2026-08-26T02:14:04 — pass\n\nChecked: the four acceptance criteria against `src/editor/settings.rs` and\n`src/editor/mod.rs`, the diff of `d8d84af`, `cargo test`, `cargo check --tests`.\n\n- Criterion 1 is met and then some: `SETTINGS` covers all nine fields the card\n  names plus `time_limit`, which is everything in `LevelDefinition` bar\n  `targets` and `obstacles`. `PickupType` has exactly the two variants\n  `MoreBalls` and `Grabber`, so the two pickup rows cover the whole of\n  `global_pickups`; `Setting::Grabbers` is the first constructor of\n  `PickupType::Grabber` in the tree, as the notes asked.\n  `every_setting_is_on_screen_saying_what_the_level_holds` and\n  `a_setting_says_what_it_holds_the_way_an_author_reads_it` cover it.\n- Criterion 2 is met. `editor_settings_click` writes straight into\n  `EditorLevel` and `.chain()` in `EditorPlugin::build` puts it ahead of\n  `editor_show_settings`, so the panel is redrawn in the same frame;\n  `clicking_a_button_steps_its_setting_and_the_panel_says_so` asserts both the\n  level and the on-screen text. \"Included when it is saved\" is verified as far\n  as it can be — `c0012` has not built a save path yet, so the test writes\n  `editor_level(&app).level` through `campaign::level_to_ron`, which is the\n  serializer a save will use.\n- Criterion 3 is met. `every_edited_value_round_trips_through_ron` steps all\n  eight panel-owned fields off their defaults (asserting all eight moved) and\n  round-trips; `every_rung_of_every_ladder_round_trips_through_ron` walks every\n  rung of the three non-trivial ladders (scroll velocity, win percentage, time\n  limit) through RON, which is the case where a float could quietly change.\n  `a_level_edited_through_the_panel_round_trips_through_ron` does the same\n  through real clicks.\n- Criterion 4 is met. `stepped` snaps a non-finite or out-of-range value back\n  onto the ladder before stepping, `step_pickups` clamps to `MAX_PICKUPS`, and\n  `simultaneous_balls` uses `saturating_add` then `clamp`.\n  `values_no_step_would_ever_have_made_are_shown_and_stepped_back_into_range`\n  drives `NaN`, `-5` balls, a 500% criterion and a 7-second limit through\n  `value()` and `step()` without a panic, and\n  `stepping_a_setting_stops_at_the_ends_of_its_range` walks every setting 200\n  rungs each way.\n- Diff is in scope: `d8d84af` touches only `src/editor/mod.rs` and\n  `src/editor/settings.rs`. The only edits to existing code are the\n  `panel_rect()` guard in `cell_under_cursor`, two systems added to the chain,\n  the `editor_setup` log line, and two test helpers generalised from the\n  `VIEWPORT` constant to `window_size(app)` so `resize_the_window` works. No\n  assertion removed, nothing ignored or skipped, no debug leftovers.\n- `cargo test`: 157 passed, 0 failed — 19 of them under `editor::settings` and\n  `editor::tests::the_settings_panel_is_up_...`, 25 new in total, which matches\n  the log. `cargo check --tests`: clean; all 17 warnings are pre-existing\n  (`src/block/mod.rs`, `src/materials`, `src/powerups`), none from the new\n  files. There is no lint or typecheck step in this repo beyond `cargo check`.\n- Not verified: how the panel looks on screen. I did not run the game, so the\n  card's \"not verified on screen\" stands. Nothing in the criteria turns on it.\n- One thing for the record rather than a fault: a press that *starts* on a\n  panel button and is then dragged off onto the field does start a paint\n  stroke, because `editor_paint` opens the stroke from `brush_in_hand` (the\n  button being held) and only the cells under the panel are filtered out by\n  `hovered`. A stepper is clicked, not dragged, so this is harmless — but the\n  panel does not swallow the whole gesture, only the part of it over the panel.\n\n\"\"\"\n\ns = s.replace('## Log', entry + '## Log', 1)\nio.open(p, 'w', encoding='utf-8').write(s)\nprint(s[s.index('## Review'):][:200])\nPY"
+        "arg": "python3 - <<'EOF'\nimport re, io\np = '.gello/epics/e01-level-editor/c0011-undo-redo.md'\ns = open(p).read()\nnotes = \"\"\"## Notes\n\n- This is a design constraint on `c0007`, `c0008` and `c0010` rather than a\n  bolt-on: their edits have to be expressed as commands. If those land first as\n  direct mutations, this card includes converting them.\n- The on-disk-change case matters because `c0004` hot-reloads files: an external\n  edit can invalidate the history's assumptions entirely.\n\n### The shape it took\n\n- **An edit is the two levels either side of it**, not a hand-written inverse.\n  A `LevelDefinition` is a token grid plus ten small fields, so a snapshot pair\n  is cheap - and it is the only form that is *provably* reversible: the inverse\n  of \"take the top row away\" has to carry the blocks that stood on it anyway,\n  which is a snapshot of that row by another name. One `Edit` type covers\n  paints, erases, resizes and settings alike.\n- **A drag is one entry** because `c0007` already recorded the stroke as a\n  whole (`PaintStroke`); its `before` is widened from the layout to the level\n  and the entry goes in when the button comes up. Anything else the author does\n  mid-drag - a resize, a setting, an undo - ends the stroke first, so no edit\n  ever swallows another.\n- **The file under edit is now a handle.** `EditorLevel::source` was the asset\n  *path* it was opened from; it becomes the `Handle<LevelAsset>`, which is what\n  an `AssetEvent::Modified` can be matched against. The path is still there as\n  `source_path()`, which is what `c0012` saves through.\n- **Reachable from the UI** as a two-row \"History\" bar under the settings\n  panel, hit-tested against its own rectangles exactly as `c0010`'s panel is,\n  and excluded from cell picking the same way. The panel chrome `c0010` wrote\n  is shared rather than copied.\n\"\"\"\ns = s.replace(s[s.index('## Notes'):s.index('## Log')], notes + \"\\n\")\nopen(p,'w').write(s)\nEOF\nsed -n '18,60p' .gello/epics/e01-level-editor/c0011-undo-redo.md"
       },
       "model": "claude-opus-5"
     }
   ],
-  "updated": "2026-08-26T02:14:33",
+  "updated": "2026-08-26T02:22:18",
   "pickupDelay": 10,
   "owned": [
     "i0001",
@@ -51,12 +50,12 @@
     "c0007",
     "c0008",
     "c0009",
-    "c0010"
+    "c0010",
+    "c0011"
   ],
   "afk": true,
   "paused": false,
   "firstSeen": {
-    "c0011": "2026-08-25T23:00:03",
     "c0012": "2026-08-25T23:00:06",
     "c0013": "2026-08-25T23:00:09"
   }
