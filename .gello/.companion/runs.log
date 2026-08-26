@@ -1969,3 +1969,41 @@
 [c0011] → Bash(sed -n '552,580p' src/editor/settings.rs; echo "=== 1928-1980 mod.rs ==="; sed -n '1928,1980p' src/editor/mod.rs)
 [c0011] Now I'll write the plan into the card, then implement.
 [c0011] → Bash(python3 - <<'EOF' import re, io p = '.gello/epics/e01-level-editor/c0011-undo-redo.md' s = open(p).read() notes = """## …)
+[c0011] Now the shared panel chrome:
+[c0011] → Bash(python3 - <<'PY' p = 'src/editor/settings.rs' s = open(p).read() pairs = [ ("/// Where the panel sits, in logical window…)
+[c0011] → Write(/Users/stephan/CLionProjects/angleOut/src/editor/history.rs)
+[c0011] → Bash(python3 - <<'PY' p='src/editor/history.rs' s=open(p).read() s=s.replace("use bevy::color::palettes::css::{DIM_GRAY, GOLD…)
+[c0011] Now the changes to `src/editor/mod.rs`:
+[c0011] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() def sub(old,new,count=1): global s assert s.count(old)==count, (…)
+[c0011] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() def sub(old,new,count=1): global s assert s.count(old)==count, (…)
+[c0011] Now the three editing systems and teardown:
+[c0011] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() def sub(old,new,count=1): global s assert s.count(old)==count, (…)
+[c0011] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() def sub(old,new,count=1): global s assert s.count(old)==count, (…)
+[c0011] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() def sub(old,new,count=1): global s assert s.count(old)==count, (…)
+[c0011] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() def sub(old,new,count=1): global s assert s.count(old)==count, (…)
+[c0011] → Bash(cargo build 2>&1 | grep -E "editor/(mod|history|settings)\.rs" | head -20; echo "--- done ---")
+[c0011] → Bash(cargo build 2>&1 | grep -B6 "editor/history.rs:170" | head -20)
+[c0011] → Bash(sed -n '1660,1740p' src/editor/mod.rs; echo "=== panel-vs-cell test ==="; sed -n '2680,2740p' src/editor/mod.rs)
+[c0011] → Bash(cargo test --lib editor 2>&1 | tail -40)
+[c0011] → Bash(cargo test --bin angle_out editor:: 2>&1 | tail -40)
+[c0011] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old=""" let mut app = app_in_the_editor(sparse(&empty_grid(3, 2)…)
+[c0011] → Bash(sed -n '2722,2775p' src/editor/mod.rs)
+[c0011] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old=""" /// enough it covers cells. The pointer over it is over …)
+[c0011] All existing editor tests pass. Now the tests for undo/redo:
+[c0011] → Bash(cat >> /tmp/hist_tests.rs <<'EOF' EOF python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() tests = r''' // --- undo a…)
+[c0011] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old=""" use crate::config::{ARENA_HEIGHT, ARENA_WIDTH, BLOCK_DEP…)
+[c0011] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old=" use crate::editor::settings::{settings_rows, Setting, Sett…)
+[c0011] → Bash(cargo test --bin angle_out editor:: 2>&1 | grep -A12 "^---- editor::tests::an_edit_made_mid_drag\|^---- editor::tests::t…)
+[c0011] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() def sub(old,new): global s assert s.count(old)==1, old[:70] s=s.…)
+[c0011] All 97 editor tests pass. Now the full suite and warning check:
+[c0011] → Bash(cargo test 2>&1 | grep -E "^test result|FAILED|^error" | head -20; echo "=== warnings in my files ==="; cargo build 2>&1…)
+[c0011] → Bash(python3 - <<'PY' p='src/editor/history.rs' s=open(p).read() old=""" /// How far the history reaches either way, as (done…)
+[c0011] → Bash(cargo test 2>&1 | grep -E "^test result|^error" ; cargo build 2>&1 | grep -c "editor/")
+[c0011] → Bash(git diff --stat src/editor/ && git diff src/editor/mod.rs | head -260)
+[c0011] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old=""" /// this asset for the hand edit that drops the undo his…)
+[c0011] The button text would overflow its column; let me fix the bar's layout:
+[c0011] → Bash(python3 - <<'PY' p='src/editor/history.rs' s=open(p).read() def sub(old,new): global s assert s.count(old)==1, old[:70] …)
+[c0011] → Bash(grep -rn "EditorLevel\|PaintStroke\|editor::" src/ --include=*.rs | grep -v "^src/editor/" | head)
+[c0011] → Bash(grep -rn "EditorLevel\|PaintStroke\|EditorPlugin" src --include="*.rs" | grep -v "^src/editor/" | head)
+[c0011] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut timeout 25 cargo run 2>&1 | grep -iE "panic|error|thread|Editor…)
+[c0011] → Bash(python3 - <<'PY' p='.gello/epics/e01-level-editor/c0011-undo-redo.md' s=open(p).read() s=s.replace("- [ ] Cell paints","…)
