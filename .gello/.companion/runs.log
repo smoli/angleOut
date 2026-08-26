@@ -2750,3 +2750,12 @@
 [c0014] All checks pass. Let me record the verdict.
 [c0014] → Bash(date +%Y-%m-%dT%H:%M:%S)
 [c0014] → Bash(python3 - <<'EOF' import io p = ".gello/epics/e01-level-editor/c0014-the-different-block-types-need-to-be-exp.md" s = io…)
+[c0014] **c0014 — pass.** The review entry is on the card; it stays in `review` for you to take to `done`.
+[c0014] What I verified:
+[c0014] - **"Say next to „Block“ what it is"** — `block_name` (`src/editor/palette.rs:262`) names all five types, `palette_items` reserves a `ChosenBlock` rect on the heading's own row beside "BLOCK", and `editor_show_palette` draws the name of the current `brush.block_type` into it. It follows the brush because the existing `the_palette_is_out_of_date` redraws on `brush.is_changed()`.
+[c0014] - **"We do not need the „.“ Block"** — `PaletteEntry::Block` lost its `Option`, the `.chain([None])` is gone from both `palette_items` and `palette_entries`, and the format-letter test now pins the block row to `"ABCDZ"`. The right mouse button still clears a cell, which a test checks.
+[c0014] - **Tests** — `cargo test`: 278 passed, 0 failed, 0 ignored. The one removed test asserted the behaviour the card deletes; its replacement asserts strictly more (every entry rather than one). Nothing weakened or skipped.
+[c0014] - **Build/lint** — `cargo build`: 17 warnings, none in `src/editor`. Clippy is noisy repo-wide but flags nothing in the changed code.
+[c0014] - **Layout claims** — I re-derived them from the constants: `ROW_WIDTH` = 324, so the name gets a 236×26 node and the five swatches are ~61 each. Consistent with the notes, and the row's height is unchanged so nothing below it moved.
+[c0014] One caveat recorded on the card: I could not see it on screen either, so "the name fits" rests on the implementer's `TextLayoutInfo` numbers plus the constants, not on a screenshot. If you want that last bit confirmed by eye, it's a quick look in the running editor.
+[c0014] ✓ 34 in / 9539 out tokens, $1.0661, 25 turns, 209.9s

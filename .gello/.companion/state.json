@@ -1,19 +1,9 @@
 {
-  "status": "running",
+  "status": "idle",
   "ready": [],
   "waiting": [],
-  "runs": [
-    {
-      "cardId": "c0014",
-      "phase": "running",
-      "activity": {
-        "name": "Bash",
-        "arg": "python3 - <<'EOF'\nimport io\np = \".gello/epics/e01-level-editor/c0014-the-different-block-types-need-to-be-exp.md\"\ns = io.open(p, encoding=\"utf-8\").read()\n\nentry = \"\"\"## Review\n\n### 2026-08-26T22:16:20 — pass\n\nChecked: the card's two asks against the code, the diff of `0b68f7a`, `cargo test`, `cargo clippy --all-targets`, `cargo build` warnings.\n\n- \"It could say next to „Block“ what it is\" is met: `block_name` in\n  `src/editor/palette.rs:262` names all five types, `palette_items` puts a\n  `PaletteItemKind::ChosenBlock` rect on the heading's own row beside \"BLOCK\"\n  (`palette.rs:469-476`), and `editor_show_palette` draws `block_name` of\n  `brush.block_type` into it (`palette.rs:739-754`). It follows the brush\n  because `the_palette_is_out_of_date` already redraws on `brush.is_changed()`.\n- Covered by tests that fail without the code:\n  `every_block_type_has_a_name_in_words` and\n  `the_block_heading_keeps_room_beside_it_for_the_name` (pure), and\n  `the_block_row_says_in_words_which_block_is_chosen` in `src/editor/mod.rs`,\n  which drives a real app through all five and asserts the palette says that\n  name and no other block's.\n- \"We do not need the „.“ Block\" is met: `PaletteEntry::Block` lost its\n  `Option` (`palette.rs:82`), the `.chain([None])` is gone from both\n  `palette_items` and `palette_entries`, and\n  `every_letter_the_format_defines_is_in_the_palette` now pins the block row to\n  `\"ABCDZ\"`. `the_block_row_has_no_swatch_for_the_empty_cell` checks the drawn\n  row is five swatches and that the right button still clears a cell.\n  `nothing_in_the_palette_paints_an_empty_cell` walks every entry the palette\n  offers and asserts none of them sets `erase` or paints `EMPTY_SLOT`.\n- The layout numbers in the notes check out from the constants:\n  `ROW_WIDTH` = 150 + 110 + 2×26 + 3×4 = 324, so the name's rect is\n  324 − 84 − 4 = 236 wide on a 26-high row, and five swatches share 324 at\n  (324 − 4×4)/5 ≈ 61 each. The row's height is unchanged, so nothing below it\n  moved.\n- `cargo test`: 278 passed, 0 failed, 0 ignored. No test was weakened - the one\n  test removed, `the_last_swatch_of_the_block_row_is_the_erase_brush`, asserted\n  behaviour the card removes, and its replacement asserts more (every entry, not\n  one). `exactly_one_entry_of_each_row_is_chosen` still exercises two block\n  types.\n- `cargo build`: 17 warnings, none in `src/editor`. `cargo clippy\n  --all-targets` is noisy across the repo but flags nothing in\n  `src/editor/palette.rs` or the changed part of `src/editor/mod.rs`; the\n  `assert!(false)` it complains about is pre-existing in\n  `src/level/layout/mod.rs:647`.\n- The diff stays inside the What: `palette.rs`, the `Option` ripple through\n  `mod.rs`'s tests, and the four doc comments that described the removed erase\n  swatch. No debug code left behind. (Working tree also has an unrelated,\n  uncommitted change in `src/materials/force_field.rs` and an untracked\n  `src/diagnostics/` - neither is this card's.)\n- Not verified: how it *looks* on screen. Like the implementer, I could not\n  reach the display from this session, so the fit rests on the `TextLayoutInfo`\n  numbers they recorded and on the constants above, not on a screenshot.\n\n\"\"\"\n\ns = s.replace(\"## Log\\n\", entry + \"## Log\\n\", 1)\nio.open(p, \"w\", encoding=\"utf-8\").write(s)\nEOF\nsed -n '/## Review/,/## Log/p' .gello/epics/e01-level-editor/c0014-the-different-block-types-need-to-be-exp.md | head -8"
-      },
-      "model": "claude-opus-5"
-    }
-  ],
-  "updated": "2026-08-26T22:16:42",
+  "runs": [],
+  "updated": "2026-08-26T22:16:53",
   "pickupDelay": 10,
   "owned": [
     "i0001",
