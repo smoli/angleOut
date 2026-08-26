@@ -166,6 +166,54 @@ and the module, the chain and the pointer in `src/editor/mod.rs`.
   from this session, so how it *looks* rests on the layout numbers above and on
   the colours being `block_spawn`'s own.
 
+**After the first review** - the palette was drawn at the width it was spawned
+at and clicked at the width the window is now, so a resize pulled the two apart.
+The review was right, and the tests were blind to it because they asked
+`palette_items` where an entry is and then clicked there, which only ever proved
+the layout function agrees with itself.
+
+- **`PaletteWidth` is the width the palette on screen was laid out for.** Written
+  by `editor_show_palette` and read by the click and by `cell_under_cursor`, so
+  the rectangles a press is tested against are the rectangles the author is
+  looking at. The redraw alone would not have been enough: a click is read before
+  the panel is drawn again - it has to be, or choosing a brush would lag the press
+  by a frame - so on the one frame a window actually changes, the entries are
+  still where they were put and only this remembers where that was.
+- **The redraw asks a state, not an event.** `the_palette_is_out_of_date` compares
+  the window's width with the width on screen rather than listening for
+  `WindowResized`. A state cannot be missed, it answers correctly however the
+  window came to be that wide, and it is testable - a headless app that assigns
+  `Window::resolution` emits no resize message at all, so an event-driven redraw
+  would have been untestable with the helper every other test in this file uses.
+- **The palette can no longer climb onto the column down the left.**
+  `palette_left` is clamped to the right of `panel_rect()`, so on a window too
+  narrow for two columns the palette's right-hand end runs off the edge instead
+  of lying over the settings panel. That is the better of two bad options:
+  overlapping panels would mean a click landing on an entry *and* a setting at
+  once - neither system consumes the press - where an entry off the edge is still
+  reachable by its shortcut. That is what the modifiers are for, and the narrow
+  window test asks for exactly it.
+- **Every click test now reads the rectangle off the node the panel spawned**, via
+  `drawn_rect`, rather than off `palette_items`. That is the change that makes
+  this class of bug visible at all, and it applies to the tests that were already
+  there as well as the new ones.
+- Six new tests, 274 green: the panel following the window both ways, all 31
+  entries clicked at their drawn rectangles across four window widths, the ground
+  the palette has left going back to being play field, a press in the very frame
+  the window changes, the clamp across eight widths from 0 upwards, and a 600px
+  window where the swatches and most of the digits are clickable and the rest is
+  keyboard-only - plus 400px, where nothing is clickable and everything still has
+  to be typeable. Build unchanged at 17 warnings, none in the new code.
+- Three mutations checked to fail: the click reading the live width again (caught
+  by the same-frame test alone, which is why that test exists), the redraw
+  dropped back to `resource_changed::<Brush>` (two tests), and the clamp removed
+  (two tests).
+- **Checked in the running game again**, since the draw path changed: the 1512px
+  window drew the palette at x=1156..1496 with the `Obstacle` swatch at 1382.7;
+  resized to 1100 it redrew at 744..1084 with the swatch at 970.7 - moved by
+  exactly the 412 the window lost - and a click at the swatch's new centre set
+  the brush to `ZA`. That is the review's own scenario, run.
+
 ## Review
 
 ### 2026-08-26T06:58:24 — fail
@@ -248,3 +296,9 @@ Verified and sound otherwise:
   `block_material`; 25 new tests, 268 green, checked in the running game
 - 2026-08-26 status → review (agent)
 - 2026-08-26 status → in-progress (agent)
+- 2026-08-26 review → fail: the panel was drawn at its spawn width and clicked at
+  the window's live one, so a resize pulled the two apart
+- 2026-08-26 `PaletteWidth` records what is on screen and the click reads it, the
+  redraw is driven by a width comparison rather than an event, `palette_left` is
+  clamped clear of the left column, and every click test now reads the drawn
+  node; 6 new tests, 274 green, the review's own resize scenario run in the game

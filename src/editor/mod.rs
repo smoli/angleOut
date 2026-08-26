@@ -50,7 +50,7 @@ use crate::level::{LevelDefinition, Levels};
 use crate::editor::history::{editor_history_click, editor_show_history, editor_undo_redo, editor_watch_the_file, history_rect, remember, EditHistory, HistoryStep};
 use crate::editor::playtest::{editor_playtest_click, editor_playtest_shortcut, editor_show_playtest, playtest_end, playtest_leave, playtest_rect, playtest_teardown, playtesting, LastPlaytest};
 use crate::editor::save::{editor_save_click, editor_save_shortcut, editor_show_save, save_rect, LastSave, LevelsOnDisk, SaveReport};
-use crate::editor::palette::{editor_palette_click, editor_palette_shortcut, editor_show_palette, palette_rect, BrushGroup};
+use crate::editor::palette::{editor_palette_click, editor_palette_shortcut, editor_show_palette, palette_rect, the_palette_is_out_of_date, BrushGroup, PaletteWidth};
 use crate::editor::settings::{panel_rect, setting_at, spawn_settings_panel, SettingsPanel};
 use crate::materials::block::BlockMaterial;
 use crate::state::GameState;
@@ -489,6 +489,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<HoveredCell>()
             .init_resource::<Brush>()
             .init_resource::<BrushGroup>()
+            .init_resource::<PaletteWidth>()
             .init_resource::<PaintStroke>()
             .init_resource::<PendingRemoval>()
             .init_resource::<EditHistory>()
@@ -598,13 +599,13 @@ impl Plugin for EditorPlugin {
                         editor_show_playtest.run_if(
                             resource_changed::<LastPlaytest>.or_else(resource_changed::<SaveReport>),
                         ),
-                        // The outline follows what the brush is set to, and
-                        // the group the next trigger will join is remembered
-                        // beside the brush rather than in it - so both move it.
+                        // The outline follows what the brush is set to, the
+                        // group the next trigger will join is remembered beside
+                        // the brush rather than in it, and the panel is anchored
+                        // to an edge of the window that can move - so all three
+                        // put it out of date.
                         (
-                            editor_show_palette.run_if(
-                                resource_changed::<Brush>.or_else(resource_changed::<BrushGroup>),
-                            ),
+                            editor_show_palette.run_if(the_palette_is_out_of_date),
                             editor_draw_hover,
                             editor_draw_doomed_edge,
                         )
@@ -804,9 +805,10 @@ fn editor_pick_cell(
     cameras: Query<(&Camera, &GlobalTransform), With<EditorCamera>>,
     editor_level: Res<EditorLevel>,
     report: Res<SaveReport>,
+    drawn_palette: Res<PaletteWidth>,
     mut hovered: ResMut<HoveredCell>,
 ) {
-    let cell = cell_under_cursor(&windows, &cameras, &editor_level, &report);
+    let cell = cell_under_cursor(&windows, &cameras, &editor_level, &report, &drawn_palette);
 
     // Only written when it actually moved, so change detection means "the
     // pointer entered a different cell" - which is the signal `c0007` wants.
@@ -825,6 +827,7 @@ fn cell_under_cursor(
     cameras: &Query<(&Camera, &GlobalTransform), With<EditorCamera>>,
     editor_level: &EditorLevel,
     report: &SaveReport,
+    drawn_palette: &PaletteWidth,
 ) -> Option<(usize, usize)> {
     let (cols, rows, gap) = editor_level.grid()?;
     let window = windows.iter().next()?;
@@ -839,7 +842,10 @@ fn cell_under_cursor(
         || history_rect().contains(cursor)
         || save_rect(report).contains(cursor)
         || playtest_rect(report).contains(cursor)
-        || palette_rect(window.width()).contains(cursor)
+        // The width the palette was *drawn* at, as the click on it uses: a
+        // window dragged narrower does not move the panel until it is drawn
+        // again, and until then this is where it is.
+        || palette_rect(drawn_palette.0).contains(cursor)
     {
         return None;
     }
@@ -2934,7 +2940,7 @@ mod tests {
     use bevy::ui::{BackgroundColor, BorderColor};
 
     use crate::block::block_colours;
-    use crate::editor::palette::{block_types, palette_entries, palette_items, PaletteChoice, PaletteEntry, PaletteItemKind, PalettePanel};
+    use crate::editor::palette::{block_types, palette_entries, PaletteChoice, PaletteEntry, PalettePanel};
 
     /// The window every palette test lays out against - the one `editor_app`
     /// gives them.
@@ -2948,20 +2954,40 @@ mod tests {
         *app.world().resource::<BrushGroup>()
     }
 
-    /// Where an entry is drawn, which is where it is clicked.
-    fn rect_of(entry: &PaletteEntry) -> Rect {
-        palette_items(PALETTE_WINDOW)
-            .into_iter()
-            .find_map(|item| match item.kind {
-                PaletteItemKind::Entry(drawn) if drawn == *entry => Some(item.rect),
-                _ => None,
-            })
-            .unwrap_or_else(|| panic!("{entry:?} is not on screen"))
+    fn px(val: Val) -> f32 {
+        match val {
+            Val::Px(px) => px,
+            other => panic!("a panel is laid out in pixels, not in {other:?}"),
+        }
+    }
+
+    /// Where an entry *is*, read off the node the panel spawned rather than off
+    /// the function that laid it out.
+    ///
+    /// Every click test goes through here on purpose. Asking `palette_items`
+    /// where an entry is and then clicking there proves the layout function
+    /// agrees with itself; asking the screen proves the thing the module
+    /// promises, which is that the entry is where it looks.
+    fn drawn_rect(app: &mut App, entry: &PaletteEntry) -> Rect {
+        let world = app.world_mut();
+        let mut choices = world.query::<(&PaletteChoice, &Node)>();
+
+        let node = choices
+            .iter(world)
+            .find(|(choice, _)| choice.0 == *entry)
+            .map(|(_, node)| node.clone())
+            .unwrap_or_else(|| panic!("{entry:?} is not on screen"));
+
+        let (left, top) = (px(node.left), px(node.top));
+
+        Rect::new(left, top, left + px(node.width), top + px(node.height))
     }
 
     /// Clicks an entry the way an author does: pointer on it, press, release.
     fn click_palette(app: &mut App, entry: &PaletteEntry) {
-        put_the_pointer_at(app, Some(rect_of(entry).center()));
+        let rect = drawn_rect(app, entry);
+
+        put_the_pointer_at(app, Some(rect.center()));
         click(app);
     }
 
@@ -3174,6 +3200,208 @@ mod tests {
         assert_eq!(marked, expected);
     }
 
+    /// The panel is drawn into absolute pixels but anchored to an edge that
+    /// moves, so a window resized under it has to redraw it - and the redraw is
+    /// what keeps the entries where they look.
+    #[test]
+    fn the_palette_follows_the_window_it_is_drawn_in() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+
+        let entry = PaletteEntry::Block(Some(BlockType::Obstacle));
+        let before = drawn_rect(&mut app, &entry);
+
+        resize_the_window(&mut app, UVec2::new(1200, 800));
+
+        let after = drawn_rect(&mut app, &entry);
+        assert_ne!(after, before, "the palette stayed where the wider window had put it");
+        assert_eq!(
+            after.max.x - before.max.x,
+            1200.0 - PALETTE_WINDOW,
+            "and did not move by the amount the window did"
+        );
+
+        // The other way too, so this is not a system that only ever shrinks.
+        resize_the_window(&mut app, UVec2::new(2000, 800));
+        assert_eq!(drawn_rect(&mut app, &entry).max.x - after.max.x, 800.0);
+    }
+
+    /// The promise the module's own doc comment makes, asked across four window
+    /// widths and all 31 entries: what is on screen is what a click chooses.
+    ///
+    /// The rectangle is read off the *node*, so a palette that kept the width it
+    /// was spawned at while the click read the window's live one would fail here
+    /// on every entry of every width but the first.
+    #[test]
+    fn what_is_drawn_stays_what_is_clicked_when_the_window_changes() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+
+        for width in [1600, 1200, 900, 2400] {
+            resize_the_window(&mut app, UVec2::new(width, 800));
+
+            for entry in palette_entries() {
+                let (mut expected, mut expected_group) = (brush(&app), brush_group(&app));
+                entry.apply(&mut expected, &mut expected_group);
+
+                click_palette(&mut app, &entry);
+
+                assert_eq!(brush(&app), expected, "clicking {entry:?} on a {width}px window");
+                assert_eq!(brush_group(&app), expected_group, "clicking {entry:?} on a {width}px window");
+            }
+        }
+    }
+
+    /// The frame the window actually changes, which is the one the redraw cannot
+    /// help with.
+    ///
+    /// A click is read before the panel is drawn again - it has to be, or
+    /// choosing a brush would lag the press by a frame - so on that one frame
+    /// the window is already wider while the entries are still where they were
+    /// put. The press landed on what the author could see, so that is what it
+    /// has to choose, and `PaletteWidth` is what remembers where that was.
+    ///
+    /// Widened rather than narrowed because a pointer cannot be outside its own
+    /// window: narrowing the window past the pointer takes the pointer with it,
+    /// and there is no click left to land anywhere.
+    #[test]
+    fn a_click_in_the_frame_the_window_changes_lands_on_what_is_still_on_screen() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+        resize_the_window(&mut app, UVec2::new(1200, 800));
+
+        let entry = PaletteEntry::Block(Some(BlockType::Obstacle));
+        let on_screen = drawn_rect(&mut app, &entry);
+
+        put_the_pointer_at(&mut app, Some(on_screen.center()));
+
+        // Widened and pressed in the same frame - so, deliberately, no
+        // `resize_the_window`: that gives the palette the update it would need
+        // to have moved out from under the pointer first.
+        {
+            let world = app.world_mut();
+            let mut windows = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
+            for mut window in windows.iter_mut(world) {
+                window.resolution = WindowResolution::new(2000, 800);
+            }
+        }
+
+        assert!(
+            !palette_rect(2000.0).contains(on_screen.center()),
+            "the wider window has to put the palette somewhere else entirely"
+        );
+
+        report_the_button(&mut app, MouseButton::Left, ButtonState::Pressed);
+        app.update();
+
+        assert_eq!(
+            brush(&app).block_type,
+            BlockType::Obstacle,
+            "the press landed on the Obstacle swatch, wherever the window has since gone"
+        );
+    }
+
+    /// The other half of the same promise: where the palette is *not*, it takes
+    /// nothing. A panel that had moved but was still being read at its old place
+    /// would swallow clicks on bare play field and paint nothing with them.
+    #[test]
+    fn the_ground_the_palette_has_left_is_play_field_again() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+
+        // Wide enough that the strip the palette moves out of is somewhere the
+        // grid reaches.
+        let vacated = palette_rect(PALETTE_WINDOW);
+        resize_the_window(&mut app, UVec2::new(2400, 800));
+
+        let now = palette_rect(2400.0);
+        assert!(now.min.x > vacated.max.x, "the palette has to have moved clear of where it was");
+
+        let left_behind = cells(9, 6).into_iter().find(|&(col, row)| {
+            let centre = cell_to_world(col, row, 9, BLOCK_GAP);
+            let world = app.world_mut();
+            let mut cameras = world.query_filtered::<(&Camera, &GlobalTransform), With<EditorCamera>>();
+            let (camera, transform) = cameras.iter(world).next().expect("the editor has a camera");
+
+            camera
+                .world_to_viewport(transform, Vec3::new(centre.x, 0.0, centre.y))
+                .is_ok_and(|pixel| vacated.contains(pixel) && !now.contains(pixel))
+        });
+
+        let (col, row) = left_behind.expect("no cell is where the palette used to be - this would prove nothing");
+
+        let before = brush(&app);
+        paint(&mut app, &[(col, row)]);
+
+        assert_eq!(brush(&app), before, "clicking bare play field must not choose a brush");
+        assert_ne!(layout(&app), empty_grid(9, 6), "and must paint the cell that is there");
+    }
+
+    /// A window with no room for two columns of chrome.
+    ///
+    /// Something has to give, and what gives is the right-hand end of the
+    /// palette going off the edge rather than the palette lying over the
+    /// settings panel - where a click would land on an entry *and* a setting at
+    /// once. What is still on screen still chooses exactly one thing, and what
+    /// is not is still reachable by its shortcut, which is what the modifiers
+    /// are for.
+    ///
+    /// 600 pixels rather than something sillier because it is the mixed case:
+    /// the swatches and most of the digits fit, and none of the full-width rows
+    /// do. Narrower than about 470 and nothing is clickable at all - the palette
+    /// is then keyboard-only, which the second half of this asks about.
+    #[test]
+    fn a_window_too_narrow_for_both_columns_still_works() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+        resize_the_window(&mut app, UVec2::new(600, 800));
+
+        let palette = palette_rect(600.0);
+        assert!(
+            palette.min.x >= panel_rect().max.x,
+            "the palette climbed onto the settings panel at {}",
+            palette.min.x
+        );
+        assert!(palette.max.x > 600.0, "this window is not narrow enough to be asking anything");
+
+        let mut on_screen = 0;
+        let mut off_the_edge = 0;
+
+        for entry in palette_entries() {
+            let (mut expected, mut expected_group) = (brush(&app), brush_group(&app));
+            entry.apply(&mut expected, &mut expected_group);
+
+            if drawn_rect(&mut app, &entry).max.x <= 600.0 {
+                click_palette(&mut app, &entry);
+                on_screen += 1;
+            } else {
+                type_palette(&mut app, &entry);
+                off_the_edge += 1;
+            }
+
+            assert_eq!(brush(&app), expected, "choosing {entry:?} on a 600px window");
+            assert_eq!(brush_group(&app), expected_group, "choosing {entry:?} on a 600px window");
+        }
+
+        assert!(on_screen > 0, "nothing was clickable - the palette is entirely off the edge");
+        assert!(off_the_edge > 0, "nothing was off the edge - this window proves nothing");
+
+        // And on a window narrower than any of it, the keyboard is all there is
+        // - so the keyboard has to be enough.
+        resize_the_window(&mut app, UVec2::new(400, 800));
+        assert!(
+            palette_entries()
+                .into_iter()
+                .all(|entry| drawn_rect(&mut app, &entry).max.x > 400.0),
+            "400 pixels was supposed to leave nothing clickable"
+        );
+
+        for entry in palette_entries() {
+            let (mut expected, mut expected_group) = (brush(&app), brush_group(&app));
+            entry.apply(&mut expected, &mut expected_group);
+
+            type_palette(&mut app, &entry);
+
+            assert_eq!(brush(&app), expected, "typing {entry:?} on a 400px window");
+            assert_eq!(brush_group(&app), expected_group, "typing {entry:?} on a 400px window");
+        }
+    }
+
     /// The palette is the editor's, and goes home with it.
     #[test]
     fn the_palette_is_up_while_the_editor_is_and_gone_again_afterwards() {
@@ -3212,15 +3440,11 @@ mod tests {
                 .collect()
         };
 
-        let (entry, rect) = palette_items(800.0)
+        let entry = palette_entries()
             .into_iter()
-            .find_map(|item| match item.kind {
-                PaletteItemKind::Entry(entry)
-                    if occupied.iter().any(|pixel| item.rect.contains(*pixel)) =>
-                {
-                    Some((entry, item.rect))
-                }
-                _ => None,
+            .find(|entry| {
+                let rect = drawn_rect(&mut app, entry);
+                occupied.iter().any(|pixel| rect.contains(*pixel))
             })
             .expect("no entry of the palette is over a cell - this would prove nothing");
 
@@ -3228,8 +3452,7 @@ mod tests {
         let (mut expected, mut expected_group) = (brush(&app), brush_group(&app));
         entry.apply(&mut expected, &mut expected_group);
 
-        put_the_pointer_at(&mut app, Some(rect.center()));
-        click(&mut app);
+        click_palette(&mut app, &entry);
 
         assert_eq!(brush(&app), expected, "the click chose {entry:?}");
         assert_eq!(layout(&app), before, "and painted nothing with it");

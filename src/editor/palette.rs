@@ -31,13 +31,14 @@
 
 use bevy::asset::AssetServer;
 use bevy::color::palettes::css::{GOLD, SILVER};
+use bevy::ecs::change_detection::{DetectChanges, DetectChangesMut};
 use bevy::prelude::{BackgroundColor, ButtonInput, Color, Commands, Component, Entity, GlobalZIndex, Justify, KeyCode, MouseButton, Node, Query, Rect, Res, ResMut, Resource, UiRect, Val, Vec2, With};
 use bevy::ui::BorderColor;
 use bevy::window::{PrimaryWindow, Window};
 
 use crate::block::trigger::{TriggerGroup, TriggerType};
 use crate::block::{block_colours, BlockBehaviour, BlockType};
-use crate::editor::settings::{panel_node, panel_text, COLUMN_GAP, PANEL_BACKGROUND, PANEL_ORIGIN, PANEL_PADDING, PANEL_Z, ROW_FONT_SIZE, ROW_HEIGHT, ROW_INSET, ROW_WIDTH, TITLE_FONT_SIZE, TITLE_HEIGHT};
+use crate::editor::settings::{panel_node, panel_rect, panel_text, COLUMN_GAP, PANEL_BACKGROUND, PANEL_ORIGIN, PANEL_PADDING, PANEL_Z, ROW_FONT_SIZE, ROW_HEIGHT, ROW_INSET, ROW_WIDTH, TITLE_FONT_SIZE, TITLE_HEIGHT};
 use crate::level::layout::block_token;
 
 use super::{commanding, Brush, EditorEntity};
@@ -304,6 +305,20 @@ fn key_for(letter: char) -> Option<KeyCode> {
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct BrushGroup(pub TriggerGroup);
 
+/// The window width the palette on screen was laid out for.
+///
+/// The palette is drawn into absolute pixels, so the rectangles it was drawn at
+/// are the rectangles it *is* at until it is drawn again - however wide the
+/// window has become in the meantime. Reading a click against the live width
+/// instead would be exactly the drift this module says cannot happen: on the
+/// frame a window is dragged narrower, the entries are still where they were put
+/// and only this says where that was.
+///
+/// Written by [`editor_show_palette`], and by nothing else - it is a record of
+/// what is on screen, not a setting.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq)]
+pub struct PaletteWidth(pub f32);
+
 /// Marks everything the palette draws, so a moved brush can take the whole of
 /// it down and put it up again with the outline somewhere else.
 #[derive(Component)]
@@ -385,9 +400,23 @@ pub enum PaletteItemKind {
 /// the playtest panel are four deep down the left. The window's width is the one
 /// thing on screen the editor does not otherwise need to know, and it is the
 /// price of the palette not landing on top of them.
+///
+/// Never further left than the column down the left, whatever the window does.
+/// A window too narrow for both columns has to give something up, and what it
+/// gives up is the right-hand end of the palette running off the edge: every
+/// entry still on screen is still exactly one entry, where a palette lying over
+/// the settings panel would have clicks land on both at once. Nothing is lost
+/// outright either way - an entry off the edge is still reachable by its
+/// shortcut, which is what `Shift` and `Alt` are for.
 fn palette_left(window_width: f32) -> f32 {
-    window_width - PANEL_ORIGIN.x - ROW_WIDTH - 2.0 * PANEL_PADDING
+    let against_the_right_edge = window_width - PANEL_ORIGIN.x - ROW_WIDTH - 2.0 * PANEL_PADDING;
+
+    against_the_right_edge.max(panel_rect().max.x + PANEL_GAP)
 }
+
+/// How much room the palette leaves between itself and the column down the
+/// left, on a window narrow enough for the two to meet.
+const PANEL_GAP: f32 = 8.0;
 
 /// Everything the palette puts on screen, laid out top to bottom.
 ///
@@ -507,6 +536,7 @@ pub fn palette_entry_at(pixel: Vec2, window_width: f32) -> Option<PaletteEntry> 
 pub fn editor_palette_click(
     buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
+    drawn: Res<PaletteWidth>,
     mut brush: ResMut<Brush>,
     mut group: ResMut<BrushGroup>,
 ) {
@@ -517,7 +547,9 @@ pub fn editor_palette_click(
     let Some(window) = windows.iter().next() else { return; };
     let Some(cursor) = window.cursor_position() else { return; };
 
-    let Some(entry) = palette_entry_at(cursor, window.width()) else { return; };
+    // The width the entries were drawn at, not the width the window is now: a
+    // click lands on what the author can see.
+    let Some(entry) = palette_entry_at(cursor, drawn.0) else { return; };
 
     choose(&entry, &mut brush, &mut group);
 }
@@ -573,6 +605,24 @@ pub fn palette_entries() -> Vec<PaletteEntry> {
     blocks.chain(behaviours).chain(triggers).chain(groups).collect()
 }
 
+/// Whether the palette on screen is still the palette this editor would draw.
+///
+/// Three reasons it might not be: the brush moved, the group the next trigger
+/// would join moved, or the window changed width underneath it. The last is
+/// asked as a *state* - the width on screen against the width of the window -
+/// rather than by listening for a resize, because a state cannot be missed and
+/// answers correctly however the window came to be that wide.
+pub fn the_palette_is_out_of_date(
+    brush: Res<Brush>,
+    group: Res<BrushGroup>,
+    drawn: Res<PaletteWidth>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+) -> bool {
+    brush.is_changed()
+        || group.is_changed()
+        || windows.iter().next().is_some_and(|window| window.width() != drawn.0)
+}
+
 /// One place where an entry becomes a brush, whether it was clicked or typed -
 /// so the two ways in cannot come to mean different things.
 ///
@@ -607,6 +657,7 @@ pub fn editor_show_palette(
     windows: Query<&Window, With<PrimaryWindow>>,
     shown: Query<Entity, With<PalettePanel>>,
     asset_server: Res<AssetServer>,
+    mut drawn: ResMut<PaletteWidth>,
     mut commands: Commands,
 ) {
     for entity in &shown {
@@ -615,6 +666,10 @@ pub fn editor_show_palette(
 
     let Some(window) = windows.iter().next() else { return; };
     let width = window.width();
+
+    // Said before anything is spawned, because it is what everything spawned
+    // below will be read against.
+    drawn.set_if_neq(PaletteWidth(width));
 
     commands.spawn((
         panel_node(palette_rect(width)),
@@ -1167,6 +1222,25 @@ mod tests {
             palette_entry_at(panel.max + Vec2::splat(1.0), WINDOW).is_none(),
             "and so is one below and right of it"
         );
+    }
+
+    /// Whatever the window does, the palette stays clear of the column down the
+    /// left. A window with no room for both has to give something up, and what
+    /// it gives up is the palette's right-hand end running off the edge - not
+    /// two panels lying over each other, where a click would land on both.
+    #[test]
+    fn the_palette_never_climbs_onto_the_column_down_the_left() {
+        let column = panel_rect().max.x;
+
+        for width in [0.0, 100.0, 400.0, 700.0, 720.0, 800.0, 1600.0, 3000.0] {
+            let palette = palette_rect(width);
+
+            assert!(
+                palette.min.x >= column,
+                "on a {width}px window the palette starts at {} where the column down the left ends at {column}",
+                palette.min.x
+            );
+        }
     }
 
     /// The palette is the one panel that has to know how wide the window is,
