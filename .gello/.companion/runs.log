@@ -2048,3 +2048,121 @@
 [c0011] → Bash(grep -n "editor_level\.\|level\.level = \|set_changed\|bypass_change_detection" src/editor/mod.rs | grep -v "^.*fn " | s…)
 [c0011] → Bash(date +%Y-%m-%dT%H:%M:%S)
 [c0011] → Bash(cat > /tmp/c0011-review.md <<'EOF' ## Review ### 2026-08-26T02:36:25 — pass Checked: the five acceptance criteria agains…)
+[c0011] **c0011 — pass.** The review entry is on the card at `.gello/epics/e01-level-editor/c0011-undo-redo.md`; the card stays in `review` and I left the status untouched.
+[c0011] What held up:
+[c0011] - **All four edit paths record before they mutate.** `editor_paint` (via `finish_stroke`), `editor_resize` and `editor_settings_click` (via `remember`). I grepped every write to `EditorLevel` in `src/editor/mod.rs` — there is no fourth path that edits the level around the history.
+[c0011] - **Keys and UI both.** `step_asked_for` takes Ctrl/Cmd+Z, Ctrl+Shift+Z and Ctrl+Y; the bar's buttons go through `editor_history_click`/`step_at`, on the press rather than the hold. The bar is excluded from cell picking in `cell_under_cursor`, and two tests pin that.
+[c0011] - **The drag criterion is the well-tested one.** `Stroke::before` widened to the whole `LevelDefinition`; the interesting test isn't the plain drag but `an_edit_made_mid_drag_is_an_entry_of_its_own` — a resize with the button still down doesn't get swallowed.
+[c0011] - **Redo discard and on-disk invalidation** both have tests, the latter with two negatives (another file's change, a level never opened from a file).
+[c0011] - `cargo test`: 179 passed, 0 failed. `cargo clippy --all-targets`: exit 0, no warning anywhere under `src/editor/` — the 108 it reports are pre-existing in `src/level/layout` and elsewhere.
+[c0011] - Diff is three files, all under `src/editor/`; the `settings.rs` part is visibility only. The one edited test was tightened, not weakened.
+[c0011] Two things I recorded as observations rather than failures:
+[c0011] - `Ctrl+Y` and the Mac's `Cmd` are untested branches — every keyboard test presses `Ctrl+Z` or `Ctrl+Shift+Z`.
+[c0011] - `editor_watch_the_file` only runs in the Editor state, and Bevy drops unread messages after two frames. Since the history deliberately survives a trip out to the menu, a hand edit made *while the author is out of the editor* leaves a stale history on the way back in. Outside the criterion's wording, but the same hole it exists to close.
+[c0011] The card's own "not verified by eye" still stands — I checked the bar's geometry as arithmetic (y 300–394, x 16–356, clear of the 9-row settings panel), not as pixels. That glance is still owed by a human.
+[c0011] ✓ 30 in / 13774 out tokens, $1.3416, 24 turns, 191.0s
+[c0012] I'll start by picking up the card.
+[c0012] → ToolSearch(select:mcp__gello__set_status,mcp__gello__add_question)
+[c0012] → mcp__gello__set_status(in-progress)
+[c0012] Card picked up. Now let me read it and the surrounding context.
+[c0012] → Bash(cat .gello/epics/e01-level-editor/c0012-save-and-validate.md)
+[c0012] → Bash(ls .gello/epics/e01-level-editor/ && cat .gello/epics/e01-level-editor/epic.md)
+[c0012] → Bash(ls src/ && echo "---EDITOR---" && ls -R src/editor 2>/dev/null | head -50 && echo "---LEVELS---" && ls assets/levels/)
+[c0012] → Bash(git log --oneline -25)
+[c0012] → Bash(wc -l src/editor/*.rs src/level/*.rs && echo "=== campaign.ron ===" && cat assets/levels/campaign.ron && echo "=== level…)
+[c0012] → Bash(cat src/level/asset.rs && echo "=== campaign.rs ===" && cat src/level/campaign.rs)
+[c0012] → Bash(grep -n "^//!\|^pub fn\|^fn \|^pub struct\|^struct \|^pub enum\|^enum \|^impl\|^#\[derive\|^mod tests\|^ pub fn \|^ fn "…)
+[c0012] → Bash(sed -n 1,130p src/editor/mod.rs)
+[c0012] → Bash(sed -n 330,530p src/editor/mod.rs)
+[c0012] → Bash(cat src/editor/history.rs)
+[c0012] → Bash(sed -n 1,140p src/editor/settings.rs)
+[c0012] → Bash(grep -n "PANEL_ORIGIN\|PANEL_PADDING\|ROW_WIDTH\|ROW_HEIGHT\|TITLE_HEIGHT\|PANEL_Z\|ROW_INSET\|COLUMN_GAP\|BUTTON_BACKGR…)
+[c0012] → Bash(sed -n 355,560p src/editor/settings.rs)
+[c0012] → Bash(sed -n 900,1190p src/editor/mod.rs)
+[c0012] → Bash(grep -n "^pub fn \|^fn \|^pub const \|^pub enum \|^pub struct " src/level/layout.rs)
+[c0012] → Bash(sed -n 1,120p src/block/trigger.rs)
+[c0012] → Bash(ls src/level/ && grep -rn "mod layout" src/level/mod.rs)
+[c0012] → Bash(ls src/level/layout/ && wc -l src/level/layout/*.rs && grep -n "^pub fn \|^fn \|^pub const \|^pub enum \|^pub struct \|^…)
+[c0012] → Bash(sed -n 180,330p src/level/layout/mod.rs)
+[c0012] → Bash(sed -n 130,330p src/editor/mod.rs)
+[c0012] → Bash(grep -rn "Obstacle" src/block/mod.rs src/match/mod.rs src/level/mod.rs | head -30)
+[c0012] → Bash(sed -n 200,280p src/level/mod.rs && echo "=== head ===" && sed -n 1,110p src/level/mod.rs)
+[c0012] → Bash(sed -n 110,200p src/level/mod.rs && echo "===" && grep -n "level_reload" -A 60 src/level/mod.rs | sed -n 1,120p)
+[c0012] → Bash(grep -rh "^status:\|^id:\|^title:" .gello/epics/e01-level-editor/*.md | paste - - - 2>/dev/null | head -20; echo "---"; …)
+[c0012] → Bash(cat .gello/epics/e01-level-editor/c0009-palette-ui.md; echo "=== 13 ==="; cat .gello/epics/e01-level-editor/c0013-playte…)
+[c0012] → Bash(grep -rn "Portal" src/ --include=*.rs | grep -v "^src/level/layout" | head -30)
+[c0012] → Bash(sed -n 20,120p src/block/mod.rs)
+[c0012] → Bash(grep -rn "Portal\|BlockPortal" src/block/mod.rs src/ball/mod.rs | head -30)
+[c0012] → Bash(sed -n 290,400p src/block/mod.rs; echo "=== portal system ==="; sed -n 620,690p src/block/mod.rs)
+[c0012] → Bash(sed -n 686,900p src/editor/mod.rs)
+[c0012] → Bash(sed -n 1189,1310p src/editor/mod.rs)
+[c0012] → Bash(sed -n 2520,2600p src/editor/mod.rs; echo "=== history tests tail ==="; sed -n 2740,3320p src/editor/mod.rs | grep -n "f…)
+[c0012] → Bash(sed -n 2840,2870p src/editor/mod.rs; echo "=== change_the_file ==="; sed -n 2846,2870p src/editor/mod.rs; echo "=== 3120…)
+[c0012] → Bash(sed -n 230,275p src/block/mod.rs; echo "=== interpret_grid ==="; sed -n 470,560p src/level/layout/mod.rs)
+[c0012] → Bash(cat -A assets/levels/campaign.ron | head -20; echo "---"; wc -c assets/levels/campaign.ron; echo "--- level4 tail ---"; …)
+[c0012] → Bash(od -c assets/levels/campaign.ron | tail -6; echo "--- level4 tail ---"; od -c assets/levels/level4.ron | tail -4)
+[c0012] → Bash(cargo build --tests 2>&1 | tail -5)
+[c0012] → Bash(grep -n "bevy\|ron\|serde" Cargo.toml | head -20)
+[c0012] → Bash(ls ~/.cargo/registry/src/*/ 2>/dev/null | grep -i "^bevy_ecs-" | head)
+[c0012] → Bash(grep -rn "fn or\b\|fn or<\|fn or(" ~/.cargo/registry/src/*/bevy_ecs-0.19.1/src/schedule/condition.rs | head)
+[c0012] Now I'll write the code, starting with the disk-writing half in `campaign.rs`.
+[c0012] → Bash(python3 - <<'PY' import re p = 'src/level/campaign.rs' s = open(p).read() old = '''pub fn parse_level(source: &str) -> R…)
+[c0012] → Bash(python3 - <<'PY' p = 'src/level/campaign.rs' s = open(p).read() old = '''/// The campaign as the game plays it: a handle…)
+[c0012] Now the tests for the round trip, so I can see whether the written form matches the files on disk.
+[c0012] → Bash(python3 - <<'PY' p = 'src/level/campaign.rs' s = open(p).read() old = ''' /// Where a level's pickups land is per-match …)
+[c0012] → Bash(cargo test --bin angle_out level::campaign 2>&1 | tail -40)
+[c0012] → Bash(grep -l "//" assets/levels/*.ron)
+[c0012] → Bash(python3 - <<'PY' p = 'src/level/campaign.rs' s = open(p).read() old = ''' /// Every shipped level file is already exactl…)
+[c0012] Now the editor's save module. First, the two small extractions it needs from `mod.rs`:
+[c0012] → Bash(python3 - <<'PY' p = 'src/editor/mod.rs' s = open(p).read() # 1. blocks_of as a free function over a LevelDefinition old…)
+[c0012] → Bash(python3 - <<'PY' p = 'src/editor/history.rs' s = open(p).read() old = '''fn step_asked_for(keys: &ButtonInput<KeyCode>) …)
+[c0012] Now the save module itself.
+[c0012] → Bash(cat > src/editor/save.rs <<'RUST' //! Saving the level under edit, and saying what is wrong with it. //! //! Two halves …)
+[c0012] → Bash(python3 - <<'PY' p='src/editor/save.rs' s=open(p).read() s=s.replace("/// Where the panel starts. Fixed, where its botto…)
+[c0012] Now wire it into the plugin, picking, and teardown.
+[c0012] → Bash(python3 - <<'PY' p = 'src/editor/mod.rs' s = open(p).read() # imports old = "use crate::editor::settings::{panel_rect, s…)
+[c0012] → Bash(python3 - <<'PY' p = 'src/editor/mod.rs' s = open(p).read() old = "use crate::level::campaign::levels_dir;" if old not i…)
+[c0012] → Bash(cargo build --tests 2>&1 | grep -B5 -A15 "^error" | head -60)
+[c0012] → Bash(cargo build --tests 2>&1 | grep -A20 "E0599\|^error\[" | head -40)
+[c0012] → Bash(python3 - <<'PY' p = 'src/editor/mod.rs' s = open(p).read() old = "use bevy::ecs::change_detection::DetectChangesMut;" n…)
+[c0012] → Bash(cargo build --tests 2>&1 | grep -E "^warning: unused|unused_mut|never used|--> src/editor|--> src/level" | head -20)
+[c0012] → Bash(cargo build --tests 2>&1 | grep -B3 -A8 "editor/mod.rs:1952" | head -30)
+[c0012] → Bash(cargo build --tests 2>&1 | grep -B8 "editor/mod.rs:550" | head -20)
+[c0012] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() s=s.replace("resource_changed::<SaveReport>.or(resource_exists_a…)
+[c0012] Clean. Now the tests — validation first, then the editor behaviour.
+[c0012] → Bash(cat >> src/editor/save.rs <<'RUST' #[cfg(test)] mod tests { use super::*; use bevy::prelude::default; use crate::config:…)
+[c0012] → Bash(cargo test --bin angle_out editor::save::tests::every_complaint 2>&1 | grep -A15 "panicked" | head -20)
+[c0012] → Bash(python3 - <<'PY' p='src/editor/save.rs' s=open(p).read() old = ''' assert_eq!( messages(&sparse("AIR7 ZA ZA")), vec![ "T…)
+[c0012] → Bash(sed -n 1718,1760p src/editor/mod.rs; echo "=== 2655-2700 ==="; sed -n 2655,2700p src/editor/mod.rs; echo "=== history_sa…)
+[c0012] → Bash(sed -n 2850,2880p src/editor/mod.rs)
+[c0012] → Bash(sed -n 560,610p src/editor/mod.rs)
+[c0012] → Bash(sed -n 2755,2800p src/editor/mod.rs; echo "=== history bar paints nothing ==="; grep -n "a_click_on_the_history_bar_pain…)
+[c0012] → Bash(python3 - <<'PY' p='src/editor/save.rs' s=open(p).read() old = '''/// A line of the report on screen. #[derive(Component…)
+[c0012] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = " use crate::editor::settings::{settings_rows, Setting, Se…)
+[c0012] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() block = ''' // --- saving --------------------------------------…)
+[c0012] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = " use crate::level::campaign;" new = " use crate::level::c…)
+[c0012] → Bash(cargo test --bin angle_out editor:: 2>&1 | grep -E "^test |test result|FAILED" | tail -50)
+[c0012] → Bash(cargo test --bin angle_out editor::tests::escape_leaves 2>&1 | grep -A12 "panicked" | head -20)
+[c0012] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = """ (editor_open, editor_setup, editor_show_cursor, editor…)
+[c0012] All 128 editor tests pass. Now the full suite:
+[c0012] → Bash(cargo test --bin angle_out 2>&1 | grep -E "test result|FAILED|^error" | tail -20)
+[c0012] → Bash(git status --porcelain assets/levels/ ; echo "--- repo levels untouched? ---"; git diff --stat assets/levels/; echo "---…)
+[c0012] → Bash(ls -d $TMPDIR/angleout_c0012_* 2>/dev/null | head -20; echo "---"; git status --porcelain | grep -v "^ M .gello\|^??" | …)
+[c0012] → Bash(cat "/Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/running-the-game-from-a-gello-session.…)
+[c0012] → Bash(sed -n 555,600p src/editor/settings.rs)
+[c0012] The report lines are sentences, not labels — they need room to wrap. Let me fix the panel metrics and tighten the button captions.
+[c0012] → Bash(python3 - <<'PY' p='src/editor/save.rs' s=open(p).read() # 1. shorter "what" column - it is only as wide as the panel mi…)
+[c0012] → Bash(python3 - <<'PY' p='src/editor/save.rs' s=open(p).read() old = ''' /// The two halves of a round trip, without an editor…)
+[c0012] → Bash(cargo test --bin angle_out 2>&1 | grep -E "test result|FAILED" | tail; echo "=== build warnings in touched files ==="; c…)
+[c0012] → Bash(cargo build --tests 2>&1 | grep -B6 "src/editor/mod.rs:3404" | head -15)
+[c0012] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = ''' app.world_mut() .resource_mut::<Assets<LevelAsset>>() …)
+[c0012] → Bash(grep -n "Ctrl+Z\|editor\|Editor" README.md | head -20)
+[c0012] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = '''//! Nothing in here mutates the level on its own: every…)
+[c0012] → Bash(git show --stat b917494 | head -20; echo "=== board commit ==="; git show --stat 7e08bc1 | head -10)
+[c0012] → Bash(git show --stat --format="" b917494)
+[c0012] → Bash(git diff src/editor/history.rs src/level/campaign.rs)
+[c0012] → Bash(python3 - <<'PY' p='src/level/campaign.rs' s=open(p).read() old = ''' #[test] fn the_campaign_index_is_written_back_exac…)
+[c0012] → Bash(git diff src/editor/mod.rs | grep -v "^+.* fn \|^+.*#\[test\]" | sed -n 1,180p)
+[c0012] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = ''' // And for the panel under the bar. editor_save_click,…)
+[c0012] All six criteria pass. Now updating the card.
+[c0012] → Bash(python3 - <<'PY' p = '.gello/epics/e01-level-editor/c0012-save-and-validate.md' s = open(p).read() old = '''- [ ] Saving…)
