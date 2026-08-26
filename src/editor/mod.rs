@@ -18,6 +18,10 @@
 //! is made, so that it can be taken back again. That is [`history`]'s, and it
 //! is why painting, resizing and stepping a setting all end whatever drag was
 //! in progress before they touch anything.
+//!
+//! What all of that is for is a file, and writing one is [`save`]'s - along with
+//! reading the finished level back over the author's shoulder and saying what
+//! about it will not work, without ever refusing to write it down.
 
 use std::f32::consts::FRAC_PI_2;
 
@@ -26,6 +30,7 @@ use bevy::asset::{AssetServer, Assets, Handle};
 use bevy::camera::{OrthographicProjection, Projection, ScalingMode};
 use bevy::color::palettes::css::{DIM_GRAY, GRAY, ORANGE_RED, YELLOW};
 use bevy::ecs::change_detection::DetectChangesMut;
+use bevy::ecs::schedule::SystemCondition;
 use bevy::gltf::{Gltf, GltfMesh};
 use bevy::light::CascadeShadowConfigBuilder;
 use bevy::pbr::MeshMaterial3d;
@@ -40,14 +45,17 @@ use crate::config::{ARENA_HEIGHT, ARENA_WIDTH, BLOCK_DEPTH, BLOCK_GAP, BLOCK_WID
 use crate::level::asset::LevelAsset;
 use crate::level::layout::{block_token, blocks_on_edge, can_shrink, cell_to_world, empty_grid, filled_grid, grid_bounds, grid_dimensions, grow, interpret_grid, set_cell, shrink, world_to_cell, Edge, EMPTY_SLOT};
 use crate::level::TargetLayout::{Custom, FilledGrid, SparseGrid};
+use crate::level::campaign::levels_dir;
 use crate::level::{LevelDefinition, Levels};
 use crate::editor::history::{editor_history_click, editor_show_history, editor_undo_redo, editor_watch_the_file, history_rect, remember, EditHistory, HistoryStep};
+use crate::editor::save::{editor_save_click, editor_save_shortcut, editor_show_save, save_rect, LastSave, LevelsOnDisk, SaveReport};
 use crate::editor::settings::{panel_rect, setting_at, spawn_settings_panel, SettingsPanel};
 use crate::materials::block::BlockMaterial;
 use crate::state::GameState;
 use crate::MyAssetPack;
 
 pub mod history;
+pub mod save;
 pub mod settings;
 
 /// How far above the play field the editor camera sits. Only the near and far
@@ -132,16 +140,7 @@ impl EditorLevel {
     /// so there is one path from a level to its blocks rather than one per
     /// layout kind. A `Custom` level is built in code and has none to show.
     pub fn blocks(&self) -> Vec<Block> {
-        match &self.level.targets {
-            SparseGrid(layout, gap) => interpret_grid(layout, *gap),
-
-            FilledGrid(cols, rows, block_type, behaviour, gap) => {
-                interpret_grid(&filled_grid(*cols, *rows, block_type, behaviour), *gap)
-            }
-
-            Custom(_) => None,
-        }
-            .unwrap_or_default()
+        blocks_of(&self.level)
     }
 
     /// Writes `token` into cell (`col`, `row`), and says whether that changed
@@ -254,6 +253,42 @@ impl EditorLevel {
             _ => None,
         }
     }
+}
+
+/// The blocks a level is made of, wherever they come from.
+///
+/// A `FilledGrid` is read through the token grid that says the same thing, so
+/// there is one path from a level to its blocks rather than one per layout kind.
+/// A `Custom` level is built in code and has none to show.
+///
+/// A free function rather than only [`EditorLevel::blocks`] because [`save`]
+/// asks the same question of a level it is about to write, and a level on its
+/// way to disk is not necessarily the one under edit.
+pub fn blocks_of(level: &LevelDefinition) -> Vec<Block> {
+    match &level.targets {
+        SparseGrid(layout, gap) => interpret_grid(layout, *gap),
+
+        FilledGrid(cols, rows, block_type, behaviour, gap) => {
+            interpret_grid(&filled_grid(*cols, *rows, block_type, behaviour), *gap)
+        }
+
+        Custom(_) => None,
+    }
+        .unwrap_or_default()
+}
+
+/// Whether a shortcut's modifier is down - `Ctrl`, or the `Cmd` the Mac this
+/// game is built on puts in its place.
+///
+/// Said once here because every chord the editor answers to shares it:
+/// [`history`]'s steps and [`save`]'s `Ctrl+S` alike.
+pub fn commanding(keys: &ButtonInput<KeyCode>) -> bool {
+    keys.any_pressed([
+        KeyCode::ControlLeft,
+        KeyCode::ControlRight,
+        KeyCode::SuperLeft,
+        KeyCode::SuperRight,
+    ])
 }
 
 /// Marks everything the editor spawns, so leaving can take all of it with it.
@@ -452,6 +487,12 @@ impl Plugin for EditorPlugin {
             .init_resource::<PaintStroke>()
             .init_resource::<PendingRemoval>()
             .init_resource::<EditHistory>()
+            .init_resource::<SaveReport>()
+            .init_resource::<LastSave>()
+            // Where a save lands. Read once here rather than at the moment of
+            // writing, so a test can point the editor at a directory that is not
+            // the repository's own.
+            .insert_resource(LevelsOnDisk(levels_dir()))
 
             .add_systems(
                 OnEnter(GameState::Editor),
@@ -459,7 +500,15 @@ impl Plugin for EditorPlugin {
                 // history to change, because coming back into the editor finds
                 // a history that has not moved since it was left - and a bar
                 // that is not on screen is one an author cannot click.
-                (editor_open, editor_setup, editor_show_cursor, editor_show_history),
+                //
+                // `editor_open` first and on its own: it *inserts*
+                // `EditorLevel`, and the panels that say what is in it cannot
+                // run until that command has been applied.
+                (
+                    editor_open,
+                    (editor_setup, editor_show_cursor, editor_show_history, editor_show_save),
+                )
+                    .chain(),
             )
 
             .add_systems(
@@ -486,6 +535,12 @@ impl Plugin for EditorPlugin {
                         editor_settings_click,
                         // Same, for the bar under the panel.
                         editor_history_click,
+                        // And for the panel under the bar. `Ctrl+S` alongside
+                        // it because a save can give a level that never had one
+                        // a file, and the panel below says which file the next
+                        // save would write.
+                        editor_save_click,
+                        editor_save_shortcut,
                         editor_paint,
                         editor_resize,
                         // After the three systems that edit, so that a drag
@@ -503,6 +558,12 @@ impl Plugin for EditorPlugin {
                         editor_dress_blocks,
                         editor_show_warning.run_if(resource_changed::<PendingRemoval>),
                         editor_show_history.run_if(resource_changed::<EditHistory>),
+                        // Two reasons to be redrawn: what the last save said,
+                        // and the file the next one would write - which a save
+                        // of a level that had never been on disk changes.
+                        editor_show_save.run_if(
+                            resource_changed::<SaveReport>.or_else(resource_exists_and_changed::<EditorLevel>),
+                        ),
                         editor_draw_hover,
                         editor_draw_doomed_edge,
                     )
@@ -692,9 +753,10 @@ fn editor_pick_cell(
     windows: Query<&Window, With<PrimaryWindow>>,
     cameras: Query<(&Camera, &GlobalTransform), With<EditorCamera>>,
     editor_level: Res<EditorLevel>,
+    report: Res<SaveReport>,
     mut hovered: ResMut<HoveredCell>,
 ) {
-    let cell = cell_under_cursor(&windows, &cameras, &editor_level);
+    let cell = cell_under_cursor(&windows, &cameras, &editor_level, &report);
 
     // Only written when it actually moved, so change detection means "the
     // pointer entered a different cell" - which is the signal `c0007` wants.
@@ -712,16 +774,17 @@ fn cell_under_cursor(
     windows: &Query<&Window, With<PrimaryWindow>>,
     cameras: &Query<(&Camera, &GlobalTransform), With<EditorCamera>>,
     editor_level: &EditorLevel,
+    report: &SaveReport,
 ) -> Option<(usize, usize)> {
     let (cols, rows, gap) = editor_level.grid()?;
     let cursor = windows.iter().next()?.cursor_position()?;
 
-    // The settings panel and the history bar under it are in front of the play
-    // field, and a click on either is aimed at what it says rather than at the
-    // cell it happens to cover. Saying so here rather than in `editor_paint`
-    // means the highlight goes too, so neither sits on top of a cell that still
-    // looks armed.
-    if panel_rect().contains(cursor) || history_rect().contains(cursor) {
+    // The editor's own column of panels is in front of the play field, and a
+    // click on any of them is aimed at what it says rather than at the cell it
+    // happens to cover. Saying so here rather than in `editor_paint` means the
+    // highlight goes too, so none of them sits on top of a cell that still looks
+    // armed.
+    if panel_rect().contains(cursor) || history_rect().contains(cursor) || save_rect(report).contains(cursor) {
         return None;
     }
 
@@ -1148,6 +1211,7 @@ fn editor_teardown(
     mut stroke: ResMut<PaintStroke>,
     mut history: ResMut<EditHistory>,
     mut pending: ResMut<PendingRemoval>,
+    mut report: ResMut<SaveReport>,
     editor_level: Res<EditorLevel>,
 ) {
     for entity in &editor_entities {
@@ -1166,6 +1230,10 @@ fn editor_teardown(
     // The warning went with the rest of the editor's entities, and a question
     // that is no longer on screen must not be answerable.
     pending.set_if_neq(PendingRemoval(None));
+
+    // The report went with them too, and it is about a save that happened a
+    // whole trip through the game ago.
+    report.set_if_neq(SaveReport(None));
 }
 
 /// The game hides the pointer at startup (`primary_cursor_options` in
@@ -1209,8 +1277,10 @@ mod tests {
 
     use crate::config::{BLOCK_GAP, BLOCK_WIDTH_H, CAMERA_TILT, TILTED_CAMERA};
     use crate::editor::history::{history_rows, HistoryBar, HistoryEntry};
+    use crate::editor::save::{editor_save_shortcut, save_rows, LevelsOnDisk, ReportLine, SaveAction, SavePanel};
     use crate::editor::settings::{settings_rows, Setting, SettingValue, SETTINGS};
     use crate::level::campaign;
+    use crate::level::campaign::Campaign;
     use crate::level::WinCriteria;
     use crate::pickups::PickupType;
 
@@ -3311,4 +3381,319 @@ mod tests {
         assert_eq!(read_back, edited, "written as:\n{written}");
     }
 
+
+    // --- saving ------------------------------------------------------------
+
+    /// A directory of this test's own for the editor to write into, in place of
+    /// the repository's own `assets/levels`.
+    fn save_into(app: &mut App, name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("angleout_c0012_editor_{name}"));
+
+        fs::remove_dir_all(&dir).ok();
+        fs::create_dir_all(&dir).expect("a directory for the editor to save into");
+        app.insert_resource(LevelsOnDisk(dir.clone()));
+
+        dir
+    }
+
+    /// An app in the editor on a level that came from a file, the way the game
+    /// opens one: the handle carries the path, which is what a save writes back
+    /// to. `app_playing` adds its level straight to the collection, so the handle
+    /// it hands out has no path and every save is a save of a nameless level.
+    fn app_editing_file(name: &str, level: LevelDefinition) -> App {
+        let mut app = editor_app();
+
+        let handle = app
+            .world()
+            .resource::<AssetServer>()
+            .load::<LevelAsset>(campaign::level_asset_path(name));
+
+        app.world_mut()
+            .resource_mut::<Assets<LevelAsset>>()
+            .insert(handle.id(), LevelAsset(level))
+            .expect("nothing has that id yet");
+
+        app.insert_resource(Levels { handles: vec![handle], current_level: 0 });
+
+        go_to(&mut app, GameState::Editor);
+        give_the_camera_its_viewport(&mut app);
+
+        app
+    }
+
+    /// `Ctrl+S`, run the way the history tests run their own shortcut:
+    /// `InputPlugin` clears `just_pressed` in `PreUpdate`, so a key pressed from
+    /// a test never survives to `Update`.
+    fn press_save(app: &mut App) {
+        {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            keys.press(KeyCode::ControlLeft);
+            keys.press(KeyCode::KeyS);
+        }
+
+        app.world_mut().run_system_once(editor_save_shortcut).unwrap();
+
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release_all();
+        app.update();
+    }
+
+    /// Clicks the panel's own button for an action, the way an author does.
+    fn click_action(app: &mut App, action: SaveAction) {
+        let row = save_rows()
+            .into_iter()
+            .find(|row| row.action == action)
+            .expect("every action has a row");
+
+        put_the_pointer_at(app, Some(row.button.center()));
+        click(app);
+    }
+
+    /// What the panel is saying about the last save, read off the screen rather
+    /// than out of the resource - which is the only way to tell that the two
+    /// agree, and the card's "visible in the editor rather than only in the log".
+    fn report_on_screen(app: &mut App) -> Vec<String> {
+        let world = app.world_mut();
+        let mut lines = world.query::<(&ReportLine, &Text)>();
+
+        let mut said: Vec<(usize, String)> =
+            lines.iter(world).map(|(line, text)| (line.0, text.0.clone())).collect();
+
+        said.sort_by_key(|(index, _)| *index);
+        said.into_iter().map(|(_, text)| text).collect()
+    }
+
+    fn save_panel_parts(app: &mut App) -> usize {
+        let world = app.world_mut();
+        let mut parts = world.query_filtered::<Entity, With<SavePanel>>();
+
+        parts.iter(world).count()
+    }
+
+    fn level_files_in(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().to_string())
+            .collect();
+
+        names.sort();
+        names
+    }
+
+    /// The card's first and third criteria at once: the level goes out through
+    /// `std::fs`, and what comes back off disk is the level that went out.
+    #[test]
+    fn saving_writes_the_level_under_edit_to_its_own_file() {
+        let mut app = app_editing_file("scratch.ron", sparse("AA AA\n.. AA"));
+        let dir = save_into(&mut app, "writes");
+
+        paint(&mut app, &[(0, 1)]);
+        press_save(&mut app);
+
+        let path = dir.join("scratch.ron");
+        assert!(path.is_file(), "the save went to the file the level came from");
+
+        assert_eq!(
+            campaign::load_level(&path).expect("what was written has to read back"),
+            editor_level(&app).level,
+            "the saved file reloads to an identical level",
+        );
+    }
+
+    /// The card's fourth criterion, first half: a level that has never been on
+    /// disk is given a file rather than refused one, because there is nowhere in
+    /// this game to type a name into.
+    #[test]
+    fn a_level_that_has_never_been_on_disk_is_given_a_file_of_its_own() {
+        let mut app = editor_app();
+        go_to(&mut app, GameState::Editor);
+        give_the_camera_its_viewport(&mut app);
+
+        let dir = save_into(&mut app, "new_file");
+        assert_eq!(editor_level(&app).source, None, "nothing opened this level");
+
+        paint(&mut app, &[(0, 0)]);
+        press_save(&mut app);
+
+        assert_eq!(level_files_in(&dir), vec!["level0.ron"]);
+        assert_eq!(
+            editor_level(&app).source_path(),
+            Some("levels/level0.ron".to_string()),
+            "and the level now belongs to that file",
+        );
+
+        // Which is what keeps a second save from making a second file.
+        press_save(&mut app);
+        assert_eq!(level_files_in(&dir), vec!["level0.ron"]);
+    }
+
+    /// The card's fifth and sixth criteria. Every complaint is a remark: the
+    /// file is on disk whatever the editor thinks of what is in it, and what it
+    /// thinks is on screen rather than only in the log.
+    #[test]
+    fn a_level_worth_complaining_about_is_saved_anyway_and_the_complaints_are_on_screen() {
+        let mut app = app_editing_file("scratch.ron", sparse("ZA ZAR3"));
+        let dir = save_into(&mut app, "complaints");
+
+        press_save(&mut app);
+
+        let path = dir.join("scratch.ron");
+        assert!(path.is_file(), "a complaint is a remark, never a veto");
+        assert_eq!(campaign::load_level(&path).unwrap(), editor_level(&app).level);
+
+        assert_eq!(
+            report_on_screen(&mut app),
+            vec![
+                "Saved levels/scratch.ron".to_string(),
+                "Trigger group 3: 1 receiver and no trigger to start it".to_string(),
+                "Nothing here can be broken - this level can never be won".to_string(),
+            ],
+        );
+    }
+
+    #[test]
+    fn a_level_with_nothing_wrong_with_it_is_saved_without_a_word_against_it() {
+        let mut app = app_editing_file("scratch.ron", sparse("AA AA"));
+        save_into(&mut app, "quiet");
+
+        press_save(&mut app);
+
+        assert_eq!(report_on_screen(&mut app), vec!["Saved levels/scratch.ron".to_string()]);
+    }
+
+    /// The card's second criterion. The editor writes into the directory
+    /// `c0004` has a file watcher on, so its own save comes back at it as an
+    /// asset change - and `c0011` drops the undo history on one of those.
+    #[test]
+    fn the_editors_own_save_leaves_the_undo_history_where_it_was() {
+        let mut app = app_editing_file("scratch.ron", sparse(&empty_grid(2, 1)));
+        save_into(&mut app, "own_write");
+
+        paint(&mut app, &[(0, 0)]);
+        assert_eq!(depth(&app), (1, 0));
+
+        press_save(&mut app);
+
+        // The watcher handing our own write back, exactly as it hands back a
+        // hand edit - which is the point: it cannot tell them apart.
+        let saved = editor_level(&app).level.clone();
+        change_the_file(&mut app, saved);
+
+        assert_eq!(depth(&app), (1, 0), "the file says what we wrote, so the history still fits it");
+        assert_eq!(layout(&app), "AA ..", "and the level under edit is untouched");
+    }
+
+    /// The other side of it: the guard is about *our* write and not about
+    /// reloads in general, so somebody else's edit still costs the history.
+    #[test]
+    fn a_hand_edit_after_a_save_still_drops_the_undo_history() {
+        let mut app = app_editing_file("scratch.ron", sparse(&empty_grid(2, 1)));
+        save_into(&mut app, "hand_edit");
+
+        paint(&mut app, &[(0, 0)]);
+        press_save(&mut app);
+
+        change_the_file(&mut app, sparse("AA AA AA"));
+
+        assert_eq!(depth(&app), (0, 0), "that file is not the one the history is about");
+    }
+
+    /// The card's fourth criterion, second half. A campaign entry names a file,
+    /// so enrolling is something a saved level can do and an unsaved one cannot.
+    #[test]
+    fn a_saved_level_can_be_added_to_the_campaign_from_the_editor() {
+        let mut app = app_editing_file("scratch.ron", sparse("AA AA"));
+        let dir = save_into(&mut app, "campaign");
+
+        campaign::save_campaign(&dir, &Campaign { levels: vec!["level0.ron".to_string()] }).unwrap();
+
+        press_save(&mut app);
+        click_action(&mut app, SaveAction::Campaign);
+
+        assert_eq!(
+            campaign::load_campaign(&dir).unwrap().levels,
+            vec!["level0.ron".to_string(), "scratch.ron".to_string()],
+            "the level goes on the end, where the campaign's own order puts it",
+        );
+
+        assert_eq!(
+            report_on_screen(&mut app).first().map(String::as_str),
+            Some("levels/scratch.ron is now the last level of the campaign"),
+        );
+    }
+
+    #[test]
+    fn a_level_already_in_the_campaign_is_not_played_twice() {
+        let mut app = app_editing_file("scratch.ron", sparse("AA AA"));
+        let dir = save_into(&mut app, "campaign_twice");
+
+        campaign::save_campaign(&dir, &Campaign { levels: vec!["scratch.ron".to_string()] }).unwrap();
+
+        press_save(&mut app);
+        click_action(&mut app, SaveAction::Campaign);
+
+        assert_eq!(campaign::load_campaign(&dir).unwrap().levels, vec!["scratch.ron".to_string()]);
+        assert_eq!(
+            report_on_screen(&mut app).first().map(String::as_str),
+            Some("levels/scratch.ron is already in the campaign"),
+        );
+    }
+
+    #[test]
+    fn a_level_that_was_never_saved_has_no_file_to_put_in_the_campaign() {
+        let mut app = editor_app();
+        go_to(&mut app, GameState::Editor);
+        give_the_camera_its_viewport(&mut app);
+
+        let dir = save_into(&mut app, "campaign_unsaved");
+        campaign::save_campaign(&dir, &Campaign { levels: vec![] }).unwrap();
+
+        click_action(&mut app, SaveAction::Campaign);
+
+        assert_eq!(campaign::load_campaign(&dir).unwrap().levels, Vec::<String>::new());
+        assert_eq!(
+            report_on_screen(&mut app).first().map(String::as_str),
+            Some("Save the level first - the campaign names files"),
+        );
+    }
+
+    #[test]
+    fn the_file_panel_is_up_while_the_editor_is_and_goes_with_it() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+        assert!(save_panel_parts(&mut app) > 0, "the panel is on screen with the editor");
+
+        go_to(&mut app, GameState::InGame);
+        assert_eq!(save_panel_parts(&mut app), 0, "and goes when the editor does");
+
+        go_to(&mut app, GameState::Editor);
+        assert!(save_panel_parts(&mut app) > 0, "and is back when it is");
+    }
+
+    /// The report is about a save that happened a whole trip through the game
+    /// ago, and it went with the rest of the editor's entities on the way out.
+    #[test]
+    fn leaving_the_editor_forgets_what_the_last_save_said() {
+        let mut app = app_editing_file("scratch.ron", sparse("ZA ZA"));
+        save_into(&mut app, "forget");
+
+        press_save(&mut app);
+        assert!(!report_on_screen(&mut app).is_empty());
+
+        go_to(&mut app, GameState::InGame);
+        go_to(&mut app, GameState::Editor);
+
+        assert_eq!(report_on_screen(&mut app), Vec::<String>::new());
+    }
+
+    /// A click on the panel is aimed at a file, so it must not also be a stroke
+    /// of paint on whatever the panel happens to be covering.
+    #[test]
+    fn a_click_on_the_file_panel_paints_nothing() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(3, 2)));
+        save_into(&mut app, "click_paints_nothing");
+
+        click_action(&mut app, SaveAction::Save);
+
+        assert_eq!(layout(&app), empty_grid(3, 2), "the grid is not what the click was aimed at");
+        assert_eq!(depth(&app), (0, 0), "and nothing was painted to be undone");
+    }
 }

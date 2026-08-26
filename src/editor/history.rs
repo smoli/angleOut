@@ -18,7 +18,7 @@
 //! What is on screen is the bar under the settings panel, laid out and
 //! hit-tested against its own rectangles exactly as `c0010`'s panel is.
 
-use bevy::asset::{AssetEvent, AssetServer};
+use bevy::asset::{AssetEvent, AssetServer, Assets};
 use bevy::color::palettes::css::{DIM_GRAY, GOLD, WHITE};
 use bevy::ecs::change_detection::DetectChangesMut;
 use bevy::ecs::message::MessageReader;
@@ -32,7 +32,8 @@ use crate::level::asset::LevelAsset;
 use crate::level::LevelDefinition;
 
 use super::settings::{panel_node, panel_rect, panel_text, BUTTON_BACKGROUND, COLUMN_GAP, PANEL_BACKGROUND, PANEL_ORIGIN, PANEL_PADDING, PANEL_Z, ROW_FONT_SIZE, ROW_HEIGHT, ROW_INSET, ROW_WIDTH, TITLE_FONT_SIZE, TITLE_HEIGHT};
-use super::{finish_stroke, EditorEntity, EditorLevel, PaintStroke, PendingRemoval};
+use super::save::LastSave;
+use super::{commanding, finish_stroke, EditorEntity, EditorLevel, PaintStroke, PendingRemoval};
 
 /// How far back the editor can go.
 ///
@@ -223,14 +224,7 @@ pub fn editor_undo_redo(
 /// built on. `Ctrl+Y` is there because half the world's editors put redo on it
 /// and the key is free.
 fn step_asked_for(keys: &ButtonInput<KeyCode>) -> Option<HistoryStep> {
-    let commanding = keys.any_pressed([
-        KeyCode::ControlLeft,
-        KeyCode::ControlRight,
-        KeyCode::SuperLeft,
-        KeyCode::SuperRight,
-    ]);
-
-    if !commanding {
+    if !commanding(keys) {
         return None;
     }
 
@@ -313,6 +307,8 @@ fn take_a_step(
 pub fn editor_watch_the_file(
     mut events: MessageReader<AssetEvent<LevelAsset>>,
     editor_level: Res<EditorLevel>,
+    level_assets: Res<Assets<LevelAsset>>,
+    last_save: Res<LastSave>,
     mut history: ResMut<EditHistory>,
 ) {
     let source = editor_level.source.as_ref().map(|handle| handle.id());
@@ -327,6 +323,15 @@ pub fn editor_watch_the_file(
         > 0;
 
     if !changed || history.is_empty() {
+        return;
+    }
+
+    // The editor's own save comes back through the watcher exactly as a hand
+    // edit does - `c0012` writes into the directory `c0004` is watching - and
+    // the file system cannot tell us which it was. What it says can: a file that
+    // holds what we last wrote to it is our own write coming home, and the
+    // history is still every bit as true of it as it was a moment ago.
+    if last_save.is_what_the_file_now_says(&editor_level, &level_assets) {
         return;
     }
 

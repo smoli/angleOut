@@ -89,6 +89,25 @@ pub fn level_to_ron(level: &LevelDefinition) -> Result<String, ron::Error> {
     ron::ser::to_string_pretty(level, pretty_config())
 }
 
+/// What `campaign.ron` says above the play order.
+///
+/// The index is a hand-maintained file that the editor also writes back, and a
+/// RON parse carries no comments through - so the header is the writer's to put
+/// back rather than the file's to keep. Anything *else* a hand adds to that file
+/// is lost the first time the editor appends to it, which
+/// [`the_campaign_index_is_written_back_exactly_as_it_reads`] is here to make
+/// visible rather than to hide.
+const CAMPAIGN_HEADER: &str = "\
+// The campaign, in play order. Every entry is a file in this directory.
+//
+// Level files that are not listed here are scratch: they still load and are
+// still checked by the tests, they are just not part of the game.
+";
+
+pub fn campaign_to_ron(campaign: &Campaign) -> Result<String, ron::Error> {
+    Ok(format!("{CAMPAIGN_HEADER}{}", ron::ser::to_string_pretty(campaign, pretty_config())?))
+}
+
 pub fn load_level(path: &Path) -> Result<LevelDefinition, LevelLoadError> {
     parse_level(&read(path)?).map_err(|e| LevelLoadError::Parse(path.to_path_buf(), e))
 }
@@ -98,6 +117,49 @@ pub fn load_campaign(dir: &Path) -> Result<Campaign, LevelLoadError> {
     let source = read(&path)?;
 
     ron::from_str(&source).map_err(|e| LevelLoadError::Parse(path, e))
+}
+
+/// What went wrong on the way to disk.
+///
+/// The mirror of [`LevelLoadError`], and separate from it because a write has a
+/// failure a read has not: RON refusing to serialize a value at all, which
+/// carries no path of its own.
+#[derive(Debug)]
+pub enum LevelSaveError {
+    Io(PathBuf, std::io::Error),
+    Ron(ron::Error),
+}
+
+impl fmt::Display for LevelSaveError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LevelSaveError::Io(path, err) => write!(f, "{}: {}", path.display(), err),
+            LevelSaveError::Ron(err) => write!(f, "writing it out as RON: {err}"),
+        }
+    }
+}
+
+/// A file, written whole, ending in the newline every other text file in this
+/// repository ends in.
+fn write(path: &Path, text: &str) -> Result<(), LevelSaveError> {
+    fs::write(path, format!("{text}\n")).map_err(|e| LevelSaveError::Io(path.to_path_buf(), e))
+}
+
+/// Writes a level out.
+///
+/// `std::fs` rather than the asset server, which only reads. What comes back off
+/// disk afterwards is the same level: `every_level_file_round_trips` holds the
+/// serializer to it, and the editor's own save is tested through it too.
+pub fn save_level(path: &Path, level: &LevelDefinition) -> Result<(), LevelSaveError> {
+    write(path, &level_to_ron(level).map_err(LevelSaveError::Ron)?)
+}
+
+/// Writes the campaign index back, header and all.
+pub fn save_campaign(dir: &Path, campaign: &Campaign) -> Result<(), LevelSaveError> {
+    write(
+        &dir.join(CAMPAIGN_FILE),
+        &campaign_to_ron(campaign).map_err(LevelSaveError::Ron)?,
+    )
 }
 
 /// The campaign as the game plays it: a handle per level the index names, in
@@ -515,6 +577,72 @@ mod tests {
             written.contains("ZA ZA ZA ZA ZA ZA ZA ZA ZA"),
             "the block map should survive writing as lines, got:\n{written}"
         );
+    }
+
+    /// The editor appends to this file, so what it writes has to be the file
+    /// that is already there - comments and all. RON drops comments on the way
+    /// through, which is why [`CAMPAIGN_HEADER`] is code rather than data; this
+    /// is what says the two have not drifted apart.
+    #[test]
+    fn the_campaign_index_is_written_back_exactly_as_it_reads() {
+        let scratch = std::env::temp_dir().join("angleout_c0012_campaign_header");
+        fs::create_dir_all(&scratch).unwrap();
+
+        save_campaign(&scratch, &load_campaign(&dir()).unwrap()).unwrap();
+        let written = fs::read_to_string(scratch.join(CAMPAIGN_FILE)).unwrap();
+        fs::remove_dir_all(&scratch).ok();
+
+        assert_eq!(written, fs::read_to_string(dir().join(CAMPAIGN_FILE)).unwrap());
+    }
+
+    #[test]
+    fn a_level_written_to_disk_reads_back_as_the_same_level() {
+        let level = load_level(&dir().join("level4.ron")).unwrap();
+        let path = std::env::temp_dir().join("angleout_c0012_campaign_save_level.ron");
+
+        save_level(&path, &level).unwrap();
+        let reloaded = load_level(&path);
+        fs::remove_file(&path).ok();
+
+        assert_eq!(reloaded.unwrap(), level);
+    }
+
+    #[test]
+    fn a_campaign_written_to_disk_reads_back_as_the_same_campaign() {
+        let dir = std::env::temp_dir().join("angleout_c0012_campaign_save");
+        fs::create_dir_all(&dir).unwrap();
+
+        let campaign = Campaign { levels: vec!["level0.ron".to_string(), "level7.ron".to_string()] };
+        save_campaign(&dir, &campaign).unwrap();
+        let reloaded = load_campaign(&dir);
+        fs::remove_dir_all(&dir).ok();
+
+        assert_eq!(reloaded.unwrap(), campaign);
+    }
+
+    /// Saving a level is a rewrite and not a patch: what comes back is the
+    /// serializer's own shape, and the comments a hand wrote around a level do
+    /// not survive it. The *level* does, which is the whole of what the editor
+    /// promises - but a file worth annotating is a file worth annotating after
+    /// the last time the editor writes it.
+    ///
+    /// The campaign index is the exception, and is exactly why
+    /// [`CAMPAIGN_HEADER`] exists: the editor appends to that file every time an
+    /// author enrols a level, so losing its header once would be losing it.
+    #[test]
+    fn saving_a_level_keeps_the_level_and_not_the_comments_around_it() {
+        let path = dir().join("conveyor.ron");
+        let level = load_level(&path).unwrap();
+
+        assert!(
+            fs::read_to_string(&path).unwrap().contains("// Scratch:"),
+            "the level this is about is the annotated one"
+        );
+
+        let written = level_to_ron(&level).unwrap();
+
+        assert!(!written.contains("//"), "a saved level is RON and nothing else:\n{written}");
+        assert_eq!(parse_level(&written).unwrap(), level, "the level itself comes through whole");
     }
 
     /// Where a level's pickups land is per-match state on `MatchState`, derived
