@@ -7,8 +7,8 @@ depends: [c0007]
 created: 2026-08-25
 updated: 2026-08-26
 status-changed: 2026-08-26T07:18:38
-usage-tokens: 178660
-usage-cost: 23.96981
+usage-tokens: 191139
+usage-cost: 26.105056
 ---
 
 ## How should the palette's keyboard shortcuts resolve the format's letter collisions?
@@ -283,6 +283,75 @@ Verified and sound otherwise:
 - Not verified: the in-game check the Notes describe (84 nodes, the 2x scale
   factor, the click on the `Concrete` swatch). That rests on the implementer's
   own run.
+
+### 2026-08-26T07:21:32 — pass
+
+Checked: the two findings of the round above against `bb6b981`, the six
+acceptance criteria again, the diff, `cargo test`, `cargo build` warnings.
+No lint or typecheck step exists in this repo beyond `cargo build`, so none
+was run.
+
+- The resize drift is fixed, and fixed at the right seam. `PaletteWidth`
+  records the width the panel on screen was laid out for; `editor_show_palette`
+  is the only writer (`src/editor/palette.rs:672`, before anything is spawned),
+  and `editor_palette_click` (`:552`) and `cell_under_cursor`
+  (`src/editor/mod.rs:848`) both read it instead of `window.width()`. Grepped
+  for stragglers: no production path reads the live width for the palette any
+  more. Redrawing alone would not have closed it — the click is read early in
+  the chain and the redraw sits at the end of it, so on the frame the window
+  changes the entries are still where they were put — and the record is what
+  covers that frame.
+- The redraw itself is now `editor_show_palette.run_if(the_palette_is_out_of_date)`
+  (`src/editor/mod.rs:604`), which asks the width on screen against the
+  window's rather than listening for `WindowResized`. That also catches a
+  scale-factor change, which a logical `width()` moves and a resize message
+  need not. No redraw loop: the condition is false again the moment the draw
+  has written the width, and `set_if_neq` keeps the resource from churning.
+- The narrow-window overlap is fixed too. `palette_left` is clamped to
+  `panel_rect().max.x + PANEL_GAP` (`src/editor/palette.rs:410`), and that one
+  bound covers the whole left column — `panel_rect`, `history_rect`,
+  `save_rect` and `playtest_rect` all end at
+  `PANEL_ORIGIN.x + ROW_WIDTH + 2 * PANEL_PADDING`. Trading the palette's
+  right-hand end off the edge against two panels overlapping is the right way
+  round: neither click system consumes the press, so an overlap would set a
+  brush *and* step a setting.
+- The tests now ask the screen rather than the layout function. `drawn_rect`
+  reads `left`/`top`/`width`/`height` off the `Node` the panel spawned, and
+  every click test goes through it — which is what makes the six new ones
+  bite. Checked that they would fail on the code they replace:
+  `what_is_drawn_stays_what_is_clicked_when_the_window_changes` clicks all 31
+  entries at their drawn rectangles across four widths, which the un-redrawn
+  panel fails on every width but the first;
+  `a_click_in_the_frame_the_window_changes_lands_on_what_is_still_on_screen`
+  sets the resolution without an update in between, so it fails on a
+  redraw-only fix that has no `PaletteWidth`; and
+  `the_ground_the_palette_has_left_is_play_field_again` covers the opposite
+  error, the panel swallowing clicks where it no longer is.
+- The other four criteria are as verified last round and unchanged by this
+  commit: swatch colours read back against `block_colours`, behaviour and
+  trigger labels read off the spawned `Text`, the four rows pinned to the
+  format's own letters, and the one-modifier-per-axis shortcuts. Criterion 6
+  is now the stronger version of itself — the brush row follows the window
+  instead of being left behind by it.
+- Diff scope is the finding and nothing else: `src/editor/palette.rs`,
+  `src/editor/mod.rs` and this card. No debug code, and no test weakened —
+  `rect_of` was replaced by `drawn_rect` and
+  `choosing_a_brush_does_not_paint_the_cell_behind_the_palette` was moved onto
+  it, which is a strictly harder question than the one it asked before.
+- `cargo test`: 274 passed, 0 failed — the count the card claims, with all six
+  new tests present and green. `cargo build` is clean at 17 warnings, the same
+  pre-existing set as before, none in the new code.
+- Noted, not blocking: below about 696px of window width the palette's rows run
+  past the right edge, and below about 470 the brush token goes with them, so
+  criterion 6 degrades on a window narrower than the editor is usable at
+  anyway (the game's own is `SCREEN_WIDTH` = 1600). That is the documented
+  trade of the clamp, `a_window_too_narrow_for_both_columns_still_works` pins
+  the behaviour at 600px and 400px, and the keyboard reaches every entry there.
+- Not verified: the in-game run the commit message describes (1156..1496
+  redrawn to 744..1084, the `Obstacle` swatch clicked at its new centre).
+  `screencapture` cannot reach the display from this session, so that rests on
+  the implementer's own run.
+
 
 ## Log
 
