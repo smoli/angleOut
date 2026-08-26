@@ -1,9 +1,19 @@
 {
-  "status": "idle",
+  "status": "running",
   "ready": [],
   "waiting": [],
-  "runs": [],
-  "updated": "2026-08-26T21:55:26",
+  "runs": [
+    {
+      "cardId": "c0014",
+      "phase": "running",
+      "activity": {
+        "name": "Bash",
+        "arg": "grep -n \"erase\" -r src/ | grep -v \"^src/editor/palette.rs\" | head -50"
+      },
+      "model": "claude-opus-5"
+    }
+  ],
+  "updated": "2026-08-26T21:57:56",
   "pickupDelay": 10,
   "owned": [
     "i0001",
@@ -19,7 +29,8 @@
     "c0010",
     "c0011",
     "c0012",
-    "c0013"
+    "c0013",
+    "c0014"
   ],
   "afk": true,
   "paused": false,
