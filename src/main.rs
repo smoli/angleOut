@@ -6,6 +6,7 @@ use bevy::app::{App, Startup, Update};
 use bevy::DefaultPlugins;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::gltf::Gltf;
+use bevy::ecs::schedule::SystemCondition;
 use bevy::input::ButtonInput;
 use bevy::state::app::AppExtStates;
 use bevy::prelude::{default, in_state, not, AssetServer, ClearColor, Color, Commands, Entity, Handle, IntoScheduleConfigs, KeyCode, PluginGroup, Query, Res, Resource};
@@ -19,6 +20,7 @@ use crate::arena::ArenaPlugin;
 use crate::ball::BallPlugin;
 use crate::block::BlockPlugin;
 use crate::config::{SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::editor::playtest::playtesting;
 use crate::editor::EditorPlugin;
 use crate::events::EventsPlugin;
 use crate::game::GamePlugin;
@@ -100,9 +102,13 @@ fn main() {
     app.add_plugins(InputManagerPlugin::<MatchActions>::default());
     app.add_plugins(InputManagerPlugin::<CameraActions>::default());
 
-    // The editor uses `Escape` to get back to the menu, so quitting the game on
-    // it would be two things on one key - see `crate::editor`.
-    app.add_systems(Update, close_on_esc.run_if(not(in_state(GameState::Editor))));
+    // The editor uses `Escape` to get back to the menu, and a playtest uses it
+    // to get back to the editor, so quitting the game on it would be two things
+    // on one key - see `crate::editor` and `crate::editor::playtest`.
+    app.add_systems(
+        Update,
+        close_on_esc.run_if(not(in_state(GameState::Editor).or_else(playtesting))),
+    );
 
 
     app.run();

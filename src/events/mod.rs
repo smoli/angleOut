@@ -197,6 +197,13 @@ fn match_event_handler(
 /// be in flight. Holding the transition for a frame or two is what keeps a match
 /// from starting in front of a level that has not arrived - see
 /// [`Levels::readiness`].
+///
+/// Winning and losing have two ends each, because a playtest is not a match of
+/// the campaign: it hands the player no points and goes home to the editor,
+/// where a campaign match banks them and goes on to the results screen. The
+/// player's *state* is set either way - it is how
+/// [`playtest`](crate::editor::playtest) knows how the level it was just handed
+/// back went.
 fn game_flow_handler(
     mut players: Query<&mut Player>,
     mut events: MessageReader<GameFlowEvent>,
@@ -225,9 +232,14 @@ fn game_flow_handler(
                 if let Ok(mut player) = players.single_mut() {
                     //info!("Player wins!");
                     player.state = PlayerState::HasWon;
-                    player.player_has_won(match_state.points);
-                    //info!("Player now has {} points", player.points);
-                    game_state.set(GameState::PostMatch);
+
+                    if levels.is_playtesting() {
+                        game_state.set(GameState::Editor);
+                    } else {
+                        player.player_has_won(match_state.points);
+                        //info!("Player now has {} points", player.points);
+                        game_state.set(GameState::PostMatch);
+                    }
                 };
             }
 
@@ -239,7 +251,11 @@ fn game_flow_handler(
                 if let Ok(mut player) = players.single_mut() {
                     //info!("Player looses!");
                     player.state = PlayerState::HasLost;
-                    game_state.set(GameState::PostMatch);
+
+                    game_state.set(match levels.is_playtesting() {
+                        true => GameState::Editor,
+                        false => GameState::PostMatch,
+                    });
                 };
             }
 
@@ -276,11 +292,135 @@ fn game_flow_handler(
 
 #[cfg(test)]
 mod tests {
-    use super::{check_win_criteria, LevelEndState};
+    use super::*;
 
-    use crate::level::WinCriteria;
+    use bevy::app::App;
+    use bevy::asset::{AssetApp, AssetPlugin};
+    use bevy::prelude::{default, Handle, State};
+    use bevy::state::app::{AppExtStates, StatesPlugin};
+    use bevy::MinimalPlugins;
+
+    use crate::level::{LevelDefinition, WinCriteria};
     use crate::player::Player;
     use crate::r#match::state::MatchState;
+
+    // --- where a match ends up --------------------------------------------
+
+    /// Just enough app to drive the state machine: the states, the level
+    /// collection the handler reads what is being played out of, and a player
+    /// for it to hand the result to.
+    fn flow_app() -> App {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default(), StatesPlugin));
+        app.init_asset::<LevelAsset>();
+        app.insert_state(GameState::InMatch);
+        app.insert_resource(MatchState { points: 500, ..default() });
+        app.add_plugins(EventsPlugin);
+        app.world_mut().spawn(Player { balls_available: 1, ..default() });
+
+        app
+    }
+
+    /// A campaign of one level, and the handle of a level of the editor's own
+    /// standing beside it.
+    fn levels_of(app: &mut App) -> (Levels, Handle<LevelAsset>) {
+        let mut assets = app.world_mut().resource_mut::<Assets<LevelAsset>>();
+        let campaign = assets.add(LevelAsset(LevelDefinition::default()));
+        let under_edit = assets.add(LevelAsset(LevelDefinition::default()));
+
+        (Levels { handles: vec![campaign], current_level: 0, ..default() }, under_edit)
+    }
+
+    fn tell_the_game(app: &mut App, event: GameFlowEvent) {
+        app.world_mut().write_message(event);
+
+        // One frame for the handler to read it, one for the transition to land.
+        app.update();
+        app.update();
+    }
+
+    fn state(app: &App) -> GameState {
+        *app.world().resource::<State<GameState>>().get()
+    }
+
+    fn player(app: &mut App) -> &Player {
+        let world = app.world_mut();
+        let mut players = world.query::<&Player>();
+
+        players.iter(world).next().expect("the app spawned one")
+    }
+
+    /// `c0013`: winning a playtest is not winning a match of the campaign. It
+    /// goes home to the editor rather than on to the results screen, and it
+    /// banks nothing on the way.
+    #[test]
+    fn winning_a_playtest_goes_back_to_the_editor_with_nothing_banked() {
+        let mut app = flow_app();
+        let (mut levels, under_edit) = levels_of(&mut app);
+        levels.start_playtest(under_edit);
+        app.insert_resource(levels);
+
+        tell_the_game(&mut app, GameFlowEvent::PlayerWins);
+
+        assert_eq!(state(&app), GameState::Editor);
+        assert_eq!(player(&mut app).points, 0, "a playtest is not worth points");
+        assert_eq!(player(&mut app).state, PlayerState::HasWon, "but it is worth knowing");
+    }
+
+    #[test]
+    fn losing_a_playtest_goes_back_to_the_editor_too() {
+        let mut app = flow_app();
+        let (mut levels, under_edit) = levels_of(&mut app);
+        levels.start_playtest(under_edit);
+        app.insert_resource(levels);
+
+        tell_the_game(&mut app, GameFlowEvent::PlayerLooses);
+
+        assert_eq!(state(&app), GameState::Editor);
+        assert_eq!(player(&mut app).state, PlayerState::HasLost);
+    }
+
+    /// And the flow the campaign has always taken is untouched by any of it.
+    #[test]
+    fn winning_a_match_of_the_campaign_still_goes_to_the_results_screen() {
+        let mut app = flow_app();
+        let (levels, _) = levels_of(&mut app);
+        app.insert_resource(levels);
+
+        tell_the_game(&mut app, GameFlowEvent::PlayerWins);
+
+        assert_eq!(state(&app), GameState::PostMatch);
+        assert_eq!(player(&mut app).points, 500, "the match is banked");
+    }
+
+    #[test]
+    fn losing_a_match_of_the_campaign_still_goes_to_the_results_screen() {
+        let mut app = flow_app();
+        let (levels, _) = levels_of(&mut app);
+        app.insert_resource(levels);
+
+        tell_the_game(&mut app, GameFlowEvent::PlayerLooses);
+
+        assert_eq!(state(&app), GameState::PostMatch);
+    }
+
+    /// A playtest is played on the editor's level, so the match starts on it -
+    /// the handler waits for a level to be ready, and the one the editor handed
+    /// over is ready the moment it is handed over.
+    #[test]
+    fn a_playtest_starts_a_match_on_the_level_it_was_handed() {
+        let mut app = flow_app();
+        let (mut levels, under_edit) = levels_of(&mut app);
+        levels.start_playtest(under_edit);
+        app.insert_resource(levels);
+
+        app.world_mut().resource_mut::<NextState<GameState>>().set(GameState::Editor);
+        app.update();
+
+        tell_the_game(&mut app, GameFlowEvent::StartMatch);
+
+        assert_eq!(state(&app), GameState::InMatch);
+    }
 
     #[test]
     fn just_loosing_a_ball() {

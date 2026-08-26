@@ -102,10 +102,21 @@ impl Default for LevelDefinition {
 /// Handles rather than owned [`LevelDefinition`]s, so the level a match is
 /// playing is the same value the asset server owns - and a hand edit to the file
 /// reaches the running game instead of a copy taken at startup.
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct Levels {
     pub handles: Vec<Handle<LevelAsset>>,
-    pub current_level: usize
+    pub current_level: usize,
+
+    /// A level being played instead of the campaign's, for as long as the
+    /// editor is playtesting it - see [`crate::editor::playtest`].
+    ///
+    /// Here rather than in a resource of the editor's own because
+    /// [`Levels::current_handle`] is where the whole game asks what it is
+    /// playing, and a playtest has to answer that question everywhere at once:
+    /// the arena, the blocks and the win criteria all read it. One field is one
+    /// place a playtest differs from a match, and the campaign underneath it -
+    /// `handles` and `current_level` - is never touched.
+    pub playtest: Option<Handle<LevelAsset>>,
 }
 
 /// Whether the current level can be played yet.
@@ -122,8 +133,27 @@ pub enum LevelReadiness {
 }
 
 impl Levels {
+    /// The level being played: the playtest's, if one is running, and otherwise
+    /// the campaign's current one.
     pub fn current_handle(&self) -> Option<&Handle<LevelAsset>> {
-        self.handles.get(self.current_level)
+        self.playtest.as_ref().or_else(|| self.handles.get(self.current_level))
+    }
+
+    /// Whether a playtest is what the game is currently playing.
+    pub fn is_playtesting(&self) -> bool {
+        self.playtest.is_some()
+    }
+
+    /// Play `handle` instead of the campaign's current level.
+    pub fn start_playtest(&mut self, handle: Handle<LevelAsset>) {
+        self.playtest = Some(handle);
+    }
+
+    /// Give the campaign back, and hand the playtest's level over so the caller
+    /// can drop it: the level was made for one match out of what was in the
+    /// editor, and nothing is coming back to it.
+    pub fn stop_playtest(&mut self) -> Option<Handle<LevelAsset>> {
+        self.playtest.take()
     }
 
     /// The level being played, if the asset server has it.
@@ -152,7 +182,17 @@ impl Levels {
         }
     }
 
+    /// Walks the campaign on, and says whether there was anywhere to walk to.
+    ///
+    /// A playtest has nowhere: it is one level, played out of the editor, and
+    /// the campaign it is standing in front of is not what the author is
+    /// working on. Refusing here as well as routing a playtest away from
+    /// `NextLevel` is belt and braces, and the belt is cheap.
     pub fn next_level(&mut self) -> bool {
+        if self.is_playtesting() {
+            return false;
+        }
+
         if self.current_level + 1 < self.handles.len() {
             self.current_level += 1;
             true
@@ -453,7 +493,7 @@ mod tests {
     fn a_match_spawns_the_level_the_asset_server_is_holding() {
         let mut app = level_app();
         let handle = add_level(&mut app, sparse("AA AA AA"));
-        app.insert_resource(Levels { handles: vec![handle], current_level: 0 });
+        app.insert_resource(Levels { handles: vec![handle], current_level: 0, ..default() });
 
         start_match(&mut app);
 
@@ -468,7 +508,7 @@ mod tests {
     fn a_hand_edit_to_the_current_level_replaces_its_blocks() {
         let mut app = level_app();
         let handle = add_level(&mut app, sparse("AA AA"));
-        app.insert_resource(Levels { handles: vec![handle.clone()], current_level: 0 });
+        app.insert_resource(Levels { handles: vec![handle.clone()], current_level: 0, ..default() });
         start_match(&mut app);
 
         settle(&mut app);
@@ -486,7 +526,7 @@ mod tests {
         let mut app = level_app();
         let playing = add_level(&mut app, sparse("AA AA"));
         let other = add_level(&mut app, sparse("AA AA AA AA AA"));
-        app.insert_resource(Levels { handles: vec![playing.clone(), other.clone()], current_level: 0 });
+        app.insert_resource(Levels { handles: vec![playing.clone(), other.clone()], current_level: 0, ..default() });
         start_match(&mut app);
 
         set_level(&mut app, &other, sparse("AA"));
@@ -503,7 +543,7 @@ mod tests {
     #[test]
     fn a_match_started_before_the_level_arrived_spawns_no_blocks_rather_than_panicking() {
         let mut app = level_app();
-        app.insert_resource(Levels { handles: vec![Handle::default()], current_level: 0 });
+        app.insert_resource(Levels { handles: vec![Handle::default()], current_level: 0, ..default() });
 
         start_match(&mut app);
         settle(&mut app);
@@ -515,7 +555,7 @@ mod tests {
     fn a_level_is_ready_once_the_asset_server_has_it() {
         let mut app = level_app();
         let handle = add_level(&mut app, sparse("AA"));
-        app.insert_resource(Levels { handles: vec![handle], current_level: 0 });
+        app.insert_resource(Levels { handles: vec![handle], current_level: 0, ..default() });
 
         assert_eq!(readiness(&app), LevelReadiness::Ready);
     }
@@ -535,7 +575,7 @@ mod tests {
         let asset_server = app.world().resource::<AssetServer>().clone();
         app.insert_resource(Levels {
             handles: vec![asset_server.load(campaign::level_asset_path("level0.ron"))],
-            current_level: 0,
+            ..default()
         });
 
         assert_eq!(readiness(&app), LevelReadiness::Loading);
@@ -558,7 +598,7 @@ mod tests {
         let asset_server = app.world().resource::<AssetServer>().clone();
         app.insert_resource(Levels {
             handles: vec![asset_server.load(campaign::level_asset_path("no-such-level.ron"))],
-            current_level: 0,
+            ..default()
         });
 
         for _ in 0..2000 {
@@ -575,14 +615,14 @@ mod tests {
     #[test]
     fn an_empty_campaign_is_unavailable_rather_than_loading() {
         let mut app = level_app();
-        app.insert_resource(Levels { handles: vec![], current_level: 0 });
+        app.insert_resource(Levels { handles: vec![], current_level: 0, ..default() });
 
         assert_eq!(readiness(&app), LevelReadiness::Unavailable);
     }
 
     #[test]
     fn next_level_walks_the_campaign_and_stops_at_the_end() {
-        let mut levels = Levels { handles: vec![Handle::default(), Handle::default()], current_level: 0 };
+        let mut levels = Levels { handles: vec![Handle::default(), Handle::default()], current_level: 0, ..default() };
 
         assert!(levels.next_level());
         assert_eq!(levels.current_level, 1);
@@ -590,9 +630,61 @@ mod tests {
         assert_eq!(levels.current_level, 1);
     }
 
+    // --- playing something that is not the campaign's ---------------------
+
+    /// What `c0013`'s playtest is made of: the level a match plays is
+    /// `current_handle`'s to say, and while a playtest is running it says the
+    /// editor's level instead of the campaign's.
+    #[test]
+    fn a_playtest_is_what_the_match_plays_instead_of_the_campaign() {
+        let mut app = level_app();
+        let campaign_level = add_level(&mut app, sparse("AA AA AA"));
+        let under_edit = add_level(&mut app, sparse("BB BB"));
+
+        let mut levels = Levels { handles: vec![campaign_level], current_level: 0, ..default() };
+        levels.start_playtest(under_edit.clone());
+
+        let assets = app.world().resource::<Assets<LevelAsset>>();
+        assert!(levels.is_playtesting());
+        assert_eq!(levels.current_handle(), Some(&under_edit));
+        assert_eq!(levels.get_current_level(assets), Some(&sparse("BB BB")));
+    }
+
+    /// And gives it back afterwards, untouched.
+    #[test]
+    fn stopping_a_playtest_hands_the_campaign_back_where_it_was() {
+        let mut app = level_app();
+        let first = add_level(&mut app, sparse("AA AA AA"));
+        let second = add_level(&mut app, sparse("AA"));
+        let under_edit = add_level(&mut app, sparse("BB BB"));
+
+        let mut levels = Levels { handles: vec![first, second.clone()], current_level: 1, ..default() };
+        levels.start_playtest(under_edit.clone());
+
+        assert_eq!(levels.stop_playtest(), Some(under_edit), "the level the playtest was made of, to drop");
+        assert!(!levels.is_playtesting());
+        assert_eq!(levels.current_level, 1, "the campaign never moved");
+        assert_eq!(levels.current_handle(), Some(&second));
+    }
+
+    /// A playtest is one level and has no next one - the campaign standing
+    /// behind it is not what the author is working on.
+    #[test]
+    fn a_playtest_does_not_walk_the_campaign_on() {
+        let mut levels = Levels {
+            handles: vec![Handle::default(), Handle::default()],
+            current_level: 0,
+            ..default()
+        };
+        levels.start_playtest(Handle::default());
+
+        assert!(!levels.next_level());
+        assert_eq!(levels.current_level, 0);
+    }
+
     #[test]
     fn next_level_on_an_empty_campaign_does_not_panic() {
-        let mut levels = Levels { handles: vec![], current_level: 0 };
+        let mut levels = Levels { handles: vec![], current_level: 0, ..default() };
 
         assert!(!levels.next_level());
         assert_eq!(levels.current_level, 0);
@@ -608,7 +700,7 @@ mod tests {
             global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
             ..default()
         });
-        app.insert_resource(Levels { handles: vec![handle.clone()], current_level: 0 });
+        app.insert_resource(Levels { handles: vec![handle.clone()], current_level: 0, ..default() });
 
         start_match(&mut app);
         let first = app.world().resource::<MatchState>().distributed_global_pickups.clone();

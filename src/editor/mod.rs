@@ -48,6 +48,7 @@ use crate::level::TargetLayout::{Custom, FilledGrid, SparseGrid};
 use crate::level::campaign::levels_dir;
 use crate::level::{LevelDefinition, Levels};
 use crate::editor::history::{editor_history_click, editor_show_history, editor_undo_redo, editor_watch_the_file, history_rect, remember, EditHistory, HistoryStep};
+use crate::editor::playtest::{editor_playtest_click, editor_playtest_shortcut, editor_show_playtest, playtest_end, playtest_leave, playtest_rect, playtest_teardown, playtesting, LastPlaytest};
 use crate::editor::save::{editor_save_click, editor_save_shortcut, editor_show_save, save_rect, LastSave, LevelsOnDisk, SaveReport};
 use crate::editor::settings::{panel_rect, setting_at, spawn_settings_panel, SettingsPanel};
 use crate::materials::block::BlockMaterial;
@@ -55,6 +56,7 @@ use crate::state::GameState;
 use crate::MyAssetPack;
 
 pub mod history;
+pub mod playtest;
 pub mod save;
 pub mod settings;
 
@@ -489,6 +491,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<EditHistory>()
             .init_resource::<SaveReport>()
             .init_resource::<LastSave>()
+            .init_resource::<LastPlaytest>()
             // Where a save lands. Read once here rather than at the moment of
             // writing, so a test can point the editor at a directory that is not
             // the repository's own.
@@ -505,8 +508,15 @@ impl Plugin for EditorPlugin {
                 // `EditorLevel`, and the panels that say what is in it cannot
                 // run until that command has been applied.
                 (
-                    editor_open,
-                    (editor_setup, editor_show_cursor, editor_show_history, editor_show_save),
+                    // `playtest_end` alongside `editor_open`: both are about
+                    // what the editor is coming back from, and the panels below
+                    // say what they found.
+                    //
+                    // `playtest_teardown` here too, because a playtest comes
+                    // home without going through the `OnExit(PostMatch)` the
+                    // rest of the game takes a match apart in.
+                    (editor_open, playtest_end, playtest_teardown),
+                    (editor_setup, editor_show_cursor, editor_show_history, editor_show_save, editor_show_playtest),
                 )
                     .chain(),
             )
@@ -541,6 +551,11 @@ impl Plugin for EditorPlugin {
                         // save would write.
                         editor_save_click,
                         editor_save_shortcut,
+                        // And for the panel under that one. A playtest leaves
+                        // the editor, so this is the last thing a click can be
+                        // aimed at before painting.
+                        editor_playtest_click,
+                        editor_playtest_shortcut,
                         editor_paint,
                         editor_resize,
                         // After the three systems that edit, so that a drag
@@ -564,6 +579,12 @@ impl Plugin for EditorPlugin {
                         editor_show_save.run_if(
                             resource_changed::<SaveReport>.or_else(resource_exists_and_changed::<EditorLevel>),
                         ),
+                        // Two reasons of its own: how the last playtest went,
+                        // and the report above it growing or shrinking, which
+                        // moves the whole panel down the column.
+                        editor_show_playtest.run_if(
+                            resource_changed::<LastPlaytest>.or_else(resource_changed::<SaveReport>),
+                        ),
                         editor_draw_hover,
                         editor_draw_doomed_edge,
                     )
@@ -575,6 +596,13 @@ impl Plugin for EditorPlugin {
             .add_systems(
                 OnExit(GameState::Editor),
                 (editor_teardown, editor_hide_cursor),
+            )
+
+            // The way back out of a playtest, which happens in the match rather
+            // than in the editor - see [`playtest`].
+            .add_systems(
+                Update,
+                playtest_leave.run_if(in_state(GameState::InMatch).and_then(playtesting)),
             )
         ;
     }
@@ -784,7 +812,11 @@ fn cell_under_cursor(
     // happens to cover. Saying so here rather than in `editor_paint` means the
     // highlight goes too, so none of them sits on top of a cell that still looks
     // armed.
-    if panel_rect().contains(cursor) || history_rect().contains(cursor) || save_rect(report).contains(cursor) {
+    if panel_rect().contains(cursor)
+        || history_rect().contains(cursor)
+        || save_rect(report).contains(cursor)
+        || playtest_rect(report).contains(cursor)
+    {
         return None;
     }
 
@@ -1268,21 +1300,30 @@ mod tests {
     use bevy::input::mouse::MouseButtonInput;
     use bevy::input::{ButtonState, InputPlugin};
     use bevy::math::Dir3;
-    use bevy::prelude::State;
+    use bevy::prelude::{Or, State};
     use bevy::state::app::{AppExtStates, StatesPlugin};
     use bevy::text::Font;
     use bevy::transform::TransformPlugin;
     use bevy::window::WindowResolution;
     use bevy::MinimalPlugins;
 
+    use crate::arena::Arena;
+    use crate::ball::Ball;
     use crate::config::{BLOCK_GAP, BLOCK_WIDTH_H, CAMERA_TILT, TILTED_CAMERA};
     use crate::editor::history::{history_rows, HistoryBar, HistoryEntry};
+    use crate::editor::playtest::{editor_playtest_shortcut, playtest_leave, playtest_row, playtest_teardown, LastPlaytest, PlaytestEnd, PlaytestPanel};
     use crate::editor::save::{editor_save_shortcut, save_rows, LevelsOnDisk, ReportLine, SaveAction, SavePanel};
     use crate::editor::settings::{settings_rows, Setting, SettingValue, SETTINGS};
+    use crate::events::EventsPlugin;
     use crate::level::campaign;
     use crate::level::campaign::Campaign;
     use crate::level::WinCriteria;
-    use crate::pickups::PickupType;
+    use crate::r#match::state::MatchState;
+    use crate::pickups::{Pickup, PickupType};
+    use crate::points::PointsDisplay;
+    use crate::ship::Ship;
+    use crate::ui::stats::MatchStatsUI;
+    use crate::ui::Environment3d;
 
     /// The window every test picks through. Wider than it is tall, as the game's
     /// own is, so a projection that quietly swapped the two axes would show.
@@ -1316,7 +1357,13 @@ mod tests {
         // registers it in the game, and a headless app has no text to draw.
         app.init_asset::<Font>();
         app.insert_state(GameState::InGame);
-        app.insert_resource(Levels { handles: vec![], current_level: 0 });
+        // The game's flow handler, so that `c0013`'s playtest can be started the
+        // way an author starts one - by asking for a match - rather than by
+        // setting the state the editor is not the one to set. It reads the
+        // match's state, so that has to be there too.
+        app.insert_resource(MatchState::default());
+        app.add_plugins(EventsPlugin);
+        app.insert_resource(Levels { handles: vec![], current_level: 0, ..default() });
         app.add_plugins(EditorPlugin);
 
         // A real `Window`, not just the cursor options: picking starts at
@@ -1338,7 +1385,7 @@ mod tests {
         let mut app = editor_app();
 
         let handle = app.world_mut().resource_mut::<Assets<LevelAsset>>().add(LevelAsset(level));
-        app.insert_resource(Levels { handles: vec![handle], current_level: 0 });
+        app.insert_resource(Levels { handles: vec![handle], current_level: 0, ..default() });
 
         app
     }
@@ -2805,7 +2852,18 @@ mod tests {
         // the grid behind the panel.
         resize_the_window(&mut app, UVec2::new(400, 800));
 
-        let mut covered = [0, 0];
+        // Every piece of the editor's chrome, top to bottom. The two lower
+        // panels are in the list because they are part of the answer, not
+        // because this window is narrow enough for them to reach a cell - only
+        // the two above them are asserted to have caught one.
+        let chrome = [
+            panel_rect(),
+            history_rect(),
+            save_rect(&SaveReport::default()),
+            playtest_rect(&SaveReport::default()),
+        ];
+
+        let mut covered = [0; 4];
         let mut clear = 0;
 
         for (col, row) in cells(9, 6) {
@@ -2817,7 +2875,7 @@ mod tests {
 
             let pixel = cursor(&mut app).expect("the pointer was just put on screen");
 
-            match [panel_rect(), history_rect()].iter().position(|rect| rect.contains(pixel)) {
+            match chrome.iter().position(|rect| rect.contains(pixel)) {
                 Some(panel) => {
                     assert_eq!(hovered(&app), None, "cell ({col}, {row}) is behind the chrome");
                     covered[panel] += 1;
@@ -3413,7 +3471,7 @@ mod tests {
             .insert(handle.id(), LevelAsset(level))
             .expect("nothing has that id yet");
 
-        app.insert_resource(Levels { handles: vec![handle], current_level: 0 });
+        app.insert_resource(Levels { handles: vec![handle], current_level: 0, ..default() });
 
         go_to(&mut app, GameState::Editor);
         give_the_camera_its_viewport(&mut app);
@@ -3695,5 +3753,290 @@ mod tests {
 
         assert_eq!(layout(&app), empty_grid(3, 2), "the grid is not what the click was aimed at");
         assert_eq!(depth(&app), (0, 0), "and nothing was painted to be undone");
+    }
+
+    // --- c0013: the playtest round trip -----------------------------------
+
+    /// `F5`, run the way the other shortcuts are: `InputPlugin` clears
+    /// `just_pressed` in `PreUpdate`, so a key pressed from a test never
+    /// survives to `Update`.
+    fn press_playtest(app: &mut App) {
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::F5);
+        app.world_mut().run_system_once(editor_playtest_shortcut).unwrap();
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release_all();
+
+        settle(app);
+    }
+
+    /// The same, out of a playtest.
+    fn press_escape_in_the_playtest(app: &mut App) {
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::Escape);
+        app.world_mut().run_system_once(playtest_leave).unwrap();
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release_all();
+
+        settle(app);
+
+        // The editor is up again, and everything it spawned is new - including
+        // the camera a test points through.
+        give_the_camera_its_viewport(app);
+    }
+
+    /// Long enough for the game to have answered: the flow handler takes a
+    /// frame to read the message and the state transition lands on the next
+    /// one.
+    fn settle(app: &mut App) {
+        for _ in 0..3 {
+            app.update();
+        }
+    }
+
+    /// The level the game would play right now, whatever it is playing it out
+    /// of.
+    fn playing(app: &App) -> Option<LevelDefinition> {
+        app.world()
+            .resource::<Levels>()
+            .get_current_level(app.world().resource::<Assets<LevelAsset>>())
+            .cloned()
+    }
+
+    fn is_playtesting(app: &App) -> bool {
+        app.world().resource::<Levels>().is_playtesting()
+    }
+
+    /// Everything a match leaves on the table, put there by hand: this app has
+    /// none of the game's plugins in it, so nothing would spawn them for real.
+    ///
+    /// One of each of the kinds the card names, plus the readout and the lights
+    /// and camera the match is played under.
+    fn leave_a_match_lying_around(app: &mut App) {
+        let world = app.world_mut();
+
+        world.spawn(Arena);
+        world.spawn(Ship::default());
+        world.spawn(Ball::default());
+        world.spawn(Block::default());
+        world.spawn(Pickup {
+            spawn_position: Vec3::ZERO,
+            pickup_type: PickupType::MoreBalls(1),
+        });
+        world.spawn(PointsDisplay { text: "100".to_string(), position: Vec3::ZERO });
+        world.spawn(MatchStatsUI);
+        world.spawn(Environment3d);
+    }
+
+    fn match_entities(app: &mut App) -> usize {
+        let world = app.world_mut();
+        let mut leftovers = world.query_filtered::<
+            Entity,
+            Or<(
+                With<Arena>,
+                With<Ship>,
+                With<Ball>,
+                With<Block>,
+                With<Pickup>,
+                With<PointsDisplay>,
+                With<MatchStatsUI>,
+                With<Environment3d>,
+            )>,
+        >();
+
+        leftovers.iter(world).count()
+    }
+
+    fn last_playtest(app: &App) -> Option<PlaytestEnd> {
+        app.world().resource::<LastPlaytest>().0
+    }
+
+    /// The card's first two criteria at once: a key starts a match, and what it
+    /// starts it on is the level in the editor rather than the file that level
+    /// came out of.
+    #[test]
+    fn playtesting_plays_the_level_as_it_stands_and_not_the_file() {
+        let on_disk = sparse("AA AA\n.. ..");
+        let mut app = app_editing_file("scratch.ron", on_disk.clone());
+
+        paint(&mut app, &[(0, 1)]);
+        let under_edit = editor_level(&app).level.clone();
+        assert_ne!(under_edit, on_disk, "the edit has to have changed something");
+
+        press_playtest(&mut app);
+
+        assert!(is_playtesting(&app));
+        assert_eq!(playing(&app), Some(under_edit), "the match plays the unsaved edits");
+        assert_eq!(state(&app), GameState::InMatch, "and it really is a match");
+    }
+
+    /// The panel's button does what the key does - the card asks for a key *or*
+    /// a button, and this editor has both.
+    #[test]
+    fn the_play_button_starts_a_playtest_too() {
+        let mut app = app_in_the_editor(sparse("AA AA"));
+
+        put_the_pointer_at(&mut app, Some(playtest_row(&SaveReport::default()).button.center()));
+        click(&mut app);
+        settle(&mut app);
+
+        assert!(is_playtesting(&app));
+        assert_eq!(state(&app), GameState::InMatch);
+    }
+
+    /// The whole round trip, out and back, with an edit that was never saved
+    /// riding along: the match is played on it, and it is still there to carry
+    /// on with afterwards.
+    #[test]
+    fn coming_back_from_a_playtest_finds_every_unsaved_edit() {
+        let mut app = app_editing_file("scratch.ron", sparse("AA AA\n.. .."));
+
+        paint(&mut app, &[(0, 1)]);
+        let under_edit = editor_level(&app).level.clone();
+
+        press_playtest(&mut app);
+        assert_eq!(state(&app), GameState::InMatch);
+
+        press_escape_in_the_playtest(&mut app);
+
+        assert_eq!(state(&app), GameState::Editor);
+        assert_eq!(editor_level(&app).level, under_edit, "the level came back whole");
+        assert!(!is_playtesting(&app), "and the playtest is over");
+        assert_eq!(last_playtest(&app), Some(PlaytestEnd::Left));
+    }
+
+    /// The blocks the editor draws are the level's, so a level that came home
+    /// whole is one that is on screen again - the round trip has to leave
+    /// something to carry on painting, not just a resource.
+    #[test]
+    fn the_level_is_back_on_screen_after_a_playtest() {
+        let mut app = app_in_the_editor(sparse("AA AA\n.. .."));
+
+        paint(&mut app, &[(0, 1)]);
+        let before = blocks_on_screen(&mut app);
+
+        press_playtest(&mut app);
+        press_escape_in_the_playtest(&mut app);
+
+        assert_eq!(blocks_on_screen(&mut app), before);
+    }
+
+    /// The card's last criterion. The campaign is what a player's place in the
+    /// game is made of, and an author trying their level out is not playing it.
+    #[test]
+    fn a_playtest_leaves_the_campaign_exactly_where_it_was() {
+        let mut app = app_editing_file("scratch.ron", sparse("AA AA"));
+        let campaign = app.world().resource::<Levels>().handles.clone();
+
+        press_playtest(&mut app);
+        assert_eq!(app.world().resource::<Levels>().current_level, 0, "not even during");
+
+        press_escape_in_the_playtest(&mut app);
+
+        let levels = app.world().resource::<Levels>();
+        assert_eq!(levels.current_level, 0);
+        assert_eq!(levels.handles, campaign);
+        assert_eq!(playing(&app), Some(sparse("AA AA")), "back to the campaign's level");
+    }
+
+    /// The game takes a match apart on the way out of `PostMatch`, which a
+    /// playtest never goes near - so the editor takes the stage back itself.
+    #[test]
+    fn coming_back_from_a_playtest_leaves_no_match_behind() {
+        let mut app = app_in_the_editor(sparse("AA AA"));
+
+        press_playtest(&mut app);
+        leave_a_match_lying_around(&mut app);
+        assert!(match_entities(&mut app) > 0, "the match has to have left something");
+
+        press_escape_in_the_playtest(&mut app);
+
+        assert_eq!(match_entities(&mut app), 0);
+        assert!(editor_entities(&mut app) > 0, "and the editor is standing again");
+    }
+
+    /// A match the editor never played is not the editor's to clear away
+    /// either, but there is nothing subtle about that - what matters is that
+    /// the editor's own blocks and panels are not in the net.
+    #[test]
+    fn clearing_the_stage_leaves_the_editors_own_things_alone() {
+        let mut app = app_in_the_editor(sparse("AA AA"));
+        let drawn = blocks_on_screen(&mut app);
+
+        app.world_mut().run_system_once(playtest_teardown).unwrap();
+        app.update();
+
+        assert_eq!(blocks_on_screen(&mut app), drawn);
+        assert!(editor_entities(&mut app) > 0);
+    }
+
+    /// The level a playtest is played on is a copy, made for one match. It goes
+    /// when the match does, rather than piling up one dead level per playtest.
+    #[test]
+    fn the_level_a_playtest_was_made_of_does_not_outlive_it() {
+        let mut app = app_editing_file("scratch.ron", sparse("AA AA"));
+        let before = app.world().resource::<Assets<LevelAsset>>().len();
+
+        press_playtest(&mut app);
+        assert_eq!(app.world().resource::<Assets<LevelAsset>>().len(), before + 1);
+
+        press_escape_in_the_playtest(&mut app);
+
+        assert_eq!(app.world().resource::<Assets<LevelAsset>>().len(), before);
+    }
+
+    /// Two playtests in a row: the second is played on the level as it stands
+    /// *then*, not on the one the first was made of.
+    #[test]
+    fn a_second_playtest_plays_what_was_painted_after_the_first() {
+        let mut app = app_in_the_editor(sparse("AA AA\n.. .."));
+
+        press_playtest(&mut app);
+        press_escape_in_the_playtest(&mut app);
+
+        paint(&mut app, &[(0, 1)]);
+        let under_edit = editor_level(&app).level.clone();
+
+        press_playtest(&mut app);
+
+        assert_eq!(playing(&app), Some(under_edit));
+    }
+
+    #[test]
+    fn the_playtest_panel_is_up_while_the_editor_is_and_goes_with_it() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+        assert!(playtest_panel_parts(&mut app) > 0, "the panel is on screen with the editor");
+
+        go_to(&mut app, GameState::InGame);
+        assert_eq!(playtest_panel_parts(&mut app), 0, "and goes when the editor does");
+
+        go_to(&mut app, GameState::Editor);
+        assert!(playtest_panel_parts(&mut app) > 0, "and is back when it is");
+    }
+
+    /// How the playtest went is worth saying out loud - an author who walks
+    /// back into the editor after winning has learned something about the
+    /// level, and the panel is where the editor says what it knows.
+    #[test]
+    fn the_panel_says_how_the_last_playtest_went() {
+        let mut app = app_in_the_editor(sparse("AA AA"));
+        assert!(panel_says(&mut app, "play the level as it stands"));
+
+        press_playtest(&mut app);
+        press_escape_in_the_playtest(&mut app);
+
+        assert!(panel_says(&mut app, "back from the last playtest"));
+    }
+
+    fn playtest_panel_parts(app: &mut App) -> usize {
+        let world = app.world_mut();
+        let mut parts = world.query_filtered::<Entity, With<PlaytestPanel>>();
+
+        parts.iter(world).count()
+    }
+
+    /// What the panel has written on it, read off the screen rather than out of
+    /// the resource.
+    fn panel_says(app: &mut App, line: &str) -> bool {
+        let world = app.world_mut();
+        let mut texts = world.query_filtered::<&Text, With<PlaytestPanel>>();
+
+        texts.iter(world).any(|text| text.0 == line)
     }
 }

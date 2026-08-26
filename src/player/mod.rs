@@ -1,13 +1,12 @@
-use std::collections::HashMap;
-use bevy::app::App;
-use bevy::log::info;
-use bevy::prelude::{Component, Entity, Plugin, Query, SystemSet, With, Without, Commands};
+use bevy::app::{App, Plugin, Update};
+use bevy::prelude::{in_state, Commands, Component, Entity, IntoScheduleConfigs, Query, With, Without};
 
 use crate::pickups::{Pickup, PickupType};
 
-use crate::powerups::{Grabber};
+use crate::powerups::Grabber;
 use crate::state::GameState;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlayerState {
     Open,
     HasWon,
@@ -117,10 +116,10 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_system_set(
-                SystemSet::on_update(GameState::InMatch)
-                    .with_system(player_pickup_grabber)
-                    .with_system(player_pickup_more_balls)
+            .add_systems(
+                Update,
+                (player_pickup_grabber, player_pickup_more_balls)
+                    .run_if(in_state(GameState::InMatch)),
             )
 
         ;
@@ -147,7 +146,7 @@ fn player_pickup_grabber(
     with_grabber: Query<(Entity, &Grabber, &Pickup), With<Player>>,
     without_grabber: Query<(Entity, &Pickup), (Without<Grabber>, With<Player>)>,
 ) {
-    if let Ok((entity, grabber, pickup)) = with_grabber.get_single() {
+    if let Ok((entity, grabber, pickup)) = with_grabber.single() {
         if let PickupType::Grabber(count) = pickup.pickup_type {
             commands.entity(entity)
                 .remove::<Pickup>()
@@ -157,7 +156,7 @@ fn player_pickup_grabber(
 
             //info!("More grabs!")
         }
-    } else if let Ok((entity, pickup)) = without_grabber.get_single() {
+    } else if let Ok((entity, pickup)) = without_grabber.single() {
         if let PickupType::Grabber(count) = pickup.pickup_type {
             commands.entity(entity)
                 .remove::<Pickup>()

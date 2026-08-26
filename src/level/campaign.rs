@@ -177,7 +177,7 @@ pub fn load_levels(dir: &Path, asset_server: &AssetServer) -> Result<Levels, Lev
             .iter()
             .map(|name| asset_server.load::<LevelAsset>(level_asset_path(name)))
             .collect(),
-        current_level: 0,
+        ..Default::default()
     })
 }
 
