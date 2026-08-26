@@ -2405,3 +2405,4 @@
 [c0013] - The bevy 0.19 migration of `ui/mod.rs`, `ui/stats/mod.rs`, `game/mod.rs`, `player/mod.rs` rides along; it is load-bearing (`MatchStatsUI`, `Environment3d`, `stop_playtest`) and matches what c0004/c0005 did on this branch. I read the stats rewrite through — faithful port, no readout dropped.
 [c0013] - I did not run the interactive round trip in the game; it needs a controller and a window.
 [c0013] ✓ 52 in / 18965 out tokens, $2.3792, 34 turns, 276.6s
+[c0009] → Bash(cat .gello/epics/e01-level-editor/c0009-palette-ui.md)
