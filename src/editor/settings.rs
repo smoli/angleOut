@@ -359,28 +359,33 @@ fn on_off(on: bool) -> String {
 /// Where the panel sits, in logical window pixels - the same space
 /// `Window::cursor_position` reads in, which is what lets a click be tested
 /// against it directly.
-const PANEL_ORIGIN: Vec2 = Vec2::new(16.0, 16.0);
-const PANEL_PADDING: f32 = 8.0;
+///
+/// The metrics, the colours and the two node builders below are the editor's
+/// panel chrome rather than the settings panel's own: `c0011`'s history bar is
+/// a second panel in the same column, and two panels that are laid out from the
+/// same numbers cannot drift apart.
+pub(super) const PANEL_ORIGIN: Vec2 = Vec2::new(16.0, 16.0);
+pub(super) const PANEL_PADDING: f32 = 8.0;
 
-const TITLE_HEIGHT: f32 = 26.0;
-const ROW_HEIGHT: f32 = 26.0;
+pub(super) const TITLE_HEIGHT: f32 = 26.0;
+pub(super) const ROW_HEIGHT: f32 = 26.0;
 
 /// How much of a row's height a button leaves alone, so two rows of buttons do
 /// not run into one another.
-const ROW_INSET: f32 = 2.0;
+pub(super) const ROW_INSET: f32 = 2.0;
 
-const COLUMN_GAP: f32 = 4.0;
+pub(super) const COLUMN_GAP: f32 = 4.0;
 const LABEL_WIDTH: f32 = 150.0;
 const VALUE_WIDTH: f32 = 110.0;
 const BUTTON_WIDTH: f32 = 26.0;
 
-const ROW_WIDTH: f32 = LABEL_WIDTH + VALUE_WIDTH + 2.0 * BUTTON_WIDTH + 3.0 * COLUMN_GAP;
+pub(super) const ROW_WIDTH: f32 = LABEL_WIDTH + VALUE_WIDTH + 2.0 * BUTTON_WIDTH + 3.0 * COLUMN_GAP;
 
-const TITLE_FONT_SIZE: f32 = 18.0;
-const ROW_FONT_SIZE: f32 = 15.0;
+pub(super) const TITLE_FONT_SIZE: f32 = 18.0;
+pub(super) const ROW_FONT_SIZE: f32 = 15.0;
 
-const PANEL_BACKGROUND: Color = Color::srgba(0.04, 0.04, 0.07, 0.85);
-const BUTTON_BACKGROUND: Color = Color::srgba(0.18, 0.18, 0.24, 0.95);
+pub(super) const PANEL_BACKGROUND: Color = Color::srgba(0.04, 0.04, 0.07, 0.85);
+pub(super) const BUTTON_BACKGROUND: Color = Color::srgba(0.18, 0.18, 0.24, 0.95);
 
 /// Marks everything the panel draws, so a changed level can take the whole of it
 /// down and put it up again saying the new thing.
@@ -530,11 +535,11 @@ pub fn spawn_settings_panel(
 }
 
 /// Above the panel's own background, and above the rest of the editor's UI.
-const PANEL_Z: i32 = 10;
+pub(super) const PANEL_Z: i32 = 10;
 const PANEL_CONTENT_Z: i32 = 11;
 
-/// A rectangle of the panel, where [`settings_rows`] put it.
-fn panel_node(rect: Rect) -> Node {
+/// A rectangle of a panel, where whoever laid it out put it.
+pub(super) fn panel_node(rect: Rect) -> Node {
     Node {
         position_type: PositionType::Absolute,
         left: Val::Px(rect.min.x),
@@ -545,9 +550,9 @@ fn panel_node(rect: Rect) -> Node {
     }
 }
 
-/// A rectangle of the panel with something written in it, centred in its own
+/// A rectangle of a panel with something written in it, centred in its own
 /// height so a row reads as a row.
-fn panel_text(
+pub(super) fn panel_text(
     rect: Rect,
     text: &str,
     size: f32,

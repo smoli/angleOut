@@ -13,11 +13,16 @@
 //!
 //! A level is more than its grid, and the rest of it lives in
 //! [`settings`] - the panel in the corner that a click steps a setting on.
+//!
+//! Nothing in here mutates the level on its own: every edit is recorded as it
+//! is made, so that it can be taken back again. That is [`history`]'s, and it
+//! is why painting, resizing and stepping a setting all end whatever drag was
+//! in progress before they touch anything.
 
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::app::{App, Plugin, Update};
-use bevy::asset::{AssetServer, Assets};
+use bevy::asset::{AssetServer, Assets, Handle};
 use bevy::camera::{OrthographicProjection, Projection, ScalingMode};
 use bevy::color::palettes::css::{DIM_GRAY, GRAY, ORANGE_RED, YELLOW};
 use bevy::ecs::change_detection::DetectChangesMut;
@@ -35,12 +40,14 @@ use crate::config::{ARENA_HEIGHT, ARENA_WIDTH, BLOCK_DEPTH, BLOCK_GAP, BLOCK_WID
 use crate::level::asset::LevelAsset;
 use crate::level::layout::{block_token, blocks_on_edge, can_shrink, cell_to_world, empty_grid, filled_grid, grid_bounds, grid_dimensions, grow, interpret_grid, set_cell, shrink, world_to_cell, Edge, EMPTY_SLOT};
 use crate::level::TargetLayout::{Custom, FilledGrid, SparseGrid};
-use crate::level::{LevelDefinition, Levels, TargetLayout};
+use crate::level::{LevelDefinition, Levels};
+use crate::editor::history::{editor_history_click, editor_show_history, editor_undo_redo, editor_watch_the_file, history_rect, remember, EditHistory, HistoryStep};
 use crate::editor::settings::{panel_rect, setting_at, spawn_settings_panel, SettingsPanel};
 use crate::materials::block::BlockMaterial;
 use crate::state::GameState;
 use crate::MyAssetPack;
 
+pub mod history;
 pub mod settings;
 
 /// How far above the play field the editor camera sits. Only the near and far
@@ -74,14 +81,25 @@ const EDITOR_FONT: &str = "fonts/Orbitron-Regular.ttf";
 /// edits and all, on the way back in.
 #[derive(Resource, Debug, Clone, PartialEq)]
 pub struct EditorLevel {
-    /// The asset path the level was opened from, or `None` for a level that has
-    /// never been on disk. This is where `c0012` will save it back to.
-    pub source: Option<String>,
+    /// The level asset the editor opened, or `None` for a level that has never
+    /// been on disk.
+    ///
+    /// The handle rather than the path it was loaded from, because the path is
+    /// only half of what the editor has to ask about a file: `c0011` watches
+    /// this asset for the hand edit that drops the undo history, and an
+    /// `AssetEvent` names an id, not a path. What `c0012` saves back to is
+    /// [`EditorLevel::source_path`].
+    pub source: Option<Handle<LevelAsset>>,
 
     pub level: LevelDefinition,
 }
 
 impl EditorLevel {
+    /// The file the level under edit came from, where it came from one at all.
+    pub fn source_path(&self) -> Option<String> {
+        self.source.as_ref()?.path().map(|path| path.to_string())
+    }
+
     /// A level with nothing in it yet - what "new level" means.
     pub fn blank() -> Self {
         EditorLevel {
@@ -369,20 +387,39 @@ pub struct EditorWarning;
 /// The paint in progress: from a mouse button going down to it coming up again.
 ///
 /// A drag is *one* edit and not one per cell, so the stroke is recorded as a
-/// whole from the start - `c0011` has a single undo entry to hang off a
+/// whole from the start - [`history`] gets a single undo entry to hang off a
 /// finished one rather than a hundred identical ones to collapse afterwards.
 #[derive(Resource, Debug, Default)]
 pub struct PaintStroke(pub Option<Stroke>);
 
 #[derive(Debug)]
 pub struct Stroke {
-    /// The layout as it stood when the button went down.
-    pub before: TargetLayout,
+    /// The level as it stood when the button went down - the whole of it and
+    /// not just the layout, because that is what the history has to be able to
+    /// put back.
+    pub before: LevelDefinition,
 
     /// The cells this stroke has painted, in the order the pointer reached
     /// them. Also what keeps it from writing the same cell over and over while
     /// the pointer rests on it.
     pub cells: Vec<(usize, usize)>,
+
+    /// Whether the brush it started under clears cells rather than fills them,
+    /// which is the difference between "painting 3 cells" and "erasing 3
+    /// cells" in the history.
+    pub erasing: bool,
+}
+
+impl Stroke {
+    /// What this stroke did, as the history bar says it.
+    fn what(&self) -> String {
+        format!(
+            "{} {} cell{}",
+            if self.erasing { "erasing" } else { "painting" },
+            self.cells.len(),
+            if self.cells.len() == 1 { "" } else { "s" },
+        )
+    }
 }
 
 /// A block of the level under edit, on screen.
@@ -414,10 +451,15 @@ impl Plugin for EditorPlugin {
             .init_resource::<Brush>()
             .init_resource::<PaintStroke>()
             .init_resource::<PendingRemoval>()
+            .init_resource::<EditHistory>()
 
             .add_systems(
                 OnEnter(GameState::Editor),
-                (editor_open, editor_setup, editor_show_cursor),
+                // The history bar is put up here rather than waiting for the
+                // history to change, because coming back into the editor finds
+                // a history that has not moved since it was left - and a bar
+                // that is not on screen is one an author cannot click.
+                (editor_open, editor_setup, editor_show_cursor, editor_show_history),
             )
 
             .add_systems(
@@ -433,14 +475,23 @@ impl Plugin for EditorPlugin {
                     // painted.
                     (
                         editor_pick_cell,
+                        // First, so that a step through a history the file
+                        // underneath has just invalidated is not taken at all.
+                        editor_watch_the_file,
                         // Before painting, so that the click that stepped a
                         // setting is not also a click on whatever is behind the
                         // panel - and before the two systems that put the level
                         // back on screen, so a setting changed this frame shows
                         // this frame.
                         editor_settings_click,
+                        // Same, for the bar under the panel.
+                        editor_history_click,
                         editor_paint,
                         editor_resize,
+                        // After the three systems that edit, so that a drag
+                        // still in progress is an edit of its own by the time
+                        // the history is asked to step back over it.
+                        editor_undo_redo,
                         // `resource_exists_and_changed` rather than
                         // `resource_changed`: a run condition is evaluated every
                         // frame whether or not the `in_state` beside it holds,
@@ -451,6 +502,7 @@ impl Plugin for EditorPlugin {
                         editor_show_settings.run_if(resource_exists_and_changed::<EditorLevel>),
                         editor_dress_blocks,
                         editor_show_warning.run_if(resource_changed::<PendingRemoval>),
+                        editor_show_history.run_if(resource_changed::<EditHistory>),
                         editor_draw_hover,
                         editor_draw_doomed_edge,
                     )
@@ -499,10 +551,7 @@ fn open_current_level(levels: &Levels, level_assets: &Assets<LevelAsset>) -> Edi
     };
 
     EditorLevel {
-        source: levels
-            .current_handle()
-            .and_then(|handle| handle.path())
-            .map(|path| path.to_string()),
+        source: levels.current_handle().cloned(),
         level: level.clone(),
     }
 }
@@ -517,8 +566,9 @@ fn editor_setup(mut commands: Commands) {
     info!(
         "Editor: left button paints, right button erases; an arrow key adds a \
          row or column at that edge and Shift+arrow takes it away; the panel \
-         top left holds everything about the level that is not its grid; \
-         Escape leaves"
+         top left holds everything about the level that is not its grid, and \
+         the bar under it takes an edit back - Ctrl+Z to undo, Ctrl+Y or \
+         Ctrl+Shift+Z to redo; Escape leaves"
     );
 
     let view = editor_view();
@@ -666,11 +716,12 @@ fn cell_under_cursor(
     let (cols, rows, gap) = editor_level.grid()?;
     let cursor = windows.iter().next()?.cursor_position()?;
 
-    // The settings panel is in front of the play field, and a click on it is
-    // aimed at a setting rather than at the cell it happens to cover. Saying so
-    // here rather than in `editor_paint` means the highlight goes too, so the
-    // panel does not sit on top of a cell that still looks armed.
-    if panel_rect().contains(cursor) {
+    // The settings panel and the history bar under it are in front of the play
+    // field, and a click on either is aimed at what it says rather than at the
+    // cell it happens to cover. Saying so here rather than in `editor_paint`
+    // means the highlight goes too, so neither sits on top of a cell that still
+    // looks armed.
+    if panel_rect().contains(cursor) || history_rect().contains(cursor) {
         return None;
     }
 
@@ -704,19 +755,13 @@ fn editor_paint(
     brush: Res<Brush>,
     mut stroke: ResMut<PaintStroke>,
     mut pending: ResMut<PendingRemoval>,
+    mut history: ResMut<EditHistory>,
     mut editor_level: ResMut<EditorLevel>,
 ) {
     let Some(painting) = brush_in_hand(&buttons, &brush) else {
-        // Nothing held any more: whatever was being painted is finished.
-        if let Some(done) = stroke.0.take() {
-            if !done.cells.is_empty() {
-                info!(
-                    "painted {} cell(s), level changed: {}",
-                    done.cells.len(),
-                    done.before != editor_level.level.targets
-                );
-            }
-        }
+        // Nothing held any more: whatever was being painted is finished, and a
+        // finished stroke is one entry in the history.
+        finish_stroke(&mut stroke, &mut history, &editor_level.level);
 
         return;
     };
@@ -725,8 +770,9 @@ fn editor_paint(
     // cell: what it is an edit *from* is the level as it stood at that moment.
     if stroke.0.is_none() {
         stroke.0 = Some(Stroke {
-            before: editor_level.level.targets.clone(),
+            before: editor_level.level.clone(),
             cells: vec![],
+            erasing: painting.erase,
         });
 
         // Painting is not an answer to "remove this row?" - and it is an edit,
@@ -753,6 +799,27 @@ fn editor_paint(
 
     if level.paint_cell(col, row, &painting.token()) {
         editor_level.set_changed();
+    }
+}
+
+/// Ends the stroke in progress, if there is one, and puts what it painted in
+/// the history as a single entry.
+///
+/// Called from wherever an author does something *else* - a resize, a setting,
+/// a step through the history - and not only from the button coming up,
+/// because that is where the drag ends as far as the history is concerned even
+/// with the button still down. Without it, the next edit would be folded into
+/// the drag's own entry and undone together with it.
+pub fn finish_stroke(
+    stroke: &mut ResMut<PaintStroke>,
+    history: &mut ResMut<EditHistory>,
+    level: &LevelDefinition,
+) {
+    let Some(done) = stroke.0.take() else { return; };
+    let what = done.what();
+
+    if remember(history, what.clone(), done.before, level) {
+        info!("{what} - {} takes it back", HistoryStep::Undo.shortcut());
     }
 }
 
@@ -846,14 +913,21 @@ fn editor_dress_blocks(
 fn editor_resize(
     keys: Res<ButtonInput<KeyCode>>,
     mut pending: ResMut<PendingRemoval>,
+    mut stroke: ResMut<PaintStroke>,
+    mut history: ResMut<EditHistory>,
     mut editor_level: ResMut<EditorLevel>,
 ) {
     let Some((edge, taking_away)) = resize_asked_for(&keys) else { return; };
+
+    // Whatever the mouse may still be in the middle of painting is an edit of
+    // its own, and it ends here rather than being swallowed by this one.
+    finish_stroke(&mut stroke, &mut history, &editor_level.level);
 
     // Written around change detection, as painting is: a resize that is refused
     // - or one press short of happening - must not look to the rest of the
     // editor like a level that changed.
     let level = editor_level.bypass_change_detection();
+    let before = level.level.clone();
 
     let changed = if taking_away {
         take_edge_away(level, edge, &mut pending)
@@ -862,9 +936,21 @@ fn editor_resize(
         level.grow_grid(edge)
     };
 
-    if changed {
-        editor_level.set_changed();
+    if !changed {
+        return;
     }
+
+    remember(&mut history, resize_what(edge, taking_away), before, &level.level);
+    editor_level.set_changed();
+}
+
+/// What a resize did, as the history bar says it.
+fn resize_what(edge: Edge, taking_away: bool) -> String {
+    format!(
+        "{} the {}",
+        if taking_away { "removing" } else { "adding" },
+        edge_name(edge),
+    )
 }
 
 /// The second half of [`editor_resize`]: the edge goes, or the author is told
@@ -995,6 +1081,8 @@ fn editor_show_warning(
 fn editor_settings_click(
     buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
+    mut stroke: ResMut<PaintStroke>,
+    mut history: ResMut<EditHistory>,
     mut editor_level: ResMut<EditorLevel>,
 ) {
     // The press, not the hold: a stepper walked once per frame the button is
@@ -1006,11 +1094,20 @@ fn editor_settings_click(
     let Some(cursor) = windows.iter().next().and_then(|window| window.cursor_position()) else { return; };
     let Some((setting, by)) = setting_at(cursor) else { return; };
 
-    let level = editor_level.bypass_change_detection();
+    // The other hand can be holding a button down over the grid - the right one
+    // erasing, say - and that drag is an edit of its own rather than one this
+    // click gets folded into.
+    finish_stroke(&mut stroke, &mut history, &editor_level.level);
 
-    if setting.step(&mut level.level, by) {
-        editor_level.set_changed();
+    let level = editor_level.bypass_change_detection();
+    let before = level.level.clone();
+
+    if !setting.step(&mut level.level, by) {
+        return;
     }
+
+    remember(&mut history, format!("changing {}", setting.label()), before, &level.level);
+    editor_level.set_changed();
 }
 
 /// Puts the settings panel on screen, and puts it there again every time the
@@ -1049,7 +1146,9 @@ fn editor_teardown(
     editor_entities: Query<Entity, With<EditorEntity>>,
     mut hovered: ResMut<HoveredCell>,
     mut stroke: ResMut<PaintStroke>,
+    mut history: ResMut<EditHistory>,
     mut pending: ResMut<PendingRemoval>,
+    editor_level: Res<EditorLevel>,
 ) {
     for entity in &editor_entities {
         commands.entity(entity).despawn();
@@ -1059,8 +1158,10 @@ fn editor_teardown(
     hovered.0 = None;
 
     // A stroke left half-painted is over: the button will have come up
-    // somewhere else entirely by the time the editor is back.
-    stroke.0 = None;
+    // somewhere else entirely by the time the editor is back. What it painted
+    // is in the level, though, so it goes in the history on the way out rather
+    // than being the one edit an author cannot take back.
+    finish_stroke(&mut stroke, &mut history, &editor_level.level);
 
     // The warning went with the rest of the editor's entities, and a question
     // that is no longer on screen must not be answerable.
@@ -1107,6 +1208,7 @@ mod tests {
     use bevy::MinimalPlugins;
 
     use crate::config::{BLOCK_GAP, BLOCK_WIDTH_H, CAMERA_TILT, TILTED_CAMERA};
+    use crate::editor::history::{history_rows, HistoryBar, HistoryEntry};
     use crate::editor::settings::{settings_rows, Setting, SettingValue, SETTINGS};
     use crate::level::campaign;
     use crate::level::WinCriteria;
@@ -1928,7 +2030,7 @@ mod tests {
     #[test]
     fn a_drag_is_one_edit() {
         let mut app = app_in_the_editor(sparse(&empty_grid(3, 2)));
-        let before = editor_level(&app).level.targets.clone();
+        let before = editor_level(&app).level.clone();
 
         hold(&mut app, MouseButton::Left);
 
@@ -2621,8 +2723,11 @@ mod tests {
     /// enough it covers cells. The pointer over it is over the panel, not over
     /// the cell underneath - so the highlight goes too, rather than the panel
     /// sitting on top of a cell that still looks armed.
+    ///
+    /// The same for `c0011`'s history bar under it: the editor's chrome is what
+    /// the play field is not, whichever piece of it the pointer is on.
     #[test]
-    fn the_pointer_over_the_panel_is_not_over_a_cell() {
+    fn the_pointer_over_the_editors_own_panels_is_not_over_a_cell() {
         let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
 
         // Tall and narrow: the camera keeps the whole play field on screen
@@ -2630,7 +2735,7 @@ mod tests {
         // the grid behind the panel.
         resize_the_window(&mut app, UVec2::new(400, 800));
 
-        let mut covered = 0;
+        let mut covered = [0, 0];
         let mut clear = 0;
 
         for (col, row) in cells(9, 6) {
@@ -2642,17 +2747,539 @@ mod tests {
 
             let pixel = cursor(&mut app).expect("the pointer was just put on screen");
 
-            if panel_rect().contains(pixel) {
-                assert_eq!(hovered(&app), None, "cell ({col}, {row}) is behind the panel");
-                covered += 1;
-            } else {
-                assert_eq!(hovered(&app), Some((col, row)), "cell ({col}, {row}) is in the open");
-                clear += 1;
+            match [panel_rect(), history_rect()].iter().position(|rect| rect.contains(pixel)) {
+                Some(panel) => {
+                    assert_eq!(hovered(&app), None, "cell ({col}, {row}) is behind the chrome");
+                    covered[panel] += 1;
+                }
+                None => {
+                    assert_eq!(hovered(&app), Some((col, row)), "cell ({col}, {row}) is in the open");
+                    clear += 1;
+                }
             }
         }
 
-        assert!(covered > 0, "no cell ended up behind the panel - this proves nothing");
-        assert!(clear > 0, "every cell ended up behind the panel - so does this");
+        assert!(covered[0] > 0, "no cell ended up behind the settings panel - this proves nothing");
+        assert!(covered[1] > 0, "no cell ended up behind the history bar - nor does this");
+        assert!(clear > 0, "every cell ended up behind the chrome - so does this");
+    }
+
+
+    // --- undo and redo ----------------------------------------------------
+
+    fn history(app: &App) -> &EditHistory {
+        app.world().resource::<EditHistory>()
+    }
+
+    /// How far the history reaches, as (what can be undone, what can be redone).
+    fn depth(app: &App) -> (usize, usize) {
+        history(app).depth()
+    }
+
+    /// Presses an undo or redo shortcut and gives the editor the frame it needs
+    /// to follow it.
+    ///
+    /// The system is run directly, as the resize tests run [`editor_resize`]:
+    /// `InputPlugin` clears `just_pressed` in `PreUpdate`, so a key pressed from
+    /// a test never survives to `Update`.
+    fn press_step(app: &mut App, step: HistoryStep) {
+        {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            keys.press(KeyCode::ControlLeft);
+
+            if step == HistoryStep::Redo {
+                keys.press(KeyCode::ShiftLeft);
+            }
+
+            keys.press(KeyCode::KeyZ);
+        }
+
+        app.world_mut().run_system_once(editor_undo_redo).unwrap();
+
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release_all();
+        app.update();
+    }
+
+    fn undo(app: &mut App) {
+        press_step(app, HistoryStep::Undo);
+    }
+
+    fn redo(app: &mut App) {
+        press_step(app, HistoryStep::Redo);
+    }
+
+    /// Clicks the bar's own button for a step, the way an author does.
+    fn click_step(app: &mut App, step: HistoryStep) {
+        let row = history_rows()
+            .into_iter()
+            .find(|row| row.step == step)
+            .expect("every step has a row");
+
+        put_the_pointer_at(app, Some(row.button.center()));
+        click(app);
+    }
+
+    /// What the bar says a step would take back, read off the screen rather than
+    /// out of the resource - which is the only way to tell that the two agree.
+    fn history_says(app: &mut App, step: HistoryStep) -> String {
+        let world = app.world_mut();
+        let mut entries = world.query::<(&HistoryEntry, &Text)>();
+
+        entries
+            .iter(world)
+            .find(|(entry, _)| entry.0 == step)
+            .map(|(_, text)| text.0.clone())
+            .unwrap_or_else(|| panic!("{step:?} is not on screen"))
+    }
+
+    fn history_parts(app: &mut App) -> usize {
+        let world = app.world_mut();
+        let mut parts = world.query_filtered::<Entity, With<HistoryBar>>();
+
+        parts.iter(world).count()
+    }
+
+    /// A hand edit to the file the editor opened, as `c0004`'s hot reload
+    /// delivers one: the asset server swaps a new value in under the same
+    /// handle. Two frames, because `Assets` flushes its `AssetEvent`s in
+    /// `PostUpdate`.
+    fn change_the_file(app: &mut App, level: LevelDefinition) {
+        let handle = editor_level(app).source.clone().expect("the editor opened a file");
+
+        app.world_mut()
+            .resource_mut::<Assets<LevelAsset>>()
+            .get_mut(&handle)
+            .expect("the level the editor opened is still there")
+            .0 = level;
+
+        app.update();
+        app.update();
+    }
+
+    #[test]
+    fn a_painted_cell_is_undone_and_redone() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+
+        paint(&mut app, &[(0, 0)]);
+        assert_eq!(layout(&app), "AA ..");
+        assert_eq!(depth(&app), (1, 0));
+
+        undo(&mut app);
+        assert_eq!(layout(&app), ".. ..", "undo puts the cell back the way it was");
+        assert_eq!(depth(&app), (0, 1));
+
+        redo(&mut app);
+        assert_eq!(layout(&app), "AA ..", "redo paints it again");
+        assert_eq!(depth(&app), (1, 0));
+    }
+
+    /// An undo has to reach the screen the frame it happens, exactly as a paint
+    /// does - the level under edit is not what the author is looking at.
+    #[test]
+    fn an_undone_cell_leaves_the_screen_with_it() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+
+        paint(&mut app, &[(0, 0)]);
+        assert_eq!(blocks_on_screen(&mut app).len(), 1);
+
+        undo(&mut app);
+        assert_eq!(blocks_on_screen(&mut app), vec![], "the block goes with the edit");
+
+        redo(&mut app);
+        assert_eq!(
+            blocks_on_screen(&mut app),
+            vec![(at(0, 0, 2), BlockType::Simple)],
+            "and comes back with it"
+        );
+    }
+
+    #[test]
+    fn an_erase_is_undone_and_redone() {
+        let mut app = app_in_the_editor(sparse("AA BA"));
+
+        use_brush(&mut app, Brush::erasing());
+        paint(&mut app, &[(0, 0)]);
+        assert_eq!(layout(&app), ".. BA");
+
+        undo(&mut app);
+        assert_eq!(layout(&app), "AA BA", "the block that was rubbed out comes back");
+
+        redo(&mut app);
+        assert_eq!(layout(&app), ".. BA");
+    }
+
+    /// The card's own criterion: a drag is one step, not one per cell. One undo
+    /// has to take the whole stroke back.
+    #[test]
+    fn a_drag_paint_is_a_single_undo_step() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(4, 1)));
+
+        paint(&mut app, &[(0, 0), (1, 0), (2, 0), (3, 0)]);
+        assert_eq!(layout(&app), "AA AA AA AA");
+        assert_eq!(depth(&app), (1, 0), "four cells, one entry");
+
+        undo(&mut app);
+        assert_eq!(layout(&app), ".. .. .. ..", "the whole stroke, in one press");
+    }
+
+    #[test]
+    fn a_resize_is_undone_and_redone() {
+        let mut app = app_in_the_editor(sparse("AA BA"));
+
+        grow_at(&mut app, Edge::Top);
+        assert_eq!(grid(&app), (2, 2));
+
+        undo(&mut app);
+        assert_eq!(grid(&app), (2, 1));
+        assert_eq!(layout(&app), "AA BA");
+
+        redo(&mut app);
+        assert_eq!(layout(&app), ".. ..\nAA BA");
+    }
+
+    /// The half of `c0008` that was left for this card: an edge that was taken
+    /// away comes back with everything that was standing on it.
+    #[test]
+    fn undoing_a_shrink_brings_the_blocks_back() {
+        let mut app = app_in_the_editor(sparse("AA BA\nCA .."));
+
+        // The first press is the warning; the second means it.
+        shrink_at(&mut app, Edge::Top);
+        shrink_at(&mut app, Edge::Top);
+        assert_eq!(layout(&app), "CA ..");
+
+        undo(&mut app);
+        assert_eq!(layout(&app), "AA BA\nCA ..", "the row and what stood on it");
+        assert_eq!(warning(&mut app), None, "an undo is not an answer to the warning");
+    }
+
+    #[test]
+    fn a_settings_change_is_undone_and_redone() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+        let was = editor_level(&app).level.simultaneous_balls;
+
+        click_setting(&mut app, Setting::SimultaneousBalls, 1);
+        assert_eq!(editor_level(&app).level.simultaneous_balls, was + 1);
+
+        undo(&mut app);
+        assert_eq!(editor_level(&app).level.simultaneous_balls, was);
+        assert_eq!(shown_value(&mut app, Setting::SimultaneousBalls), was.to_string());
+
+        redo(&mut app);
+        assert_eq!(editor_level(&app).level.simultaneous_balls, was + 1);
+    }
+
+    /// Everything an author can do, in one session, walked all the way back and
+    /// all the way forward again.
+    #[test]
+    fn the_history_walks_a_whole_session_back_and_forward() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+        let opened = editor_level(&app).level.clone();
+
+        paint(&mut app, &[(0, 0)]);
+        grow_at(&mut app, Edge::Right);
+        click_setting(&mut app, Setting::WinPercentage, -1);
+        use_brush(&mut app, Brush::erasing());
+        paint(&mut app, &[(0, 0)]);
+
+        let edited = editor_level(&app).level.clone();
+        assert_eq!(depth(&app), (4, 0));
+
+        for _ in 0..4 {
+            undo(&mut app);
+        }
+
+        assert_eq!(editor_level(&app).level, opened, "all the way back to the file as it was opened");
+        assert_eq!(depth(&app), (0, 4));
+
+        for _ in 0..4 {
+            redo(&mut app);
+        }
+
+        assert_eq!(editor_level(&app).level, edited, "and all the way forward again");
+        assert_eq!(depth(&app), (4, 0));
+    }
+
+    /// The card's own criterion: once the author has done something else, the
+    /// branch they took back is not a branch this history can get to again.
+    #[test]
+    fn a_new_edit_after_an_undo_discards_the_redo_stack() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+
+        paint(&mut app, &[(0, 0)]);
+        undo(&mut app);
+        assert_eq!(depth(&app), (0, 1));
+
+        paint(&mut app, &[(1, 0)]);
+        assert_eq!(depth(&app), (1, 0), "there is nothing to redo any more");
+
+        redo(&mut app);
+        assert_eq!(layout(&app), ".. AA", "and pressing it changes nothing");
+    }
+
+    #[test]
+    fn a_step_with_nowhere_to_go_does_nothing() {
+        let mut app = app_in_the_editor(sparse("AA .."));
+
+        undo(&mut app);
+        assert_eq!(layout(&app), "AA ..");
+        assert_eq!(depth(&app), (0, 0));
+
+        redo(&mut app);
+        assert_eq!(layout(&app), "AA ..");
+        assert_eq!(depth(&app), (0, 0));
+    }
+
+    /// A click that edits nothing is not an edit: an erase over a cell that is
+    /// already empty, or a setting stepped past the end of its range.
+    #[test]
+    fn something_that_changed_nothing_is_not_in_the_history() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+
+        use_brush(&mut app, Brush::erasing());
+        paint(&mut app, &[(0, 0), (1, 0)]);
+
+        click_setting(&mut app, Setting::SimultaneousBalls, -1);
+
+        // A grid one row tall has no row to spare.
+        shrink_at(&mut app, Edge::Top);
+        shrink_at(&mut app, Edge::Top);
+
+        assert_eq!(depth(&app), (0, 0), "nothing here changed the level");
+    }
+
+    /// A drag is over as far as the history is concerned the moment the author
+    /// does something else, even with the button still down - or the resize
+    /// would be undone together with the paint, and the paint would go in
+    /// afterwards from a level that had moved on.
+    #[test]
+    fn an_edit_made_mid_drag_is_an_entry_of_its_own() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(3, 1)));
+
+        hold(&mut app, MouseButton::Left);
+        assert!(point_at(&mut app, cell_to_world(0, 0, 3, BLOCK_GAP)));
+
+        // Off the grid before the resize, and left there: the button is still
+        // down, so a pointer still over a cell would carry on painting - which
+        // is right, and is not what this test is about.
+        put_the_pointer_at(&mut app, None);
+        app.update();
+
+        grow_at(&mut app, Edge::Top);
+
+        let_go(&mut app, MouseButton::Left);
+
+        assert_eq!(depth(&app), (2, 0), "the paint and the resize are two edits");
+        assert_eq!(layout(&app), ".. .. ..\nAA .. ..");
+
+        undo(&mut app);
+        assert_eq!(layout(&app), "AA .. ..", "the resize goes, the paint stays");
+
+        undo(&mut app);
+        assert_eq!(layout(&app), ".. .. ..", "and then the paint");
+    }
+
+    /// [`EditorLevel`] survives a trip out to the menu with its unsaved edits;
+    /// a history that did not survive with it would leave those edits stuck.
+    #[test]
+    fn the_history_survives_a_trip_out_of_the_editor_and_back() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+
+        paint(&mut app, &[(0, 0)]);
+
+        go_to(&mut app, GameState::InGame);
+        go_to(&mut app, GameState::Editor);
+
+        assert_eq!(depth(&app), (1, 0));
+
+        undo(&mut app);
+        assert_eq!(layout(&app), ".. ..");
+    }
+
+    /// A stroke the author was in the middle of when they left is still an edit:
+    /// what it painted is in the level, so it has to be in the history too.
+    #[test]
+    fn a_stroke_left_half_painted_is_still_undoable() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+
+        hold(&mut app, MouseButton::Left);
+        assert!(point_at(&mut app, cell_to_world(0, 0, 2, BLOCK_GAP)));
+
+        go_to(&mut app, GameState::InGame);
+        go_to(&mut app, GameState::Editor);
+
+        assert_eq!(layout(&app), "AA ..");
+        assert_eq!(depth(&app), (1, 0), "the stroke went in on the way out");
+
+        undo(&mut app);
+        assert_eq!(layout(&app), ".. ..");
+    }
+
+    /// The card's own criterion. `c0004` hot-reloads level files, so the file
+    /// the editor opened can be rewritten underneath it - and every entry in the
+    /// history is then a level that was true of a file that no longer exists.
+    #[test]
+    fn the_history_is_dropped_when_the_level_file_changes_on_disk() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+
+        paint(&mut app, &[(0, 0)]);
+        undo(&mut app);
+        assert_eq!(depth(&app), (0, 1));
+
+        change_the_file(&mut app, sparse("AA AA AA"));
+
+        assert_eq!(depth(&app), (0, 0), "both piles go");
+        assert_eq!(
+            layout(&app),
+            ".. ..",
+            "the level under edit is what the author has been working on, and stays"
+        );
+    }
+
+    #[test]
+    fn a_change_to_another_level_file_leaves_the_history_alone() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+
+        let other = app
+            .world_mut()
+            .resource_mut::<Assets<LevelAsset>>()
+            .add(LevelAsset(sparse("AA AA")));
+
+        paint(&mut app, &[(0, 0)]);
+
+        app.world_mut()
+            .resource_mut::<Assets<LevelAsset>>()
+            .get_mut(&other)
+            .unwrap()
+            .0 = sparse("BA BA");
+
+        app.update();
+        app.update();
+
+        assert_eq!(depth(&app), (1, 0), "a file nobody is editing must not touch the history");
+    }
+
+    /// A level that has never been on disk has no file to be changed underneath
+    /// it, and a reload of somebody else's must not be read as one.
+    #[test]
+    fn a_level_that_was_never_opened_from_a_file_keeps_its_history() {
+        let mut app = editor_app();
+        go_to(&mut app, GameState::Editor);
+        give_the_camera_its_viewport(&mut app);
+
+        assert_eq!(editor_level(&app).source, None);
+
+        paint(&mut app, &[(0, 0)]);
+
+        let other = app
+            .world_mut()
+            .resource_mut::<Assets<LevelAsset>>()
+            .add(LevelAsset(sparse("AA AA")));
+
+        app.world_mut().resource_mut::<Assets<LevelAsset>>().get_mut(&other).unwrap().0 = sparse("BA BA");
+        app.update();
+        app.update();
+
+        assert_eq!(depth(&app), (1, 0));
+    }
+
+
+    // --- the history bar --------------------------------------------------
+
+    #[test]
+    fn the_history_bar_is_up_while_the_editor_is_and_goes_with_it() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+        assert!(history_parts(&mut app) > 0, "the bar is on screen with the editor");
+
+        go_to(&mut app, GameState::InGame);
+        assert_eq!(history_parts(&mut app), 0, "and goes when the editor does");
+
+        go_to(&mut app, GameState::Editor);
+        assert!(history_parts(&mut app) > 0, "and is back when it is");
+    }
+
+    /// What the bar says is what the history holds - including when it holds
+    /// nothing, because a button that comes and goes is one an author has to
+    /// look for.
+    #[test]
+    fn the_bar_says_what_each_step_would_take_back() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(3, 1)));
+
+        assert_eq!(history_says(&mut app, HistoryStep::Undo), "nothing to undo");
+        assert_eq!(history_says(&mut app, HistoryStep::Redo), "nothing to redo");
+
+        paint(&mut app, &[(0, 0), (1, 0)]);
+        assert_eq!(history_says(&mut app, HistoryStep::Undo), "painting 2 cells");
+        assert_eq!(history_says(&mut app, HistoryStep::Redo), "nothing to redo");
+
+        undo(&mut app);
+        assert_eq!(history_says(&mut app, HistoryStep::Undo), "nothing to undo");
+        assert_eq!(history_says(&mut app, HistoryStep::Redo), "painting 2 cells");
+
+        grow_at(&mut app, Edge::Left);
+        assert_eq!(history_says(&mut app, HistoryStep::Undo), "adding the left column");
+
+        click_setting(&mut app, Setting::TimeLimit, 1);
+        assert_eq!(history_says(&mut app, HistoryStep::Undo), "changing Time limit");
+
+        paint(&mut app, &[(1, 0)]);
+        use_brush(&mut app, Brush::erasing());
+        paint(&mut app, &[(1, 0)]);
+        assert_eq!(history_says(&mut app, HistoryStep::Undo), "erasing 1 cell");
+    }
+
+    /// The card's own criterion: reachable from the UI, not only from the
+    /// keyboard.
+    #[test]
+    fn the_bars_buttons_take_the_step_they_name() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(2, 1)));
+
+        paint(&mut app, &[(0, 0)]);
+        assert_eq!(layout(&app), "AA ..");
+
+        click_step(&mut app, HistoryStep::Undo);
+        assert_eq!(layout(&app), ".. ..");
+
+        click_step(&mut app, HistoryStep::Redo);
+        assert_eq!(layout(&app), "AA ..");
+    }
+
+    /// One click is one step, as it is for a setting: a history walked once per
+    /// frame the button is down would run the whole session in a fifth of a
+    /// second.
+    #[test]
+    fn holding_a_bar_button_down_takes_one_step() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(4, 1)));
+
+        paint(&mut app, &[(0, 0)]);
+        paint(&mut app, &[(1, 0)]);
+        paint(&mut app, &[(2, 0)]);
+
+        let row = history_rows()
+            .into_iter()
+            .find(|row| row.step == HistoryStep::Undo)
+            .expect("every step has a row");
+
+        put_the_pointer_at(&mut app, Some(row.button.center()));
+        report_the_button(&mut app, MouseButton::Left, ButtonState::Pressed);
+
+        for _ in 0..10 {
+            app.update();
+        }
+
+        assert_eq!(layout(&app), "AA AA .. ..", "one press, one step back");
+    }
+
+    /// A click on the bar is aimed at the history, so it must not also be a
+    /// stroke of paint on whatever the bar happens to be covering.
+    #[test]
+    fn a_click_on_the_history_bar_paints_nothing() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(3, 2)));
+
+        click_step(&mut app, HistoryStep::Undo);
+
+        assert_eq!(layout(&app), empty_grid(3, 2), "the grid is not what the click was aimed at");
+        assert_eq!(depth(&app), (0, 0), "and an empty history is still empty");
     }
 
     fn cursor(app: &mut App) -> Option<Vec2> {
