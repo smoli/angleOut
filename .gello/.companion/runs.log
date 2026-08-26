@@ -2773,3 +2773,20 @@
 [c0015] → Bash(sed -n 240,600p src/editor/save.rs)
 [c0015] → Bash(cat .gello/epics/e01-level-editor/c0014-the-different-block-types-need-to-be-exp.md)
 [c0015] → Bash(sed -n 1,120p src/level/campaign.rs)
+[c0015] → Bash(grep -n "PANEL_ORIGIN\|ROW_WIDTH\|ROW_HEIGHT\|TITLE_HEIGHT\|PANEL_PADDING\|LABEL_WIDTH\|VALUE_WIDTH\|COLUMN_GAP\|ROW_INS…)
+[c0015] → Bash(grep -n "fn history_rect\|const HISTORY\|fn palette_rect\|PALETTE_ORIGIN" -A12 src/editor/history.rs src/editor/palette.…)
+[c0015] → Bash(grep -n "resolution\|WindowPlugin\|primary_cursor_options\|title:" -A4 src/main.rs | head -40; echo "=== SETTINGS list =…)
+[c0015] → Bash(grep -rn "SCREEN_WIDTH\|SCREEN_HEIGHT" src/config/mod.rs; echo "=== start menu ==="; grep -n "Editor\|MenuItem\|enum\|fn…)
+[c0015] → Bash(sed -n 400,540p src/editor/palette.rs)
+[c0015] → Bash(grep -n "fn playtest_rect" -A16 src/editor/playtest.rs; grep -n "PLAYTEST_ACTIONS\|const .*: f32\|const .*: usize" src/e…)
+[c0015] The editor always opens whatever the campaign points at (`editor_open` → `open_current_level`, `src/editor/mod.rs:644`), with no way to open a different file or start a fresh one. Which chooser to build is a real fork, so I'll ask rather than guess.
+[c0015] → mcp__gello__add_question(## How should the author choose which level to edit? Today `editor_open` (`src/editor/mod.rs:644`) takes `levels.get_cur…)
+[c0015] I've picked up **c0015** and parked a question on the card.
+[c0015] **What I found:** the editor has no way to say what it's editing. `editor_open` (`src/editor/mod.rs:644`) inserts `EditorLevel` once from `open_current_level`, which takes `levels.get_current_level()` — the campaign's current level — or a blank 9×6 grid if none is loaded. From then on the resource is never re-pointed: the save panel can name the file, enrol it in the campaign and playtest it, but nothing can *open* a different one or start a fresh one.
+[c0015] **Why I stopped:** the three plausible shapes lead to materially different work, and the left-hand column is already four panels deep (settings, history, save, playtest — down to y≈624 of 800), so a full 11-file list doesn't fit where you'd expect it. The question on the card offers:
+[c0015] - **A** — compact "Level" panel at the foot of the left column: `◀ level4.ron ▶` to step through files without loading, plus `Open` and `New` (my recommendation, fits the space and the existing ◀ ▶ idiom)
+[c0015] - **B** — a full clickable list, needing a new column or a paged list
+[c0015] - **C** — a chooser screen in front of the editor, off the main menu
+[c0015] plus a second question on whether opening discards unsaved edits outright or asks first, and a check on whether *naming* the file belongs in this card (today `Save` invents `levelN.ron` and there's nowhere to type).
+[c0015] Answer on the card and I'll be resumed to build it.
+[c0015] ✓ 30 in / 7710 out tokens, $0.9504, 20 turns, 127.5s
