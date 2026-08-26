@@ -2166,3 +2166,55 @@
 [c0012] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = ''' // And for the panel under the bar. editor_save_click,…)
 [c0012] All six criteria pass. Now updating the card.
 [c0012] → Bash(python3 - <<'PY' p = '.gello/epics/e01-level-editor/c0012-save-and-validate.md' s = open(p).read() old = '''- [ ] Saving…)
+[c0012] Now the commit.
+[c0012] → Bash(git add src/editor/save.rs src/editor/mod.rs src/editor/history.rs src/level/campaign.rs && git status --porcelain --cac…)
+[c0012] → Bash(git diff --cached --stat)
+[c0012] → Bash(git commit -F - <<'MSG' c0012: the level goes to disk, and says what is wrong with it Saving writes the whole `LevelDefi…)
+[c0012] → mcp__gello__set_status(review)
+[c0012] **c0012 is in `review`.** Committed as `97591f7` (four files; the unrelated working-tree changes on `bevy019` are untouched). `cargo build` clean, 218 tests pass.
+[c0012] What landed:
+[c0012] - **`level::campaign`** — `save_level` / `save_campaign` via `std::fs`, plus `LevelSaveError` and a `CAMPAIGN_HEADER` constant so appending to `campaign.ron` doesn't eat its comments (pinned by a byte-for-byte round-trip test).
+[c0012] - **`editor::save`** (new) — the write, the three validation rules, and a third panel under the history bar: `Save` / `Campaign` buttons, `Ctrl+S`, and a report of what the last save did with a line per complaint.
+[c0012] - **The reload guard** — `LastSave` holds what was written; `editor_watch_the_file` now drops the undo history only when the file comes back saying something *else*. Content comparison rather than a flag, because the watcher fires a debounce later, after the author may have painted more cells.
+[c0012] Two judgement calls I made rather than blocking on, both flagged on the card:
+[c0012] 1. **Enrolling in the campaign is a separate press from saving**, and a new level gets an auto-picked `levelN.ron` (there's no text entry in the game). The alternative — save auto-appends to the campaign — is a two-line change if you'd rather have it, but it would mean the editor can no longer produce a scratch level.
+[c0012] 2. **Saving a level file loses its comments.** RON drops them on parse, and a save is a rewrite. `level0.ron`, `level5.ron`, `level6.ron`, `conveyor.ron`, `simple1.ron` and the two demos all carry hand-written notes that will go the first time the editor writes them. `campaign.ron` is protected because the editor touches it routinely; the level files aren't. Worth knowing before you open a shipped level in the editor and hit `Ctrl+S`.
+[c0012] I couldn't eyeball the panel in the running game — reaching the editor needs keystrokes this session can't send. The layout is asserted against the same rectangle functions the settings panel and history bar use, including a test that every row sits inside the panel, but the text-fitting is estimated rather than measured: report lines get two rows of height to wrap into, and the button captions were shortened to fit the column. Worth one look when you next run it.
+[c0012] ✓ 188 in / 87909 out tokens, $10.7548, 99 turns, 1313.6s
+[c0012] I'll start by reading the card and the board context.
+[c0012] → Bash(cat .gello/epics/e01-level-editor/c0012-save-and-validate.md)
+[c0012] → Bash(git log --oneline -15 && echo "---BOARD---" && cat .gello/board.yaml)
+[c0012] → Bash(git show --stat 97591f7)
+[c0012] → Bash(git status --porcelain | head -50; echo "---DIFF of card---"; git diff .gello/epics/e01-level-editor/c0012-save-and-vali…)
+[c0012] Let me kick off the repo's checks in the background while I read the diff.
+[c0012] → Bash(cargo test 2>&1 | tail -40)
+[c0012] → Bash(grep -n -i "test\|clippy\|fmt\|build" README.md | head -30)
+[c0012] → Bash(sed -n 1,200p src/editor/save.rs)
+[c0012] → Bash(sed -n 200,560p src/editor/save.rs)
+[c0012] → Bash(sed -n 560,960p src/editor/save.rs)
+[c0012] → Bash(git show 97591f7 -- src/level/campaign.rs | head -200)
+[c0012] → Bash(git show 97591f7 -- src/editor/history.rs)
+[c0012] → Bash(cat /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/5128e235-26ee-4410-af0f-beeaac5fc416/tasks/bp0osukhe.o…)
+[c0012] → Bash(git show 97591f7 -- src/editor/mod.rs | tail -n +50)
+[c0012] Tests pass (218, exit 0). Now let me check the hot-reload path more closely and run lint.
+[c0012] → Bash(sed -n 280,345p src/editor/history.rs; echo "=== AssetEvent handlers ==="; grep -rn "AssetEvent" src/ --include=*.rs | g…)
+[c0012] → Bash(cargo clippy --all-targets 2>&1 | tail -40)
+[c0012] → Bash(cargo clippy --all-targets 2>&1 | grep -E "^(warning|error)" -A3 | grep -E "src/editor/save.rs|src/editor/mod.rs|src/lev…)
+[c0012] → Bash(grep -rn "AssetEvent" --include='*.rs' src/ | head -20; echo "=== editor asset sync ==="; grep -rn "level_assets\|Assets…)
+[c0012] → Bash(cargo clippy --all-targets --message-format short 2>&1 | grep -E "src/(editor|level/campaign)" -B0 | head; echo "=== con…)
+[c0012] → Bash(sed -n 310,345p src/level/mod.rs; echo "=== plugin registration ==="; grep -n "level_hot_reload\|run_if" src/level/mod.r…)
+[c0012] → Bash(sed -n 1205,1215p src/editor/mod.rs; echo "--- 1965..1972 ---"; sed -n 1965,1972p src/editor/mod.rs; echo "--- campaign …)
+[c0012] → Bash(git stash list; git log --oneline -1 97591f7^; git show 97591f7^:src/editor/mod.rs | sed -n '1140,1160p' | grep -n "fn e…)
+[c0012] → Bash(grep -n "fn block_update_portals" -A 25 src/block/mod.rs | head -40; echo "=== TriggerType ==="; grep -n "enum TriggerTy…)
+[c0012] → Bash(grep -rn "Obstacle" --include='*.rs' src/level/layout/mod.rs | head -20; echo "=== blocks count ==="; grep -n "fn make_g…)
+[c0012] → Bash(grep -rn "BlockTriggerTarget {" --include='*.rs' src/ | head; echo "=== spawn_targets / block count ==="; grep -rn "stat…)
+[c0012] → Bash(sed -n 300,335p src/block/mod.rs; echo "=== level/mod.rs 235-250 ==="; sed -n 232,252p src/level/mod.rs)
+[c0012] → Bash(grep -n "let group" -B3 -A3 src/block/mod.rs | head -20; echo "=== token->trigger ==="; grep -n "'R'\|'S'\|'A'\|'B'\|'C'…)
+[c0012] → Bash(git show 97591f7 | grep -E "^-" | grep -vE "^---" | grep -E "assert|#\[test\]|fn |ignore|should_panic" | head -20; echo …)
+[c0012] → Bash(cargo build 2>&1 | grep -E "^(warning|error)" | sort | uniq -c | head -20)
+[c0012] → Bash(grep -n "fn levels_dir" -A 12 src/level/campaign.rs; echo "=== KeyS usage ==="; grep -rn "KeyCode::KeyS\b" --include='*.…)
+[c0012] → Bash(grep -n "fn change_the_file" -A 20 src/editor/mod.rs)
+[c0012] → Bash(grep -rn "load_level" --include='*.rs' src/ | grep -v "^src/level/campaign.rs:111" | head; echo "=== parent commit usage…)
+[c0012] Everything verified. Recording the verdict on the card.
+[c0012] → Bash(date +%Y-%m-%dT%H:%M:%S)
+[c0012] → Bash(python3 - <<'PY' from pathlib import Path p = Path(".gello/epics/e01-level-editor/c0012-save-and-validate.md") text = p.…)

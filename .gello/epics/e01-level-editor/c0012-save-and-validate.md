@@ -1,12 +1,14 @@
 ---
 id: c0012
 title: Save to disk with validation warnings
-status: in-progress
+status: review
 epic: e01
 depends: [c0008, c0010]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T02:37:09
+status-changed: 2026-08-26T02:58:47
+usage-tokens: 88097
+usage-cost: 10.7548
 ---
 
 ## What
@@ -78,9 +80,70 @@ that is what `saving_a_level_keeps_the_level_and_not_the_comments_around_it`
 pins down. `campaign.ron` is the exception, because the editor appends to it
 routinely rather than once.
 
+## Review
+
+### 2026-08-26T03:02:49 — pass
+
+Checked: the six acceptance criteria against the code, `cargo test`, `cargo build`,
+`cargo clippy`, and the diff in `97591f7`.
+
+- "Saving writes the level as RON with `std::fs`": `save_level`
+  (`src/level/campaign.rs:150`) goes through `fs::write`; the asset server is only
+  ever asked to `load`. `editor_save_shortcut`/`editor_save_click`
+  (`src/editor/save.rs:290`, `:311`) both reach it through `save`.
+- "Saving does not trigger a hot-reload that discards in-editor state": guarded by
+  content rather than a flag - `LastSave::is_what_the_file_now_says`
+  (`src/editor/save.rs:71`) compares the reloaded asset with what was written, and
+  `editor_watch_the_file` (`src/editor/history.rs:334`) returns before clearing the
+  history on a match. Both directions are covered:
+  `the_editors_own_save_leaves_the_undo_history_where_it_was` and
+  `a_hand_edit_after_a_save_still_drops_the_undo_history`. The level under edit is
+  never written by an asset event at all, and `level_reload` is registered under
+  `in_state(GameState::InMatch)` (`src/level/mod.rs:184`), so it cannot fire in the
+  editor.
+- "The saved file reloads to an identical level": asserted through the real reader
+  in `saving_writes_the_level_under_edit_to_its_own_file` and in
+  `a_level_written_to_disk_reads_back_as_the_same_level`.
+- "A newly created level can be appended to `assets/levels/campaign.ron`": a level
+  with no file is given `levelN.ron` (`next_free_name`, `src/editor/save.rs:437`) -
+  `a_level_that_has_never_been_on_disk_is_given_a_file_of_its_own` also pins that a
+  second save does not make a second file - and `enrol` appends to the index
+  `LevelsOnDisk` names, which is `levels_dir()` = the game's `assets/levels`.
+  `a_saved_level_can_be_added_to_the_campaign_from_the_editor`,
+  `a_level_already_in_the_campaign_is_not_played_twice` and
+  `a_level_that_was_never_saved_has_no_file_to_put_in_the_campaign` cover the three
+  outcomes.
+- "Warns, but never blocks": in `save` the write happens and returns early on
+  failure only; `complaints` is computed after the file is on disk.
+  `a_level_worth_complaining_about_is_saved_anyway_and_the_complaints_are_on_screen`
+  asserts the file exists and reloads. All three rules match the runtime they claim
+  to: `block_update_portals` (`src/block/mod.rs:635`) queries
+  `&BlockTriggerTarget`, which only `ReceiverStartingInactive`/`ReceiverStartingActive`
+  insert (`src/block/mod.rs:320`, `:325`), so the widened "portal that is not a
+  receiver" is right rather than a change of scope; `make_grid_from_string_layout`
+  (`src/level/mod.rs:243`) leaves `Obstacle` out of the count; and `block_spawn`
+  reads a missing group as 0 (`src/block/mod.rs:253`), which `group_of` matches.
+- "Warnings visible in the editor": `SaveReport::lines` is drawn as `ReportLine`
+  text nodes by `editor_show_save`, and the tests read them off the screen rather
+  than out of the resource.
+- `cargo test`: 218 passed, 0 failed, exit 0. `cargo build`: 17 warnings, all
+  pre-existing dead-code/naming ones - none in the new code (`load_level` was
+  already test-only before this commit).
+- `cargo clippy --all-targets` is not a gate this repo defines and was already at
+  109 warnings. One is new: `editor_teardown` (`src/editor/mod.rs:1207`) crosses the
+  7-argument threshold now that it takes `SaveReport`. Noise, not a failure - worth
+  a `#[allow]` or a bundled `SystemParam` next time that function is touched.
+- Diff stays inside the What. The two extractions it makes (`blocks_of`,
+  `commanding`) are both things `save` needs and neither changes behaviour; no test
+  was removed, weakened, skipped or ignored.
+- Not run: nothing. The one thing not exercised by a test is the real file watcher -
+  `change_the_file` simulates the `AssetEvent::Modified` it would raise, which is
+  how `c0011`'s own tests do it.
+
 ## Log
 
 - 2026-08-25 created from the e01 epic breakdown
 - 2026-08-25 status → ready (app)
 - 2026-08-26 status → in-progress (agent)
 - 2026-08-26 save + validation landed; 218 tests pass, `cargo build` clean (agent)
+- 2026-08-26 status → review (agent)
