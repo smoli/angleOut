@@ -1,16 +1,13 @@
-use bevy::app::{App, CoreStage};
-use bevy::log::info;
+use bevy::app::{App, Last, PostUpdate, Update};
 use bevy::math::Vec3;
-use bevy::prelude::{Commands, Component, Entity, EventReader, IntoSystemDescriptor, Plugin, Query, ResMut, Resource, SystemSet, SystemStage, Transform, With, Without};
-use bevy::utils::HashMap;
-use bevy_rapier3d::plugin::{NoUserData, PhysicsStages, RapierPhysicsPlugin};
-use bevy_rapier3d::prelude::{CollisionEvent, Sensor, Velocity};
+use bevy::platform::collections::HashMap;
+use bevy::prelude::{Commands, Component, Entity, IntoScheduleConfigs, MessageReader, Plugin, Query, ResMut, Resource, SystemSet, Transform, With};
+use bevy_rapier3d::plugin::{NoUserData, PhysicsSet, RapierPhysicsPlugin};
+use bevy_rapier3d::prelude::{CollisionEvent, Velocity};
 #[allow(unused_imports)]
 use bevy_rapier3d::render::RapierDebugRenderPlugin;
 
 use crate::config::{BLOOM_ENABLED, DEBUG_PHYSICS_ENABLED};
-use crate::labels::SystemLabels;
-use crate::state::GameState;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CollidableKind {
@@ -68,32 +65,34 @@ impl CollisionInfo {
 }
 
 
-pub const COLLISION_EVENT_HANDLING: &str = "STAGE_COLLISION_EVENT_HANDLING";
+/// Runs in `PostUpdate` once rapier has written back this frame's simulation
+/// results, which is where all the per-domain collision reactions live.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CollisionEventHandling;
 
-#[derive(Component)]
 pub struct PhysicsPlugin;
 
 
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+            .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
             .insert_resource(CollisionInfo {
                 collisions: HashMap::new()
             })
 
-            .add_system_to_stage(CoreStage::Update,
-                                 handle_collision_events)
-
-            .add_system_to_stage(CoreStage::Last,
-                                 cleanup_collision_tags,
+            .configure_sets(
+                PostUpdate,
+                CollisionEventHandling.after(PhysicsSet::Writeback),
             )
 
-            .add_stage_after(CoreStage::PostUpdate, COLLISION_EVENT_HANDLING, SystemStage::parallel())
+            .add_systems(Update, handle_collision_events)
+
+            .add_systems(Last, cleanup_collision_tags)
             ;
 
         if DEBUG_PHYSICS_ENABLED && !BLOOM_ENABLED {
-            app.add_plugin(RapierDebugRenderPlugin::default());
+            app.add_plugins(RapierDebugRenderPlugin::default());
         }
         ;
     }
@@ -101,24 +100,24 @@ impl Plugin for PhysicsPlugin {
 
 fn handle_collision_events(
     mut commands: Commands,
-    mut collision_events: EventReader<CollisionEvent>,
-    mut collidables: Query<(&Collidable, &Transform)>,
+    mut collision_events: MessageReader<CollisionEvent>,
+    collidables: Query<(&Collidable, &Transform)>,
     mut collisions: ResMut<CollisionInfo>,
     velocity: Query<&Velocity>,
 ) {
-    for collision_event in collision_events.iter() {
+    for collision_event in collision_events.read() {
         match collision_event {
-            CollisionEvent::Started(a, b, flags) => {
+            CollisionEvent::Started(a, b, _flags) => {
 
                 if let Ok((col_a, trans_a)) = collidables.get(*a) {
                     if let Ok((col_b, trans_b)) = collidables.get(*b) {
 
                         let vel_a = if let Ok(va) = velocity.get(*a) {
-                            Some(va.linvel.clone())
+                            Some(va.linear.clone())
                         } else { None };
 
                         let vel_b = if let Ok(vb) = velocity.get(*b) {
-                            Some(vb.linvel.clone())
+                            Some(vb.linear.clone())
                         } else { None };
 
 
@@ -155,46 +154,12 @@ fn handle_collision_events(
     }
 }
 
-/*fn handle_contact_force_events(
-    mut commands: Commands,
-    mut contact_force_events: EventReader<ContactForceEvent>,
-    collidables: Query<(&Collidable, &Transform), Without<Sensor>>,
-) {
-    for contact_force_event in contact_force_events.iter() {
-        if let Ok((col_a, trans_a)) = collidables.get(contact_force_event.collider1) {
-            if let Ok((col_b, trans_b)) = collidables.get(contact_force_event.collider2) {
-                commands.entity(contact_force_event.collider1)
-                    .remove::<CollisionTag>()
-                    .insert(CollisionTag {
-                        other: col_b.kind.clone(),
-                        pos: trans_a.translation,
-                        other_velocity: None,
-                        other_pos: trans_b.translation,
-                    });
-
-                commands.entity(contact_force_event.collider2)
-                    .remove::<CollisionTag>()
-                    .insert(CollisionTag {
-                        other: col_a.kind.clone(),
-                        pos: trans_b.translation,
-                        other_velocity: None,
-                        other_pos: trans_a.translation,
-                    });
-
-
-                //info!("Contact Force {:?}-{:?}", col_a.kind, col_b.kind);
-            }
-        }
-    }
-}
-*/
-
 fn cleanup_collision_tags(
     mut commands: Commands,
-    mut collidables: Query<(Entity), With<CollisionTag>>,
+    collidables: Query<Entity, With<CollisionTag>>,
     mut collisions: ResMut<CollisionInfo>,
 ) {
-    for (collidable) in &mut collidables {
+    for collidable in &collidables {
         commands.entity(collidable)
             .remove::<CollisionTag>();
     }

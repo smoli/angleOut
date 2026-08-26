@@ -19,7 +19,7 @@ serde = { version = "1.0", features = ["derive"] }
 ron = "0.12"
 
 
-# Enable a small amount of optimization in debug mode
+# Enable a small amount of o
 [profile.dev]
 opt-level = 1
 

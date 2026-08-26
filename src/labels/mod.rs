@@ -1,8 +1,8 @@
-use bevy::prelude::SystemLabel;
+use bevy::prelude::SystemSet;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[derive(SystemLabel)]
+/// Ordering sets for the per-frame simulation systems.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
 pub enum SystemLabels {
     UpdateWorld,
-    UpdateState
+    UpdateState,
 }

@@ -1,12 +1,9 @@
-use bevy::app::App;
+use bevy::app::{App, Plugin, Update};
 use bevy::asset::AssetServer;
-use bevy::hierarchy::{BuildChildren, DespawnRecursiveExt};
-use bevy::log::info;
-use bevy::prelude::{Plugin, Res, Commands, NodeBundle, AlignSelf, Size, Color, TextBundle, TextStyle, SystemSet, Component, Query, Entity, With, FlexWrap, GamepadButtonType, EventWriter};
-use bevy::text::TextSection;
-use bevy::ui::{FlexDirection, JustifyContent, Style, Val, ZIndex};
-use bevy::utils::default;
-use leafwing_input_manager::InputManagerBundle;
+use bevy::color::palettes::css::GOLD;
+use bevy::prelude::{default, in_state, AlignSelf, Color, Commands, Component, Entity, FlexDirection, FlexWrap, GamepadButton, IntoScheduleConfigs, JustifyContent, MessageWriter, Node, OnEnter, OnExit, Query, Res, Text, TextColor, TextFont, Val, With};
+use bevy::text::FontSize;
+use bevy::ui::{BackgroundColor, ZIndex};
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use crate::actions::GameFlowActions;
 use crate::events::GameFlowEvent;
@@ -22,20 +19,11 @@ struct UITag;
 impl Plugin for PostMatchUIPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_system_set(
-                SystemSet::on_enter(GameState::PostMatch)
-                    .with_system(ui_spawn)
-            )
+            .add_systems(OnEnter(GameState::PostMatch), ui_spawn)
 
-            .add_system_set(
-                SystemSet::on_update(GameState::PostMatch)
-                    .with_system(ui_handle_action)
-            )
+            .add_systems(Update, ui_handle_action.run_if(in_state(GameState::PostMatch)))
 
-            .add_system_set(
-                SystemSet::on_exit(GameState::PostMatch)
-                    .with_system(ui_despawn)
-            )
+            .add_systems(OnExit(GameState::PostMatch), ui_despawn)
         ;
     }
 }
@@ -47,26 +35,24 @@ fn ui_despawn(
     for ui in &ui {
         //info!("Despawn post match ui {:?}", ui);
         commands.entity(ui)
-            .despawn_recursive();
+            .despawn();
     }
 }
 
 fn ui_handle_action(
-    mut actions: Query<&mut ActionState<GameFlowActions>, With<UITag>>,
+    actions: Query<&ActionState<GameFlowActions>, With<UITag>>,
     players: Query<&Player>,
-    mut game_event: EventWriter<GameFlowEvent>,
+    mut game_event: MessageWriter<GameFlowEvent>,
 ) {
-    let player = players.get_single().unwrap();
+    let Ok(player) = players.single() else { return; };
 
-    for mut action in &mut actions {
-        if action.just_released(GameFlowActions::StartMatch) {
+    for action in &actions {
+        if action.just_released(&GameFlowActions::StartMatch) {
             //info!("Player requested Start!");
-            action.consume(GameFlowActions::StartMatch);
-
             match player.state {
                 PlayerState::Open => {}
-                PlayerState::HasWon => game_event.send(GameFlowEvent::NextLevel),
-                PlayerState::HasLost => game_event.send(GameFlowEvent::StartGame)
+                PlayerState::HasWon => { game_event.write(GameFlowEvent::NextLevel); }
+                PlayerState::HasLost => { game_event.write(GameFlowEvent::StartGame); }
             }
         }
     }
@@ -77,69 +63,69 @@ fn ui_spawn(
     mut commands: Commands,
     asset_server: Res<AssetServer>
 ) {
-    let player = players.get_single().unwrap();
+    let Ok(player) = players.single() else { return; };
+
+    let headline = match player.state {
+        PlayerState::Open => "You shouldn't be here!",
+        PlayerState::HasWon => "You won!",
+        PlayerState::HasLost => "You loose!"
+    };
+
+    let hint = match player.state {
+        PlayerState::Open => "You shouldn't be here!",
+        PlayerState::HasWon => "Press A/X to got to next level!",
+        PlayerState::HasLost => "Press A/X to got to start again!"
+    };
 
     commands
-        .spawn(NodeBundle {
-            node: Default::default(),
-            style: Style {
+        .spawn((
+            Node {
                 align_self: AlignSelf::Center,
                 justify_content: JustifyContent::Center,
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                ..default()
-            },
-            background_color: Color::rgba(0.0, 0.0, 0.0, 0.2).into(),
-            z_index: ZIndex::Global(100),
-            ..default()
-        })
-
-        .insert(UITag)
-        .insert(InputManagerBundle::<GameFlowActions> {
-            action_state: ActionState::default(),
-            input_map: InputMap::default()
-                .insert(GamepadButtonType::South, GameFlowActions::StartMatch)
-                .build(),
-        })
-
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_sections(
-                [
-                    TextSection::new(
-                        match player.state {
-                            PlayerState::Open => "You shouldn't be here!",
-                            PlayerState::HasWon => "You won!",
-                            PlayerState::HasLost => "You loose!"
-                        },
-                        TextStyle {
-                            font: asset_server.load("BAUHS93.TTF"),
-                            font_size: 60.0,
-                            color: Color::GOLD,
-                        }
-                    ),
-                    TextSection::new(
-                        match player.state {
-                            PlayerState::Open => "You shouldn't be here!",
-                            PlayerState::HasWon => "Press A/X to got to next level!",
-                            PlayerState::HasLost => "Press A/X to got to start again!"
-                        },
-                        TextStyle {
-                            font: asset_server.load("BAUHS93.TTF"),
-                            font_size: 30.0,
-                            color: Color::GOLD,
-                        }
-                    )
-                ]
-            ).with_style(Style {
-                align_self: AlignSelf::Center,
                 flex_wrap: FlexWrap::Wrap,
                 flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 ..default()
-            })
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.2)),
+            ZIndex(100),
+        ))
 
+        .insert(UITag)
+        .insert(
+            InputMap::default()
+                .with(GameFlowActions::StartMatch, GamepadButton::South),
+        )
 
-            )
-            ;
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new(headline),
+                TextFont {
+                    font: asset_server.load("BAUHS93.TTF").into(),
+                    font_size: FontSize::Px(60.0),
+                    ..default()
+                },
+                TextColor(GOLD.into()),
+                Node {
+                    align_self: AlignSelf::Center,
+                    ..default()
+                },
+            ));
+
+            parent.spawn((
+                Text::new(hint),
+                TextFont {
+                    font: asset_server.load("BAUHS93.TTF").into(),
+                    font_size: FontSize::Px(30.0),
+                    ..default()
+                },
+                TextColor(GOLD.into()),
+                Node {
+                    align_self: AlignSelf::Center,
+                    ..default()
+                },
+            ));
         })
     ;
 }

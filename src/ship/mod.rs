@@ -1,16 +1,11 @@
-use bevy::app::App;
+use bevy::app::{App, Plugin, Update};
 use bevy::gltf::Gltf;
-use bevy::hierarchy::BuildChildren;
-use bevy::pbr::{AlphaMode, PbrBundle, StandardMaterial};
-use bevy::prelude::{Assets, AssetServer, Color, Commands, Component, DespawnRecursiveExt, Entity, EventWriter, GamepadButtonType, info, IntoSystemDescriptor, KeyCode, Mesh, Plugin, Quat, Query, Res, ResMut, Resource, shape, SystemSet, Time, Transform, TransformBundle, Vec2, Vec3, With, Without};
-use bevy::scene::SceneBundle;
-use bevy::utils::default;
-use bevy_prototype_lyon::prelude::ShapePlugin;
+use bevy::pbr::{MeshMaterial3d, StandardMaterial};
+use bevy::prelude::{default, in_state, AlphaMode, Assets, Color, Commands, Component, Entity, GamepadButton, IntoScheduleConfigs, KeyCode, Mesh, Mesh3d, MessageWriter, OnExit, Quat, Query, Res, ResMut, Resource, Sphere, Time, Transform, Vec2, Vec3, With, Without};
+use bevy::world_serialization::WorldAssetRoot;
 use bevy_rapier3d::geometry::CollisionGroups;
-use bevy_rapier3d::prelude::{ActiveEvents, Collider, ExternalForce, Velocity};
-use leafwing_input_manager::axislike::DualAxisData;
-use leafwing_input_manager::InputManagerBundle;
-use leafwing_input_manager::prelude::{ActionState, DualAxis, InputMap};
+use bevy_rapier3d::prelude::{ActiveEvents, Collider, ExternalForce, RigidBody, Velocity};
+use leafwing_input_manager::prelude::{ActionState, GamepadStick, InputMap};
 
 use crate::actions::MatchActions;
 use crate::ball::{ActiveBall, Ball};
@@ -59,31 +54,32 @@ pub struct ShipPlugin;
 impl Plugin for ShipPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_plugin(ShapePlugin)
             .insert_resource(ShipState {
                 ship_position: Default::default(),
                 ship_rotation: 0.0,
             })
 
-            .add_system_set(
-                SystemSet::on_update(GameState::InMatch)
-                    .with_system(ship_spawn.label(SystemLabels::UpdateWorld))
-                    .with_system(ship_articulate.label(SystemLabels::UpdateWorld))
-                    .with_system(ship_update_position.label(SystemLabels::UpdateWorld))
-                    .with_system(ship_launch_ball.label(SystemLabels::UpdateWorld))
-                    .with_system(ship_grab_ball.label(SystemLabels::UpdateWorld))
-                // .with_system(ship_setup_debug_grab_distances.label(SystemLabels::UpdateWorld))
+            .add_systems(
+                Update,
+                (
+                    ship_spawn,
+                    ship_articulate,
+                    ship_update_position,
+                    ship_launch_ball,
+                    ship_grab_ball,
+                    // ship_setup_debug_grab_distances,
+                )
+                    .in_set(SystemLabels::UpdateWorld)
+                    .run_if(in_state(GameState::InMatch)),
             )
 
-            .add_system_set(
-                SystemSet::on_update(GameState::PostMatch)
-                    .with_system(ship_articulate.label(SystemLabels::UpdateWorld))
-                    .with_system(ship_update_position.label(SystemLabels::UpdateWorld))
+            .add_systems(
+                Update,
+                (ship_articulate, ship_update_position)
+                    .in_set(SystemLabels::UpdateWorld)
+                    .run_if(in_state(GameState::PostMatch)),
             )
-            .add_system_set(
-                SystemSet::on_exit(GameState::PostMatch)
-                    .with_system(ship_despawn)
-            )
+            .add_systems(OnExit(GameState::PostMatch), ship_despawn)
         ;
     }
 }
@@ -97,29 +93,28 @@ fn ship_spawn(
 
     if let Some(gltf) = assets_gltf.get(&my.0) {
 
-    for (entity, ship) in &empties {
+    for (entity, _ship) in &empties {
         commands.entity(entity)
             .remove::<RequestTag>()
-            .insert(SceneBundle {
-                scene: gltf.named_scenes["004_Ship_3"].clone(),
-                ..default()
-            })
-            .insert(InputManagerBundle::<MatchActions> {
-                action_state: ActionState::default(),
-                input_map: InputMap::default()
-                    .insert(DualAxis::left_stick(), MatchActions::ArticulateLeft)
-                    .insert(DualAxis::right_stick(), MatchActions::ArticulateRight)
-                    .insert(GamepadButtonType::RightTrigger2, MatchActions::ArticulateUp)
-                    .insert(GamepadButtonType::LeftTrigger2, MatchActions::ArticulateDown)
+            .insert(WorldAssetRoot(gltf.named_scenes["004_Ship_3"].clone()))
+            .insert(
+                InputMap::default()
+                    .with_dual_axis(MatchActions::ArticulateLeft, GamepadStick::LEFT)
+                    .with_dual_axis(MatchActions::ArticulateRight, GamepadStick::RIGHT)
+                    .with(MatchActions::ArticulateUp, GamepadButton::RightTrigger2)
+                    .with(MatchActions::ArticulateDown, GamepadButton::LeftTrigger2)
 
+                    .with(MatchActions::SpawnOrLaunchBall, GamepadButton::RightTrigger)
+                    .with(MatchActions::GrabTheBall, GamepadButton::LeftTrigger)
 
-                    .insert(GamepadButtonType::RightTrigger, MatchActions::SpawnOrLaunchBall)
-                    .insert(GamepadButtonType::LeftTrigger, MatchActions::GrabTheBall)
-
-                    .insert(KeyCode::Space, MatchActions::SpawnOrLaunchBall)
-                    .build(),
-            })
-            .insert(TransformBundle::from(Transform::from_xyz(PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z)))
+                    .with(MatchActions::SpawnOrLaunchBall, KeyCode::Space),
+            )
+            .insert(Transform::from_xyz(PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z))
+            // The paddle is driven by writing `Transform` directly. Without a rigid body it is a
+            // static collider with no velocity, so a sideways sweep just depenetrates the ball a
+            // little each step and drags it along. As a kinematic position based body, rapier
+            // derives the paddle's velocity from the transform delta and pushes the ball away.
+            .insert(RigidBody::KinematicPositionBased)
             .insert(Collider::round_cuboid(PADDLE_WIDTH_H - PADDLE_THICKNESS * 0.15, PADDLE_THICKNESS * 0.25, PADDLE_THICKNESS * 0.35, PADDLE_THICKNESS * 0.15))
             .insert(CollisionGroups::new(COLLIDER_GROUP_PADDLE, COLLIDER_GROUP_BALL | COLLIDER_GROUP_PICKUP))
             .insert(ActiveEvents::COLLISION_EVENTS)
@@ -138,34 +133,37 @@ fn ship_despawn(
     for ship in &ships {
         //info!("Despawn ship {:?}", ship);
         commands.entity(ship)
-            .despawn_recursive();
+            .despawn();
     }
 }
 
 fn ship_articulate(mut query: Query<(&ActionState<MatchActions>, &mut Ship)>) {
     for (action_state, mut ship) in &mut query {
-        if !action_state.pressed(MatchActions::ArticulateLeft) && !action_state.pressed(MatchActions::ArticulateRight)
-           && !action_state.pressed(MatchActions::ArticulateUp) && !action_state.pressed(MatchActions::ArticulateDown)
+        let axis_pair_l = action_state.clamped_axis_pair(&MatchActions::ArticulateLeft);
+        let axis_pair_r = action_state.clamped_axis_pair(&MatchActions::ArticulateRight);
+
+        // Analog triggers, so read the button value rather than the pressed flag.
+        let up = action_state.button_value(&MatchActions::ArticulateUp);
+        let down = action_state.button_value(&MatchActions::ArticulateDown);
+
+        if axis_pair_l == Vec2::ZERO && axis_pair_r == Vec2::ZERO && up == 0.0 && down == 0.0
         {
             ship.target_position = Vec3::new(PADDLE_RESTING_X, PADDLE_RESTING_Y, PADDLE_RESTING_Z);
             ship.target_rotation = PADDLE_RESTING_ROTATION;
-            return;
+            continue;
         }
 
-        let axis_pair_l: DualAxisData = action_state.clamped_axis_pair(MatchActions::ArticulateLeft).unwrap();
-        let axis_pair_r: DualAxisData = action_state.clamped_axis_pair(MatchActions::ArticulateRight).unwrap();
-
         // Rotation
-        let d = Vec2::new(-1.0, axis_pair_l.y()) - Vec2::new(1.0, axis_pair_r.y());
+        let d = Vec2::new(-1.0, axis_pair_l.y) - Vec2::new(1.0, axis_pair_r.y);
 
-        let mut a = d.perp().angle_between(Vec2::new(0.0, -1.0));
+        let mut a = d.perp().angle_to(Vec2::new(0.0, -1.0));
         if a.abs() < 0.1 { a = PADDLE_RESTING_ROTATION }
 
         ship.target_rotation = a;
 
 
         // Translation
-        let comp = (axis_pair_l.xy() + axis_pair_r.xy()) * 0.75;
+        let comp = (axis_pair_l + axis_pair_r) * 0.75;
 
         let tx = if comp.length() < 0.2 {
             PADDLE_RESTING_X
@@ -178,8 +176,8 @@ fn ship_articulate(mut query: Query<(&ActionState<MatchActions>, &mut Ship)>) {
 
 
         // Elevation
-        let t_up = action_state.value(MatchActions::ArticulateUp).ceil();
-        let t_down = action_state.value(MatchActions::ArticulateDown).ceil() * -1.0;
+        let t_up = up.ceil();
+        let t_down = down.ceil() * -1.0;
 
         let ty = (t_up + t_down) * 30.0;
 
@@ -195,13 +193,13 @@ fn ship_update_position(time: Res<Time>, mut ship_state: ResMut<ShipState>, mut 
 
         let mut tp: Vec3 = ship.target_position;
         if dp.length() > 0.1 {
-            /*            ship.current_accel += time.delta_seconds() * PADDLE_POSITION_ACCEL_ACCEL;
+            /*            ship.current_accel += time.delta_secs() * PADDLE_POSITION_ACCEL_ACCEL;
                         if ship.current_accel > PADDLE_POSITION_MAX_ACCEL {
                             ship.current_accel = PADDLE_POSITION_MAX_ACCEL
                         }
-                        tp = trans.translation + dp * time.delta_seconds() * ship.current_accel;
+                        tp = trans.translation + dp * time.delta_secs() * ship.current_accel;
             */
-            tp = trans.translation + dp * time.delta_seconds() * PADDLE_POSITION_MAX_ACCEL;
+            tp = trans.translation + dp * time.delta_secs() * PADDLE_POSITION_MAX_ACCEL;
         }
 
         /*
@@ -226,7 +224,7 @@ fn ship_update_position(time: Res<Time>, mut ship_state: ResMut<ShipState>, mut 
 
         let mut a = ship.target_rotation;
         if dr.abs() > 0.001 {
-            a = ship.current_rotation + dr * time.delta_seconds() * PADDLE_ROTATION_ACCEL;
+            a = ship.current_rotation + dr * time.delta_secs() * PADDLE_ROTATION_ACCEL;
         }
         ship.current_rotation = a;
         trans.rotation = Quat::from_rotation_y(-a);
@@ -238,27 +236,28 @@ fn ship_update_position(time: Res<Time>, mut ship_state: ResMut<ShipState>, mut 
 
 fn ship_launch_ball(
     players: Query<&Player>,
-    mut query: Query<&mut ActionState<MatchActions>, With<Ship>>,
-    mut events: EventWriter<MatchEvent>,
+    query: Query<&ActionState<MatchActions>, With<Ship>>,
+    mut events: MessageWriter<MatchEvent>,
 ) {
-    let player = players.get_single().unwrap();
+    let Ok(player) = players.single() else { return; };
 
-    for mut action in &mut query {
-        if action.pressed(MatchActions::SpawnOrLaunchBall) {
-            action.consume(MatchActions::SpawnOrLaunchBall);
-
+    for action in &query {
+        // `ActionState::consume` was removed in leafwing-input-manager 0.21;
+        // `just_pressed` gives the same fire-once-per-press behaviour.
+        if action.just_pressed(&MatchActions::SpawnOrLaunchBall) {
             if player.balls_carried > 0 || player.balls_grabbed > 0 {
                 //info!("Ball launch requested by operator");
-                events.send(MatchEvent::BallLaunched);
+                events.write(MatchEvent::BallLaunched);
             } else {
                 //info!("Ball spawn requested by operator");
-                events.send(MatchEvent::BallSpawned);
+                events.write(MatchEvent::BallSpawned);
             }
         }
     }
 }
 
 
+#[allow(dead_code)]
 fn ship_setup_debug_grab_distances(
     mut commands: Commands,
     ships: Query<Entity, (With<Ship>, Without<DebugShape>)>,
@@ -266,52 +265,30 @@ fn ship_setup_debug_grab_distances(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for ship in &ships {
-        let s1 = commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
-                radius: GRAB_RADIUS,
-                ..default()
-            })),
-            material: materials.add(StandardMaterial {
-                base_color: Color::Rgba {
-                    red: 1.0,
-                    green: 0.0,
-                    blue: 1.0,
-                    alpha: 0.2,
-                },
+        let s1 = commands.spawn((
+            Mesh3d(meshes.add(Mesh::from(Sphere::new(GRAB_RADIUS)))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: Color::srgba(1.0, 0.0, 1.0, 0.2),
                 alpha_mode: AlphaMode::Blend,
                 perceptual_roughness: 1.0,
                 ..default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-        }).id();
+            })),
+            Transform::from_xyz(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS),
+        )).id();
 
-        let s2 = commands.spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
-                radius: GRAB_ATTRACT_RADIUS,
-                ..default()
-            })),
-            material: materials.add(StandardMaterial {
-                base_color: Color::Rgba {
-                    red: 0.0,
-                    green: 1.0,
-                    blue: 1.0,
-                    alpha: 0.2,
-                },
+        let s2 = commands.spawn((
+            Mesh3d(meshes.add(Mesh::from(Sphere::new(GRAB_ATTRACT_RADIUS)))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: Color::srgba(0.0, 1.0, 1.0, 0.2),
                 perceptual_roughness: 1.0,
                 alpha_mode: AlphaMode::Blend,
                 ..default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-        }).id();
+            })),
+            Transform::from_xyz(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS),
+        )).id();
 
         commands.entity(ship)
-            .push_children(&[s1, s2])
+            .add_children(&[s1, s2])
             .insert(DebugShape);
     }
 }
@@ -319,11 +296,11 @@ fn ship_setup_debug_grab_distances(
 fn ship_grab_ball(
     mut commands: Commands,
     mut players: Query<(&mut Grabber, &Player), (Without<Ball>, Without<Ship>)>,
-    mut ship: Query<(&ActionState<MatchActions>, &Transform), (With<Ship>, Without<Ball>)>,
+    ship: Query<(&ActionState<MatchActions>, &Transform), (With<Ship>, Without<Ball>)>,
     mut balls: Query<(Entity, &mut Transform, &mut ExternalForce, &mut Velocity), (With<Ball>, Without<Ship>)>,
-    mut events: EventWriter<MatchEvent>,
+    mut events: MessageWriter<MatchEvent>,
 ) {
-    if let Ok((mut grabber, player)) = players.get_single_mut() {
+    if let Ok((mut grabber, player)) = players.single_mut() {
         if player.balls_carried > 0 {
             return;
         }
@@ -331,8 +308,8 @@ fn ship_grab_ball(
             return;
         }
 
-        for (action, ship_trans) in &mut ship {
-            if action.pressed(MatchActions::GrabTheBall) {
+        for (action, ship_trans) in &ship {
+            if action.pressed(&MatchActions::GrabTheBall) {
                 for (ball, mut ball_trans, mut ball_force, mut ball_velo) in &mut balls {
                     let target = ship_trans.translation + Vec3::new(0.0, 0.0, -PADDLE_THICKNESS * 0.7 - BALL_RADIUS);
                     let v = target - ball_trans.translation;
@@ -341,9 +318,9 @@ fn ship_grab_ball(
                         if d < GRAB_RADIUS {
                             commands.entity(ball)
                                 .remove::<ActiveBall>();
-                            events.send(MatchEvent::BallGrabbed);
+                            events.write(MatchEvent::BallGrabbed);
                             ball_trans.translation = target;
-                            ball_velo.linvel = Vec3::ZERO;
+                            ball_velo.linear = Vec3::ZERO;
                             grabber.use_one();
                             //info!("{} grabs left", grabber.grabs);
                         } else {

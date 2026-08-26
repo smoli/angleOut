@@ -1,6 +1,25 @@
 # angleOut
 Breakout Clone with a Twist
 
+## What is this
+It's an experimental and totally unfinished breakout clone. Instead of moving the paddle only left and
+right you can twist it using the left and right stick on the controller. This allows the play to more 
+precisely control the angle at which the ball leaves the paddle.
+
+## Prerequisites and building
+
+rustc: 1.90 or newer
+bevy: 0.19
+
+You need a controller in order to play.
+
+To build just type
+
+```shell
+cargo build
+```
+
+
 ## Controllers
 
 The paddle is twisted with *both* sticks, so a pad that only delivers one of

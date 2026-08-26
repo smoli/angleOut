@@ -1,17 +1,20 @@
+#import bevy_pbr::forward_io::VertexOutput
+
 struct CustomMaterial {
     color1: vec4<f32>,
     color2: vec4<f32>,
     time: f32
 };
 
-@group(1) @binding(0)
+@group(#{MATERIAL_BIND_GROUP}) @binding(0)
 var<uniform> material: CustomMaterial;
 
 
 @fragment
 fn fragment(
-    #import bevy_pbr::mesh_vertex_output
+    in: VertexOutput
 ) -> @location(0) vec4<f32> {
+    let uv = in.uv;
 
     var col = vec4<f32>(material.color1.xyz, 0.5);
 

@@ -1,5 +1,5 @@
-use bevy::prelude::{Bundle, Component, Resource};
-use bevy::utils::HashMap;
+use bevy::platform::collections::HashMap;
+use bevy::prelude::{Component, Resource};
 use crate::block::trigger::TriggerState::{Started, Stopped};
 use crate::physics::Collision;
 

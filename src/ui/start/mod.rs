@@ -1,8 +1,9 @@
-use bevy::log::info;
-use bevy::prelude::{App, Color, Component, Commands, Entity, Plugin, Query, SystemSet, TextBundle, TextSection, TextStyle, With, AssetServer, Res, GamepadButtonType, EventWriter, NodeBundle, Style, Size, Val, default, BuildChildren, DespawnRecursiveExt};
-use bevy::ui::{AlignSelf};
+use bevy::app::{App, Plugin, Update};
+use bevy::color::palettes::css::GOLD;
+use bevy::prelude::{default, in_state, AlignSelf, AssetServer, Color, Commands, Component, Entity, GamepadButton, IntoScheduleConfigs, MessageWriter, Node, OnEnter, OnExit, Query, Res, Text, TextColor, TextFont, Val, With};
+use bevy::text::FontSize;
+use bevy::ui::BackgroundColor;
 use leafwing_input_manager::input_map::InputMap;
-use leafwing_input_manager::InputManagerBundle;
 use leafwing_input_manager::prelude::ActionState;
 use crate::actions::GameFlowActions;
 use crate::events::GameFlowEvent;
@@ -17,20 +18,11 @@ pub struct UIStartPlugin;
 impl Plugin for UIStartPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_system_set(
-                SystemSet::on_enter(GameState::Start)
-                    .with_system(ui_spawn)
-            )
+            .add_systems(OnEnter(GameState::Start), ui_spawn)
 
-            .add_system_set(
-                SystemSet::on_update(GameState::Start)
-                    .with_system(ui_handle_action)
-            )
+            .add_systems(Update, ui_handle_action.run_if(in_state(GameState::Start)))
 
-            .add_system_set(
-                SystemSet::on_exit(GameState::Start)
-                    .with_system(ui_despawn)
-            )
+            .add_systems(OnExit(GameState::Start), ui_despawn)
         ;
     }
 }
@@ -41,55 +33,48 @@ fn ui_spawn(
     asset_server: Res<AssetServer>,
 ) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 align_self: AlignSelf::Center,
 
                 ..default()
-
             },
-            background_color: Color::rgb(0.65, 0.65, 0.65).into(),
-            ..default()
-        })
+            BackgroundColor(Color::srgb(0.65, 0.65, 0.65)),
+        ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_sections([
-                TextSection::new(
-                    "Angle Out - Press A to play",
-                    TextStyle {
-                        font: asset_server.load("BAUHS93.TTF"),
-                        font_size: 60.0,
-                        color: Color::GOLD,
-
-                    },
-                )
-            ]).with_style(Style {
-                align_self: AlignSelf::Center,
-                ..default()
-            })
-            )
-                ;
+            parent.spawn((
+                Text::new("Angle Out - Press A to play"),
+                TextFont {
+                    font: asset_server.load("BAUHS93.TTF").into(),
+                    font_size: FontSize::Px(60.0),
+                    ..default()
+                },
+                TextColor(GOLD.into()),
+                Node {
+                    align_self: AlignSelf::Center,
+                    ..default()
+                },
+            ));
         })
         .insert(UITag)
-        .insert(InputManagerBundle::<GameFlowActions> {
-            action_state: ActionState::default(),
-            input_map: InputMap::default()
-                .insert(GamepadButtonType::South, GameFlowActions::StartGame)
-                .build(),
-        })
+        .insert(
+            InputMap::default()
+                .with(GameFlowActions::StartGame, GamepadButton::South),
+        )
     ;
 }
 
 
 fn ui_handle_action(
-    mut actions: Query<&mut ActionState<GameFlowActions>, With<UITag>>,
-    mut game_event: EventWriter<GameFlowEvent>,
+    actions: Query<&ActionState<GameFlowActions>, With<UITag>>,
+    mut game_event: MessageWriter<GameFlowEvent>,
 ) {
-    for mut action in &mut actions {
-        if action.just_released(GameFlowActions::StartGame) {
+    for action in &actions {
+        if action.just_released(&GameFlowActions::StartGame) {
             //info!("Player requested Start!");
-            action.consume(GameFlowActions::StartGame);
-            game_event.send(GameFlowEvent::StartGame);
+            game_event.write(GameFlowEvent::StartGame);
         }
     }
 }
@@ -98,6 +83,6 @@ fn ui_handle_action(
 fn ui_despawn(mut commands: Commands, uis: Query<Entity, With<UITag>>) {
     //info!("Despawning Start Screen");
     for ui in &uis {
-        commands.entity(ui).despawn_recursive();
+        commands.entity(ui).despawn();
     }
 }

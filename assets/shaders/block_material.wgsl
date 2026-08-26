@@ -1,12 +1,9 @@
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::mesh_bindings
-
-#import bevy_pbr::pbr_types
-#import bevy_pbr::utils
-#import bevy_pbr::clustered_forward
-#import bevy_pbr::lighting
-#import bevy_pbr::shadows
-#import bevy_pbr::pbr_functions
+#import bevy_pbr::{
+    forward_io::VertexOutput,
+    mesh_view_bindings::view,
+    pbr_types::{PbrInput, pbr_input_new, STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE},
+    pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing, prepare_world_normal, calculate_view},
+}
 
 fn hash3( p: vec2<f32> ) -> vec3<f32>
 {
@@ -44,14 +41,14 @@ struct CustomMaterial {
     color2: vec4<f32>,
     damage: f32,
     time: f32,
-    top_bottom_split: i32
+    top_bottom_split: u32
 };
 
-@group(1) @binding(0)
+@group(#{MATERIAL_BIND_GROUP}) @binding(0)
 var<uniform> material: CustomMaterial;
-@group(1) @binding(1)
+@group(#{MATERIAL_BIND_GROUP}) @binding(1)
 var color_texture: texture_2d<f32>;
-@group(1) @binding(2)
+@group(#{MATERIAL_BIND_GROUP}) @binding(2)
 var color_sampler: sampler;
 
 
@@ -60,21 +57,16 @@ fn f5(x: f32) -> f32 {
 }
 
 
-struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
-    @builtin(position) frag_coord: vec4<f32>,
-    #import bevy_pbr::mesh_vertex_output
-};
-
 @fragment
 fn fragment(
-    in: FragmentInput
+    in: VertexOutput,
+    @builtin(front_facing) is_front: bool,
 ) -> @location(0) vec4<f32> {
 
     let damage = material.damage;
     var color: vec4<f32>;
 
-    if (material.top_bottom_split == 1 && in.uv.y > 0.5) {
+    if (material.top_bottom_split == 1u && in.uv.y > 0.5) {
         color = material.color2;
     } else {
         color = material.color1;
@@ -96,29 +88,28 @@ fn fragment(
     }
 
 
-        var pbr_input: PbrInput;
+        var pbr_input: PbrInput = pbr_input_new();
 
         pbr_input.material.base_color = vec4<f32>(color);
 
-        pbr_input.material.reflectance = 0.1;
+        pbr_input.material.reflectance = vec3<f32>(0.1);
         pbr_input.material.alpha_cutoff = 0.0;
-        pbr_input.material.flags = 4u;
+        pbr_input.material.flags = STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE;
         pbr_input.material.emissive = vec4<f32>(0.0,0.0,0.0,1.0);
         pbr_input.material.metallic = 0.1;
         pbr_input.material.perceptual_roughness = 1.0;
 
-        pbr_input.occlusion = 1.0;
-        pbr_input.frag_coord = in.frag_coord;
+        pbr_input.frag_coord = in.position;
         pbr_input.world_position = in.world_position;
         pbr_input.world_normal = in.world_normal;
 
-        pbr_input.is_orthographic = view.projection[3].w == 1.0;
+        pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
 
-        pbr_input.N = prepare_world_normal(in.world_normal, false, in.is_front);
+        pbr_input.N = prepare_world_normal(in.world_normal, false, is_front);
         pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic)
         ;
 
-        let output_color = pbr(pbr_input);
+        let output_color = apply_pbr_lighting(pbr_input);
 
-        return tone_mapping(pbr(pbr_input));
+        return main_pass_post_lighting_processing(pbr_input, output_color);
 }

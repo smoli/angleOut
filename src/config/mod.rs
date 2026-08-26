@@ -12,6 +12,10 @@ pub const MAX_BALL_SPEED: f32 = 130.0;
 pub const MIN_BALL_SPEED: f32 = 130.0;
 pub const MAX_RESTITUTION: f32 = 1.0;
 
+// Bevy's ambient light is in cd/m^2 since 0.12; the engine default is 80.0.
+// This keeps the original 8x-the-default ambient of the Bevy 0.9 version.
+pub const AMBIENT_BRIGHTNESS: f32 = 640.0;
+
 pub const TILTED_CAMERA: bool = true;
 pub const CAMERA_TILT: f32 = PI / 5.0;
 
