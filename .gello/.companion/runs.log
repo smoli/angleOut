@@ -2790,3 +2790,8 @@
 [c0015] plus a second question on whether opening discards unsaved edits outright or asks first, and a check on whether *naming* the file belongs in this card (today `Save` invents `levelN.ron` and there's nowhere to type).
 [c0015] Answer on the card and I'll be resumed to build it.
 [c0015] ✓ 30 in / 7710 out tokens, $0.9504, 20 turns, 127.5s
+[c0015] → Bash(cat .gello/epics/e01-level-editor/c0015-define-what-level-we-re-editing.md)
+[c0015] Answer: **A**, with the unsaved-edits question left blank (so my recommendation 1 — replace outright) and no renaming. Let me study the panels I'm copying.
+[c0015] → Bash(cat src/editor/playtest.rs)
+[c0015] → Bash(sed -n 595,700p src/editor/save.rs)
+[c0015] → Bash(sed -n 1,120p src/editor/save.rs)

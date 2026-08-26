@@ -1,31 +1,19 @@
 {
-  "status": "waiting",
+  "status": "running",
   "ready": [],
-  "waiting": [
-    "c0015"
-  ],
+  "waiting": [],
   "runs": [
     {
       "cardId": "c0015",
-      "phase": "waiting-for-input",
-      "usage": {
-        "inputTokens": 30,
-        "outputTokens": 7710,
-        "cacheReadTokens": 606264,
-        "cacheCreationTokens": 45316,
-        "totalCostUsd": 0.950367,
-        "numTurns": 20,
-        "durationMs": 127518,
-        "permissionDenials": 0
-      },
+      "phase": "running",
       "activity": {
-        "name": "mcp__gello__add_question",
-        "arg": "## How should the author choose which level to edit?\n\nToday `editor_open` (`src/editor/mod.rs:644`) takes `levels.get_current_level()` — whatever the campaign happens to be pointing at — and there is no way to open a different file or start a blank one. The save panel names the file it would write to, so the editor *says* what it is editing; it just cannot be told.\n\nConstraint on where a chooser can go: the left-hand column is already four panels deep (settings 16–292, history 300–394, save 402–548, playtest 556–624 of an 800px window), and the palette owns the right. A list of all 11 level files is ~354px tall, so it does not fit down the left.\n\n**Which shape?**\n\n- [ ] **A — a compact \"Level\" panel at the foot of the left column.** `◀ level4.ron ▶` steps through the files on disk without loading anything, `Open` loads the one named, `New` starts a blank grid. Three rows; reuses the settings panel's own ◀ ▶ idiom and fits the room that is left. *(my recommendation)*\n- [ ] **B — a full list of every level file**, one clickable row each. Needs somewhere new to live: a second column under the palette on the right, or a paged/scrolling list down the left.\n- [ ] **C — a chooser screen before the editor.** \"Editor\" in the main menu lists the levels plus \"New\", and picking one enters the editor on it.\n- [ ] **D — something else** (say what).\n\n**And what happens to unsaved edits when another level is opened?**\n\n- [ ] **1 — it replaces what is being edited outright**, and the report line says which file arrived. Matches the save panel's never-block spirit. *(my recommendation)*\n- [ ] **2 — Open asks first** when the level has unsaved edits: the row says \"unsaved edits — press again to discard\", and a second press does it.\n\n**Out of scope unless you say otherwise:** *naming* the file. `Save` still invents `levelN.ron` for a level that has never been on disk, and there is still nowhere in this game to type a name. Tick here if renaming belongs in this card too:\n\n- [ ] Choosing a level should also let me name/rename the file.\n"
+        "name": "Bash",
+        "arg": "sed -n 1,120p src/editor/save.rs"
       },
       "model": "claude-opus-5"
     }
   ],
-  "updated": "2026-08-26T22:24:21",
+  "updated": "2026-08-26T22:41:09",
   "pickupDelay": 10,
   "owned": [
     "i0001",
