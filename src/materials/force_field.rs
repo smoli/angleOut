@@ -91,7 +91,7 @@ impl Default for ForceFieldMaterial {
             ripple_width: 6.0,
             ripple_decay: 1.2,
             flare_intensity: 2.5,
-            hex_tile_size: 10.0,
+            hex_tile_size: 20.0,
             hits: [Vec4::ZERO; FORCE_FIELD_HIT_SLOTS],
             color_texture: None,
             alpha_mode: AlphaMode::Blend,
