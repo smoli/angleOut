@@ -1,12 +1,12 @@
 ---
 id: c0006
 title: Grid picking
-status: review
+status: done
 epic: e01
 depends: [c0002, c0005]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T00:53:44
+status-changed: 2026-08-26T21:55:17
 usage-tokens: 57942
 usage-cost: 6.292097
 ---
@@ -147,3 +147,4 @@ Checked: all six acceptance criteria against `src/editor/mod.rs` and
   with a gizmo, camera marked `EditorCamera`; 11 new tests, 80 green, build clean
   (19 warnings, one fewer than before - `world_to_cell` is no longer unused)
 - 2026-08-26 status → review (agent)
+- 2026-08-26 status → done (app)

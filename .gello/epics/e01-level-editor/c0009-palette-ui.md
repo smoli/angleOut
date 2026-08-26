@@ -1,12 +1,12 @@
 ---
 id: c0009
 title: Palette UI and shortcuts
-status: review
+status: done
 epic: e01
 depends: [c0007]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T07:18:38
+status-changed: 2026-08-26T21:55:26
 usage-tokens: 191139
 usage-cost: 26.105056
 ---
@@ -372,3 +372,4 @@ was run.
   clamped clear of the left column, and every click test now reads the drawn
   node; 6 new tests, 274 green, the review's own resize scenario run in the game
 - 2026-08-26 status → review (agent)
+- 2026-08-26 status → done (app)

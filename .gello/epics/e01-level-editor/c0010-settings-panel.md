@@ -1,12 +1,12 @@
 ---
 id: c0010
 title: Level settings panel
-status: review
+status: done
 epic: e01
 depends: [c0005]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T02:10:55
+status-changed: 2026-08-26T21:55:22
 usage-tokens: 81537
 usage-cost: 8.646651
 ---
@@ -144,3 +144,4 @@ Checked: the four acceptance criteria against `src/editor/settings.rs` and
 - 2026-08-26 settings panel built: `src/editor/settings.rs`, wired into the
   editor's schedule; 25 new tests, `cargo test` 157 passing, build clean
 - 2026-08-26 status → review (agent)
+- 2026-08-26 status → done (app)

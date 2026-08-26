@@ -1,10 +1,10 @@
 ---
 id: c0001
 title: Force field
-status: review
+status: done
 created: 2026-08-25
-updated: 2026-08-25
-status-changed: 2026-08-25T23:18:23
+updated: 2026-08-26
+status-changed: 2026-08-26T21:55:11
 usage-tokens: 122626
 usage-cost: 18.567486
 ---
@@ -327,3 +327,4 @@ that. Both remaining criteria are yours to tick before this goes to done.
 - 2026-08-25 status → in-progress (agent)
 - 2026-08-25 review fixes: repeating sampler actually applied, white-hot crest with a blue wake, rotated-panel path verified by running the re-enabled level (agent)
 - 2026-08-25 status → review (agent)
+- 2026-08-26 status → done (app)

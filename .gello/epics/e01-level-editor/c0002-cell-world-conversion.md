@@ -1,12 +1,12 @@
 ---
 id: c0002
 title: Shared cell/world conversion
-status: review
+status: done
 epic: e01
 depends: []
 created: 2026-08-25
-updated: 2026-08-25
-status-changed: 2026-08-25T23:26:51
+updated: 2026-08-26
+status-changed: 2026-08-26T21:55:12
 usage-tokens: 31688
 usage-cost: 2.641521
 ---
@@ -114,3 +114,4 @@ levels' block positions.
   clean, game starts without panic (reaching an actual match needs input this
   session cannot send, so unchanged positions rest on the identity tests)
 - 2026-08-25 status → review (agent)
+- 2026-08-26 status → done (app)

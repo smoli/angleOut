@@ -1,12 +1,12 @@
 ---
 id: c0013
 title: Playtest round trip
-status: review
+status: done
 epic: e01
 depends: [c0007, c0010]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T03:28:39
+status-changed: 2026-08-26T21:55:25
 usage-tokens: 104951
 usage-cost: 14.25368
 ---
@@ -171,3 +171,4 @@ though the repo declares no lint check.
 - 2026-08-26 status → in-progress (agent)
 - 2026-08-26 playtest round trip landed; 243 tests pass, `cargo build` clean, verified in the running game (agent)
 - 2026-08-26 status → review (agent)
+- 2026-08-26 status → done (app)

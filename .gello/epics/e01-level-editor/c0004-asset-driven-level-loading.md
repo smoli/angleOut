@@ -1,12 +1,12 @@
 ---
 id: c0004
 title: Asset-driven level loading and hot reload
-status: review
+status: done
 epic: e01
 depends: [c0003]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T00:12:48
+status-changed: 2026-08-26T21:55:15
 usage-tokens: 103523
 usage-cost: 12.90396
 ---
@@ -184,3 +184,4 @@ those groups.
   reloaded in-match on a hand edit; `cargo test` 53 passed, verified live in the
   running game (agent)
 - 2026-08-26 status → review (agent)
+- 2026-08-26 status → done (app)

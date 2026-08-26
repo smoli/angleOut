@@ -1,12 +1,12 @@
 ---
 id: c0012
 title: Save to disk with validation warnings
-status: review
+status: done
 epic: e01
 depends: [c0008, c0010]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T02:58:47
+status-changed: 2026-08-26T21:55:24
 usage-tokens: 104594
 usage-cost: 12.609918
 ---
@@ -147,3 +147,4 @@ Checked: the six acceptance criteria against the code, `cargo test`, `cargo buil
 - 2026-08-26 status → in-progress (agent)
 - 2026-08-26 save + validation landed; 218 tests pass, `cargo build` clean (agent)
 - 2026-08-26 status → review (agent)
+- 2026-08-26 status → done (app)

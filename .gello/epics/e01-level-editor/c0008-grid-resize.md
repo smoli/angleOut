@@ -1,12 +1,12 @@
 ---
 id: c0008
 title: Grid resize
-status: review
+status: done
 epic: e01
 depends: [c0007]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T01:42:36
+status-changed: 2026-08-26T21:55:20
 usage-tokens: 87771
 usage-cost: 8.914777
 ---
@@ -196,3 +196,4 @@ Two things for later, neither blocking:
   the editor with a warning before an edge with blocks on it goes; 26 new tests,
   132 green, build clean
 - 2026-08-26 status → review (agent)
+- 2026-08-26 status → done (app)

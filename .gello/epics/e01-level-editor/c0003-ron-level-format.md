@@ -1,12 +1,12 @@
 ---
 id: c0003
 title: RON level format, campaign index, migrate levels off main.rs
-status: review
+status: done
 epic: e01
 depends: []
 created: 2026-08-25
-updated: 2026-08-25
-status-changed: 2026-08-25T23:39:32
+updated: 2026-08-26
+status-changed: 2026-08-26T21:55:14
 usage-tokens: 51445
 usage-cost: 5.073398
 ---
@@ -145,3 +145,4 @@ Three things noted, none blocking:
   `main.rs` holds no level data; `cargo test` 40 passed, game boots off the
   files (agent)
 - 2026-08-25 status → review (agent)
+- 2026-08-26 status → done (app)

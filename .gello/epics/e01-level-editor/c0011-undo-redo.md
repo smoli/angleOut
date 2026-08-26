@@ -1,12 +1,12 @@
 ---
 id: c0011
 title: Undo and redo
-status: review
+status: done
 epic: e01
 depends: [c0007, c0010]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T02:33:39
+status-changed: 2026-08-26T21:55:23
 usage-tokens: 93403
 usage-cost: 8.508495
 ---
@@ -155,3 +155,4 @@ above it) and not as pixels. The human glance it asks for is still outstanding.
   bar), with painting, resizing and settings recording through it. 22 new tests;
   `cargo test` 179 pass, `cargo build` clean.
 - 2026-08-26 status → review (agent)
+- 2026-08-26 status → done (app)

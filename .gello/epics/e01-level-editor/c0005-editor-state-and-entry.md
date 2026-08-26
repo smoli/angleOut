@@ -1,12 +1,12 @@
 ---
 id: c0005
 title: Editor state, menu entry and cursor
-status: review
+status: done
 epic: e01
 depends: [c0004]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T00:36:03
+status-changed: 2026-08-26T21:55:16
 usage-tokens: 77131
 usage-cost: 9.866317
 ---
@@ -125,3 +125,4 @@ Checked: all six acceptance criteria against the code, the full diff of
 - 2026-08-26 status → in-progress (agent)
 - 2026-08-26 editor state, menu entry, cursor, camera and level resource; 69 tests green
 - 2026-08-26 status → review (agent)
+- 2026-08-26 status → done (app)

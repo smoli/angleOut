@@ -1,12 +1,12 @@
 ---
 id: c0007
 title: Grid painting
-status: review
+status: done
 epic: e01
 depends: [c0006]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T01:19:42
+status-changed: 2026-08-26T21:55:19
 usage-tokens: 104158
 usage-cost: 9.551224
 ---
@@ -206,3 +206,4 @@ test suite (`cargo test`) and the build (`cargo build`).
   the level on screen for the first time, `block_material` shared out of
   `block_spawn`; 26 new tests, 106 green, build clean
 - 2026-08-26 status → review (agent)
+- 2026-08-26 status → done (app)
