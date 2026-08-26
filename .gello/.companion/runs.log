@@ -1882,3 +1882,42 @@
 [c0010] → Bash(git log --format="%B" -1 7dd5600 && echo "=== c0007 msg ===" && git log --format="%B" -1 bef6615)
 [c0010] → Bash(git show --stat 7dd5600 | tail -12; echo "=== board commit ==="; git show --stat 9c97620 | tail -8)
 [c0010] → Bash(git add src/editor/settings.rs src/editor/mod.rs && git commit -F - <<'MSG' c0010: a level is more than its grid Nine ro…)
+[c0010] → mcp__gello__set_status(review)
+[c0010] **c0010 is in `review`.** Committed as `d8d84af`; nothing pushed.
+[c0010] **What's there** — `src/editor/settings.rs`, nine rows top left, each a label plus a `<`/`>` pair: background, scroll speed, balls at once, win percentage, time limit, extra balls, grabbers, both walls. `src/editor/mod.rs` gained `editor_settings_click`, `editor_show_settings`, and one guard in `cell_under_cursor`.
+[c0010] **Judgement calls worth your eye:**
+[c0010] - **Steppers, not text fields** — the game has no text input, and a stepper means no setting can hold an invalid value. That made `time_limit` cheap, so it's in (`None` sits one rung below the shortest limit).
+[c0010] - **Backgrounds are a named list of the four scenes the levels use**, not free text — otherwise the ball and the paddle are offerable as backdrops. A level naming an unknown background is still shown, and stepping joins the list.
+[c0010] - **The pickup rows count pickups, not amounts** — a hand-authored `MoreBalls(3)` survives untouched. `Grabber` is constructed for the first time here.
+[c0010] - **Range ends come from the rest of the game**, not taste: scroll velocity stops at 0 because `arena_update_background` only wraps off the near end; balls start at 1 because `MatchEvent::BallSpawn` won't fire at 0.
+[c0010] **One gap:** every screenshot from this session comes back black — in the editor *and* the plain menu, so it's the capture, not the panel. 25 tests cover it, including clicks through a real window and pointer, but how it *looks* is unconfirmed. Worth a glance next time you run it. Noted on the card.
+[c0010] `cargo test`: 157 passing. Build and clippy clean on the new files. c0009 is parked awaiting your answer on shortcut collisions and hasn't touched code, so there's nothing to merge against.
+[c0010] ✓ 144 in / 67709 out tokens, $7.0560, 74 turns, 1121.4s
+[c0010] I'll start by reading the card and the board context.
+[c0010] → Bash(cat .gello/epics/e01-level-editor/c0010-settings-panel.md)
+[c0010] → Bash(cat .gello/board.yaml && ls .gello/epics/e01-level-editor/)
+[c0010] → Bash(git log --oneline -20)
+[c0010] → Bash(git log --oneline --all --grep="c0010" -20 && echo "---status---" && git status --short src/editor 2>/dev/null; ls src/e…)
+[c0010] → Bash(git show --stat d8d84af)
+[c0010] → Bash(git status --short | head -60; echo "=== diff of working tree vs HEAD in src ==="; git diff --stat HEAD -- src/ assets/ …)
+[c0010] → Bash(git show d8d84af -- src/editor/mod.rs)
+[c0010] → Bash(sed -n '1,240p' src/editor/settings.rs)
+[c0010] → Bash(sed -n '240,560p' src/editor/settings.rs)
+[c0010] → Bash(sed -n '560,1010p' src/editor/settings.rs)
+[c0010] → Bash(sed -n '400,480p' src/editor/mod.rs)
+[c0010] → Bash(grep -n "enum PickupType" -A 20 src/pickups/mod.rs 2>/dev/null || grep -rn "enum PickupType" -A 20 src/)
+[c0010] → Bash(grep -n "pub struct LevelDefinition" -A 40 src/level/mod.rs)
+[c0010] → Bash(grep -n "test\|check\|clippy\|fmt" README.md | head -30; echo "=== rust-toolchain ==="; cat rust-toolchain* 2>/dev/null;…)
+[c0010] → Bash(cargo test --lib --bins 2>&1 | tail -60)
+[c0010] → Bash(cargo test 2>&1 | tail -80)
+[c0010] → Bash(cargo test settings 2>&1 | tail -40; echo "=== editor tests ==="; cargo test editor:: 2>&1 | grep -c "^test ")
+[c0010] → Bash(touch src/main.rs && cargo check --tests 2>&1 | grep -E "^(warning|error)" -A 4 | grep -E "editor" -B 3 -A 3; echo "=== …)
+[c0010] → Bash(grep -h "^status:\|^id:" .gello/epics/e01-level-editor/c00*.md | paste - - ; echo "=== save path ==="; grep -rn "level_t…)
+[c0010] → Bash(grep -n "fn editor_paint" -A 30 src/editor/mod.rs)
+[c0010] → Bash(grep -rn "fn level_to_ron" src/level/campaign.rs | head; echo "=== FORCE_FIELD_HIT_SLOTS ==="; grep -rn "FORCE_FIELD_HIT…)
+[c0010] → Bash(grep -n "VIEWPORT" src/editor/mod.rs)
+[c0010] → Bash(git show d8d84af --stat --numstat -- src/editor/mod.rs; echo "=== removed lines in existing tests ==="; git show d8d84af…)
+[c0010] → Bash(sed -n '730,790p' src/editor/mod.rs)
+[c0010] → Bash(date +%Y-%m-%dT%H:%M:%S)
+[c0010] → Bash(grep -n "^## Log" src/../.gello/epics/e01-level-editor/c0010-settings-panel.md)
+[c0010] → Bash(python3 - <<'PY' import io p = '.gello/epics/e01-level-editor/c0010-settings-panel.md' s = io.open(p, encoding='utf-8').…)
