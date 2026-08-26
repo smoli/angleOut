@@ -1,19 +1,9 @@
 {
-  "status": "running",
+  "status": "idle",
   "ready": [],
   "waiting": [],
-  "runs": [
-    {
-      "cardId": "c0015",
-      "phase": "running",
-      "activity": {
-        "name": "Bash",
-        "arg": "python3 - <<'PY'\nimport io, re\np = \".gello/epics/e01-level-editor/c0015-define-what-level-we-re-editing.md\"\ns = open(p, encoding=\"utf-8\").read()\n\nwhat = '''## What\n\nThe editor opens whatever the campaign is pointing at and can never be told\notherwise: `editor_open` inserts `EditorLevel` once, from\n`levels.get_current_level()`, and nothing after that can put a different level in\nfront of it. An author who wants to edit `level4.ron` has to make the campaign\nplay it first, and there is no way at all to start a level from nothing.\n\nA fifth panel at the foot of the editor's left-hand column, under the playtest\npanel: the level files on disk named one at a time with a stepper either side,\nan `Open` that puts the named one in front of the editor, and a `New` that\nstarts a blank grid. Opening replaces what is being edited outright - unsaved\nedits and all - and the panel says which file arrived.\n\n## Acceptance criteria\n\n- [ ] The panel names a level file on disk, and the steppers walk the whole\n      directory - every `*.ron` in it except the campaign index, in a stable\n      order, wrapping at both ends.\n- [ ] Entering the editor points the chooser at the level under edit, so the\n      panel opens naming what the author is already working on.\n- [ ] `Open` puts the named file's level in front of the editor: its blocks, its\n      settings, and its path as what the next save writes back to.\n- [ ] `New` starts a blank grid that belongs to no file, exactly as an editor\n      that found no level to open does.\n- [ ] Both discard whatever was being edited, without asking, and the panel says\n      what arrived - including when the file could not be read, which leaves the\n      level under edit alone.\n- [ ] Opening or starting a level drops the undo history: every entry in it is a\n      level that belonged to a different file.\n- [ ] `Ctrl+O` and `Ctrl+N` do the same as the two buttons.\n- [ ] A click anywhere on the panel is aimed at the panel, never at the grid cell\n      behind it.\n- [ ] `cargo build` is clean and `cargo test` passes.\n\n'''\n\ns = s.replace(\"## How should the author choose\", what + \"## How should the author choose\", 1)\nopen(p, \"w\", encoding=\"utf-8\").write(s)\nPY\nhead -30 .gello/epics/e01-level-editor/c0015-define-what-level-we-re-editing.md"
-      },
-      "model": "claude-opus-5"
-    }
-  ],
-  "updated": "2026-08-26T22:44:30",
+  "runs": [],
+  "updated": "2026-08-26T23:17:41",
   "pickupDelay": 10,
   "owned": [
     "i0001",

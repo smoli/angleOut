@@ -1,13 +1,13 @@
 ---
 id: c0015
 title: Define what level we’re editing
-status: in-progress
+status: review
 created: 2026-08-26
 updated: 2026-08-26
-status-changed: 2026-08-26T22:22:18
+status-changed: 2026-08-26T23:13:23
 epic: e01
-usage-tokens: 7740
-usage-cost: 0.950367
+usage-tokens: 119953
+usage-cost: 13.96727
 ---
 
 ## What
@@ -139,7 +139,68 @@ Cannot define what level we’e editing right now
   rests on those numbers; and the mouse cannot be driven from here, so the
   clicking is covered by the app-driven tests rather than by hand.
 
+## Review
+
+### 2026-08-26T23:16:58 — pass
+
+Checked: every acceptance criterion against `src/editor/choose.rs` and
+`src/editor/mod.rs`, the diff of 3a2c59b, `cargo build`, `cargo test`,
+`cargo clippy --all-targets`.
+
+- The list is the directory: `level_names` (`src/editor/choose.rs:141`) keeps
+  every `*.ron` but `CAMPAIGN_FILE` and sorts, and `step` wraps both ways via
+  `rem_euclid` - covered by `the_list_is_every_level_file_in_the_directory_but_the_campaign`,
+  `the_list_is_in_the_same_order_every_time` and
+  `the_steppers_walk_the_whole_list_and_wrap_at_both_ends`.
+- Entering points the chooser at the level under edit: `editor_list_levels` is
+  chained between `editor_open` and the panels in `OnEnter(GameState::Editor)`
+  (`src/editor/mod.rs:528`), and `LevelChoice::refresh` looks the level's own
+  file up in the listing. Covered pure and through a real app
+  (`entering_the_editor_points_the_chooser_at_the_level_under_edit`).
+- `Open` brings the whole level and its file: `take` reads it with `load_level`
+  and sets `source` to the handle for `level_asset_path(&name)`, which is what
+  `editor_save` turns back into a path (`src/editor/save.rs:342`).
+  `open_puts_the_named_file_in_front_of_the_editor` asserts the blocks, the
+  `source_path` and the blocks on screen; `what_arrives_is_the_whole_level_and_not_only_its_grid`
+  asserts the settings come across too.
+- `New` is `EditorLevel::blank()`, the same value `editor_open` falls back to
+  with no level to open - asserted by equality in
+  `new_starts_a_blank_level_that_belongs_to_no_file`.
+- Both discard without asking and the panel says what arrived: `arrive` replaces
+  the level and clears the stroke, warning, `LastSave` and report; `message`
+  names the file all the time. A failed read sets `choice.failure` and returns
+  before `arrive`, so nothing moves -
+  `a_file_that_will_not_read_leaves_the_level_alone_and_says_so` asserts both
+  halves, reading the line off the screen.
+- The history goes with the level: `arrive` calls `history.clear()`, checked
+  after both buttons (`opening_a_level_takes_the_unsaved_edits_and_the_history_with_it`,
+  `a_new_level_drops_the_history_too`).
+- `Ctrl+O` / `Ctrl+N` share `take` with the buttons, so the two ways in cannot
+  drift; neither collides with an existing editor shortcut (the palette's are
+  unmodified letters, and `O`/`N` are not among them).
+  `the_shortcuts_do_what_the_two_buttons_do` covers them.
+- The panel is cut out of picking: `choose_rect(report)` was added to
+  `cell_under_cursor` (`src/editor/mod.rs:892`), the panel-wide test lists it,
+  and `a_click_on_the_panel_does_not_paint_the_cell_behind_it` first proves a
+  cell is really down there before asserting nothing was painted.
+- Checks green: `cargo build` exit 0 with 16 warnings, none in `choose.rs`;
+  `cargo test` 311 passed, 0 failed, 0 ignored; `cargo clippy --all-targets`
+  reports nothing against the new file. No test was weakened - the only edit to
+  an existing one is `covered[4]` becoming `covered[5]` in
+  `the_pointer_over_the_editors_own_panels_is_not_over_a_cell`, because the new
+  rect was inserted before the palette's.
+- Diff stays inside the What: the new module, its wiring, the rect in
+  `cell_under_cursor`, the editor's opening line, and the tuple nesting the
+  extra systems forced. No debug code left behind.
+- Not verified: how the panel looks on screen. The measurements in the notes
+  rest on the implementer's own reading of `TextLayoutInfo`, and this session
+  cannot reach the display either - so the geometry is covered by
+  `every_button_is_inside_the_panel`, `no_two_buttons_share_a_pixel` and
+  `the_panel_sits_under_the_playtest_panel_whatever_the_report_says` rather than
+  by eye.
+
 ## Log
 
 - 2026-08-26 status → ready (app)
 - 2026-08-26 status → in-progress (agent)
+- 2026-08-26 status → review (agent)

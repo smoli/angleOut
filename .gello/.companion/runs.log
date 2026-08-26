@@ -2806,3 +2806,133 @@
 [c0015] → Bash(sed -n 930,980p src/editor/mod.rs; echo "=== history rect/rows/title ==="; sed -n 370,470p src/editor/history.rs)
 [c0015] I have the full picture. Let me write the card's What and acceptance criteria first.
 [c0015] → Bash(python3 - <<'PY' import io, re p = ".gello/epics/e01-level-editor/c0015-define-what-level-we-re-editing.md" s = open(p, …)
+[c0015] Now the new module:
+[c0015] → Write(/Users/stephan/CLionProjects/angleOut/src/editor/choose.rs)
+[c0015] → Bash(python3 - <<'PY' p = "src/editor/choose.rs" s = open(p, encoding="utf-8").read() old = ''' fn relist(&mut self, dir: &Pa…)
+[c0015] Now wire it into the plugin:
+[c0015] → Bash(sed -n 40,60p src/editor/mod.rs)
+[c0015] → Bash(python3 - <<'PY' p = "src/editor/mod.rs" s = open(p, encoding="utf-8").read() # imports old = "use crate::editor::histor…)
+[c0015] Tuple arity limit — I need to nest, as the existing comment anticipates:
+[c0015] → Bash(python3 - <<'PY' p = "src/editor/mod.rs" s = open(p, encoding="utf-8").read() old = """ // And for the panel under the b…)
+[c0015] → Bash(cargo build 2>&1 | tail -5; echo "=== warnings count ==="; cargo build 2>&1 | grep -c "^warning")
+[c0015] → Bash(touch src/editor/choose.rs && cargo build 2>&1 | grep -B2 -A6 "choose.rs" | head -60)
+[c0015] I dropped the actual system entries when rewriting that comment block:
+[c0015] → Bash(python3 - <<'PY' p = "src/editor/mod.rs" s = open(p, encoding="utf-8").read() old = """ // that edits one - a paint that…)
+[c0015] → Bash(cargo test 2>&1 | tail -30)
+[c0015] → Bash(sed -n 4135,4200p src/editor/mod.rs; echo "=== put_the_pointer_at ==="; grep -n "fn put_the_pointer_at" -A20 src/editor/…)
+[c0015] Now let me refactor the button table in `choose.rs` and expose it for tests:
+[c0015] → Bash(python3 - <<'PY' p = "src/editor/choose.rs" s = open(p, encoding="utf-8").read() old = '''/// The action a click at `pix…)
+[c0015] → Bash(cargo test editor::choose 2>&1 | tail -12)
+[c0015] → Bash(grep -n "// --- " src/editor/mod.rs | tail -12; echo "..."; tail -60 src/editor/mod.rs)
+[c0015] → Bash(sed -n 4424,4470p src/editor/mod.rs; echo "=== app_in_the_editor ==="; grep -n "fn app_in_the_editor" -A20 src/editor/mo…)
+[c0015] → Bash(grep -n "hands off\|keeps_its_hands\|does_not_paint" src/editor/mod.rs | head -20; echo "=== LevelDefinition ==="; sed -…)
+[c0015] → Bash(sed -n 3505,3562p src/editor/mod.rs)
+[c0015] → Bash(grep -n "the_pointer_over_the_editors_own_panels_is_not_over_a_cell" -B14 -A40 src/editor/mod.rs | head -70)
+[c0015] → Bash(sed -n 2965,3010p src/editor/mod.rs)
+[c0015] → Bash(python3 - <<'PY' p = "src/editor/mod.rs" s = open(p, encoding="utf-8").read() old = """ // Every piece of the editor's c…)
+[c0015] Now the app-driven tests for the new panel:
+[c0015] → Bash(python3 - <<'PY' p = "src/editor/mod.rs" s = open(p, encoding="utf-8").read() tests = r''' // --- c0015: choosing which …)
+[c0015] → Bash(python3 - <<'PY' p = "src/editor/mod.rs" s = open(p, encoding="utf-8").read() s = s.replace("use crate::editor::choose::…)
+[c0015] → Bash(grep -n "pub fn editor_view" -A12 src/editor/mod.rs; grep -n "ARENA_WIDTH\|ARENA_HEIGHT" src/config/mod.rs)
+[c0015] → Bash(grep -n "BLOCK_WIDTH\b\|BLOCK_DEPTH\b\|BLOCK_GAP\b" src/config/mod.rs)
+[c0015] → Bash(python3 - <<'PY' p = "src/editor/mod.rs" s = open(p, encoding="utf-8").read() old = s[s.index(" /// Choosing a level is …)
+[c0015] → Bash(grep -n "fn resize_the_window" -A22 src/editor/mod.rs)
+[c0015] → Bash(cat >> /tmp/dbg.txt <<'EOF' EOF python3 - <<'PY' p = "src/editor/mod.rs" s = open(p, encoding="utf-8").read() old = """ …)
+[c0015] → Bash(python3 - <<'PY' p = "src/editor/mod.rs" s = open(p, encoding="utf-8").read() # drop debug block start = s.index(" {\n l…)
+[c0015] → Bash(cargo test 2>&1 | grep -E "^(test result|failures:|error)" -A10 | head -30)
+[c0015] Now let me check the tests actually catch mutations:
+[c0015] → Bash(set -e cp src/editor/mod.rs /tmp/mod.rs.bak; cp src/editor/choose.rs /tmp/choose.rs.bak echo "=== M1: the panel stops ke…)
+[c0015] → Bash(set -e echo "=== M4: a failed open replaces the level anyway ===" python3 - <<'PY' p="src/editor/choose.rs"; s=open(p).r…)
+[c0015] → Bash(cat /Users/stephan/.claude/projects/-Users-stephan-CLionProjects-angleOut/memory/running-the-game-from-a-gello-session.m…)
+[c0015] → Bash(sed -n 1,60p src/state/mod.rs; echo === ; grep -n "GameState::" src/main.rs | head -20)
+[c0015] → Bash(grep -n "TextLayoutInfo" -r src | head -5; grep -n "ComputedNode" -r src | head -5)
+[c0015] Let me verify the panel's text actually fits, in the running game:
+[c0015] → Bash(python3 - <<'PY' p="src/editor/choose.rs"; s=open(p).read() s += ''' // TEMP c0015 measurement - removed before commit p…)
+[c0015] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut timeout 25 ./target/debug/angle_out 2>&1 | grep -E "MEASURED|pa…)
+[c0015] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut timeout 25 ./target/debug/angle_out 2>&1 | tail -25)
+[c0015] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut ./target/debug/angle_out > /tmp/run.log 2>&1 & echo started)
+[c0015] → Bash(sleep 12; grep -E "MEASURED" /tmp/run.log | head; echo "--- tail ---"; tail -5 /tmp/run.log; pkill -f "target/debug/angl…)
+[c0015] → Bash(python3 - <<'PY' p="src/editor/choose.rs"; s=open(p).read() s=s.replace(""" if texts.is_empty() { return; } for (text, l…)
+[c0015] The name overflows its 264px slot by 8px. Let me give it the whole row and move the steppers down beside the buttons:
+[c0015] → Bash(python3 - <<'PY' p="src/editor/choose.rs"; s=open(p).read() s = s.replace('''/// The name as the chooser row writes it, …)
+[c0015] → Bash(cargo build 2>&1 | grep -A6 "choose.rs"|head -20; CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut ./target/debu…)
+[c0015] → Bash(python3 - <<'PY' p="src/editor/choose.rs"; s=open(p).read() # revert temp measurement i = s.index("\n\n// TEMP c0015 mea…)
+[c0015] → Bash(git diff --stat; cargo test 2>&1 | grep -E "^(test result|failures:)" -A8 | head -20)
+[c0015] → Bash(python3 - <<'PY' p="src/editor/mod.rs"; s=open(p).read() old = s[s.index(" /// Choosing a level is not painting one."):s…)
+[c0015] → Bash(python3 - <<'PY' p="src/editor/mod.rs"; s=open(p).read() old=""" assert!( cell_the_ray_lands_on(&mut app, button.center(…)
+[c0015] → Bash(python3 - <<'PY' p="src/editor/mod.rs"; s=open(p).read() start=s.index(' println!("BUTTON {button:?}') end=s.index(' ass…)
+[c0015] → Bash(cp src/editor/mod.rs /tmp/mod.rs.bak python3 - <<'PY' p="src/editor/mod.rs"; s=open(p).read() s=s.replace(" || choose_re…)
+[c0015] → Bash(python3 - <<'PY' p="src/editor/mod.rs"; s=open(p).read() old = """ click_choose(&mut app, ChooseAction::New); assert_eq!…)
+[c0015] → Bash(cargo test 2>&1 | grep -E "^test result"; echo "=== clippy on the new code ==="; cargo clippy --all-targets 2>&1 | grep …)
+[c0015] → Bash(cargo clippy --all-targets 2>&1 | grep -c "too many arguments"; cargo clippy --all-targets 2>&1 | grep -A2 "too many arg…)
+[c0015] → Bash(grep -rn "#\[allow(" src --include=*.rs | grep -v "^src/editor/choose.rs" | head)
+[c0015] → Bash(grep -rn "#\[allow(" src | head)
+[c0015] Let me replace the long parameter lists with a `SystemParam` bundle — cleaner and drops the clippy allows:
+[c0015] → Bash(python3 - <<'PY' p="src/editor/choose.rs"; s=open(p).read() s = s.replace("""use bevy::asset::AssetServer;""","""use bev…)
+[c0015] → Bash(cargo test 2>&1 | grep -E "^test result"; cargo clippy --all-targets 2>&1 | grep -A3 "choose.rs" | head -20; echo "=== b…)
+[c0015] → Bash(touch src/editor/*.rs && cargo build 2>&1 | grep "\-\-> src/editor" | head; echo "(none above = no warnings in src/edito…)
+[c0015] → Bash(python3 - <<'PY' p="src/editor/mod.rs"; s=open(p).read() old = ''' info!( "Editor: left button paints, right button eras…)
+[c0015] Now the card's Notes and criteria:
+[c0015] → Bash(python3 - <<'PY' p = ".gello/epics/e01-level-editor/c0015-define-what-level-we-re-editing.md" s = open(p, encoding="utf-…)
+[c0015] → Bash(sed -n 27,70p .gello/epics/e01-level-editor/c0015-define-what-level-we-re-editing.md)
+[c0015] Now commit:
+[c0015] → Bash(git add src/editor/choose.rs src/editor/mod.rs .gello/epics/e01-level-editor/c0015-define-what-level-we-re-editing.md &&…)
+[c0015] → Bash(git log --format=%B -3 | head -20; echo "=== branch ==="; git branch --show-current)
+[c0015] → Bash(git log --format="%h %s" -20 | grep -v "^.* board:" | head -10)
+[c0015] → Bash(git show --format="%B" -s 0b68f7a)
+[c0015] → Bash(git commit -F - <<'EOF' c0015: say which level is being edited, and open another The editor took whatever the campaign w…)
+[c0015] → mcp__gello__set_status(review)
+[c0015] → Bash(git status --short | grep -E "^(M|A| M)" | grep -v companion; echo "--- tests ---"; cargo test 2>&1 | grep -E "^test res…)
+[c0015] Done — c0015 is in **review**.
+[c0015] ## What I built
+[c0015] The editor could never be told which level to edit: `editor_open` inserted `EditorLevel` once from `levels.get_current_level()`, and nothing afterwards could replace it. Following your answer (option A), there's now a fifth panel at the foot of the editor's left-hand column — `src/editor/choose.rs`, wired into `EditorPlugin`:
+[c0015] ```
+[c0015] Level - Ctrl+O / Ctrl+N
+[c0015]         demo_minimal_win_state_error
+[c0015]  <   >   Open    New      2 of 11
+[c0015] editing levels/level0.ron
+[c0015] ```
+[c0015] - **The line under the buttons is the card's title, answered continuously** — "editing levels/level0.ron" / "editing a level with no file yet", giving way to "could not read levels/x.ron" when that's the last thing that happened.
+[c0015] - **The list is the directory**, not the campaign: every `*.ron` except `campaign.ron`, sorted, wrapping both ways. Entering the editor points the chooser at the level under edit; a save re-reads the directory so a brand-new file joins the list immediately.
+[c0015] - **Opening replaces outright** (your two unticked options left my recommendation standing — noted on the card). The undo history, the in-flight stroke, the removal warning, `LastSave` and the stale save report all go with the level. A file that won't read changes nothing and says so.
+[c0015] Two judgement calls worth flagging: I moved the steppers *under* the name rather than flanking it — measured in the running game, the longest level name overflows a flanked row by 8px but has 52px to spare across the full row. And the panel is 146px tall, so the column reaches 726 of 800 on entry; a save carrying a complaint pushes the panel's reserved bottom row past the window edge (buttons and message stay on screen). Both are recorded in the card's Notes.
+[c0015] **Tests:** 33 new, 311 green; `cargo build` unchanged at 16 warnings, none in `src/editor`; clippy clean for the new file. Seven mutations checked to fail, including the panel no longer being excluded from grid picking.
+[c0015] Committed as `3a2c59b`, not pushed. The card's status stamp is the only uncommitted change of mine — I left it for the board to commit, as the history does. `assets/levels/level0.ron` and `src/materials/force_field.rs` were already modified before I started and I left them alone.
+[c0015] ✓ 158 in / 98363 out tokens, $11.2330, 80 turns, 1996.1s
+[c0015] I'll start by invoking the review skill.
+[c0015] → Skill(gello-review)
+[c0015] I'll read the card first.
+[c0015] → Bash(cat .gello/epics/e01-level-editor/c0015-define-what-level-we-re-editing.md)
+[c0015] → Bash(git log --oneline -15 && echo "---" && git log --oneline --all --grep="c0015" | head -20)
+[c0015] → Bash(git show --stat 3a2c59b)
+[c0015] → Bash(git show 3a2c59b -- src/editor/mod.rs | head -600)
+[c0015] → Bash(sed -n 1,340p src/editor/choose.rs)
+[c0015] → Bash(sed -n 340,560p src/editor/choose.rs)
+[c0015] → Bash(sed -n 560,720p src/editor/choose.rs)
+[c0015] → Bash(sed -n 720,960p src/editor/choose.rs)
+[c0015] → Bash(grep -n "fn editor_open" -A 40 src/editor/mod.rs)
+[c0015] → Bash(sed -n 495,700p src/editor/mod.rs)
+[c0015] → Bash(cargo build 2>&1 | tail -40)
+[c0015] → Bash(git diff --stat; echo "--- force_field"; git diff src/materials/force_field.rs | head -40; echo "--- level0"; git diff a…)
+[c0015] → Bash(grep -c "^warning" /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/29de0482-da03-4fe9-a834-78ddbde3ca52/ta…)
+[c0015] → Bash(grep -n "editor/choose" /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/29de0482-da03-4fe9-a834-78ddbde3ca…)
+[c0015] → Bash(grep -n "pub const CAMPAIGN_FILE\|pub fn levels_dir\|pub fn level_asset_path\|pub fn load_level\|pub fn save_level" -A 1…)
+[c0015] → Bash(grep -n "source_path" -B5 -A 20 src/editor/mod.rs | head -60; echo "=== save"; grep -n "source_path\|fn editor_save\b\|f…)
+[c0015] → Bash(tail -5 /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/29de0482-da03-4fe9-a834-78ddbde3ca52/tasks/bon08y1…)
+[c0015] → Bash(cargo clippy --all-targets 2>&1 | grep -n "choose.rs" | head -20; echo "=== clippy summary"; cargo clippy --all-targets …)
+[c0015] → Bash(grep -c "#\[test\]" src/editor/choose.rs; git show 3a2c59b -- src/editor/mod.rs | grep -c "^+.*#\[test\]"; echo "--- ign…)
+[c0015] → Bash(grep -rn "KeyCode::Key[A-Z]" src/editor/ | grep -v "^src/editor/choose.rs" | grep -v " //" | head -30; echo "=== command…)
+[c0015] → Bash(grep -n "choose.rs" /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/29de0482-da03-4fe9-a834-78ddbde3ca52/t…)
+[c0015] → Bash(git show 3a2c59b | grep -n "^+" | grep -iE "dbg!|println!|eprintln!|TextLayoutInfo|TODO|FIXME|XXX" | head)
+[c0015] → Bash(date +%Y-%m-%dT%H:%M:%S)
+[c0015] → Bash(python3 - <<'PY' import io, re p = ".gello/epics/e01-level-editor/c0015-define-what-level-we-re-editing.md" s = open(p, …)
+[c0015] → Bash(sed -n '/^## Review/,$p' .gello/epics/e01-level-editor/c0015-define-what-level-we-re-editing.md | tail -20; echo "=== co…)
+[c0015] **c0015 — pass.** Verdict written to `## Review` on the card; status left at `review`, nothing committed.
+[c0015] What I verified:
+[c0015] - **All nine criteria hold against the code**, not just the checkboxes. `level_names` filters `*.ron` minus `campaign.ron` and sorts; `step` wraps with `rem_euclid`; `editor_list_levels` is chained between `editor_open` and the panels on `OnEnter(Editor)` so the chooser opens on the level under edit; `take` loads via `load_level` and sets `source` to the handle whose path `editor_save` writes back to; `arrive` clears the history, stroke, warning, `LastSave` and report; a failed read sets `choice.failure` and returns before `arrive`; `Ctrl+O`/`Ctrl+N` share `take` with the buttons and collide with nothing (the palette's shortcuts are unmodified letters); `choose_rect` was added to `cell_under_cursor`.
+[c0015] - **Checks green**: `cargo build` exit 0, 16 warnings all pre-existing and none in `choose.rs`; `cargo test` 311 passed / 0 failed / 0 ignored; `cargo clippy --all-targets` says nothing about the new file.
+[c0015] - **No test weakened** — the one edit to an existing test is `covered[4]` → `covered[5]`, correct because the new rect was inserted ahead of the palette's in the list. 33 new tests, matching the claim (20 pure in `choose.rs`, 13 app-driven in `mod.rs`).
+[c0015] - **Diff stays inside the What**; no debug code left behind.
+[c0015] One thing I could not check: how the panel actually looks. The pixel measurements in the notes rest on the implementer's own `TextLayoutInfo` reading, and this session can't reach the display either — so the geometry is covered by the layout tests rather than by eye. That's recorded in the entry.
+[c0015] Unrelated to the card, your working tree has two uncommitted changes that aren't part of it: `assets/levels/level0.ron` (rewritten by an editor save — the comment header and raw-string form are gone) and `hex_tile_size: 10.0 → 20.0` in `src/materials/force_field.rs`.
+[c0015] ✓ 54 in / 13638 out tokens, $1.7840, 28 turns, 207.7s
