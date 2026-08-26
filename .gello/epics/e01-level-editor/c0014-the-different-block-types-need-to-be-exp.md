@@ -1,12 +1,12 @@
 ---
 id: c0014
 title: The different Block types need to be explained
-status: review
+status: done
 ref: c0009
 epic: e01
 created: 2026-08-26
 updated: 2026-08-26
-status-changed: 2026-08-26T22:13:10
+status-changed: 2026-08-26T22:21:41
 usage-tokens: 51609
 usage-cost: 6.619281
 ---
@@ -118,3 +118,4 @@ Checked: the card's two asks against the code, the diff of `0b68f7a`, `cargo tes
 
 - 2026-08-26 status → in-progress (agent)
 - 2026-08-26 status → review (agent)
+- 2026-08-26 status → done (app)
