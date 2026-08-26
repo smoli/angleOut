@@ -1879,3 +1879,6 @@
 [c0010] → Bash(git checkout src/main.rs && git diff --stat src/main.rs && cargo build 2>&1 | tail -2)
 [c0010] → Bash(python3 - <<'PY' p='src/editor/mod.rs' s=open(p).read() old = ''' info!( "Editor: left button paints, right button erase…)
 [c0010] → Bash(python3 - <<'PY' p='.gello/epics/e01-level-editor/c0010-settings-panel.md' s=open(p).read() s = s.replace("""- [ ] The p…)
+[c0010] → Bash(git log --format="%B" -1 7dd5600 && echo "=== c0007 msg ===" && git log --format="%B" -1 bef6615)
+[c0010] → Bash(git show --stat 7dd5600 | tail -12; echo "=== board commit ==="; git show --stat 9c97620 | tail -8)
+[c0010] → Bash(git add src/editor/settings.rs src/editor/mod.rs && git commit -F - <<'MSG' c0010: a level is more than its grid Nine ro…)
