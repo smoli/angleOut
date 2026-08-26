@@ -2711,3 +2711,42 @@
 [c0014] → Bash(git add src/editor/palette.rs src/editor/mod.rs '.gello/epics/e01-level-editor/c0014-the-different-block-types-need-to-b…)
 [c0014] → Bash(git check-ignore -v .gello/assets/c0014/image.png; git ls-files .gello/assets | head)
 [c0014] → Bash(git status --short | head -8; git commit -q -F - <<'MSG' c0014: the block row says which block it is, and stops offering…)
+[c0014] → Bash(git log -1 --name-only --format='' ; echo "--- tracked?"; git ls-files --error-unmatch .gello/assets/c0014/image.png 2>&…)
+[c0014] → Bash(git log -4 --format='%h %s' --stat | head -30)
+[c0014] → mcp__gello__set_status(review)
+[c0014] Done — c0014 is in `review`.
+[c0014] **Both halves of the card:**
+[c0014] 1. **The block types are now explained.** The `BLOCK` heading gives up its right-hand end to the name of whichever block the brush is set to — *Regular, 1 hit* / *Tough, 2 hits* / *Concrete, 3 hits* / *Regular, top only* / *Obstacle, never breaks*. The names say how much it takes to break each one, since that is what tells the five apart in play. Words rather than a per-swatch label because five swatches share 324 pixels (61 each) and the longest name is 195 wide — the heading was already there with 260 pixels of nothing to its right.
+[c0014]    It is laid out as a `ChosenBlock` item, not an `Entry`, so `palette_items` stays a pure layout function that knows nothing about the brush (the drawing reads it, as it already did for the `Brush AA` row), and a click on the name chooses nothing.
+[c0014] 2. **The `.` swatch is gone**, along with `PaletteEntry::Block`'s `Option` — the type no longer has a way to say "empty block". The trigger's `Option` stays, since `.` in the token's *third* character is a real thing to paint. `Brush::erase` also stays: it is what `Brush::erasing()` is, and the right mouse button — which already cleared cells — is now the only thing that picks one up. Four doc comments that called it a stopgap "until c0009's palette can switch the brush's own erase mode on" were corrected.
+[c0014] **Verification:** 278 tests green (5 new — 3 pure, 2 driving a real app), `cargo build` unchanged at 17 pre-existing warnings. Three mutations checked to fail the right tests. Checked in the running game for the one thing headless tests can't answer — whether the name fits: with the brush on `ZA`, "Obstacle, never breaks" lays out at 194×18 inside its 236×26 node, one line, 42px of slack; the row drew five swatches and no sixth. A visual check wasn't possible (`screencapture` can't reach the display from this session), so appearance rests on those layout numbers.
+[c0014] Committed as `0b68f7a`, card notes and log updated. I left the unrelated uncommitted change in `src/materials/force_field.rs` (`hex_tile_size` 10 → 20) alone — it isn't mine.
+[c0014] ✓ 146 in / 41890 out tokens, $5.5531, 75 turns, 957.1s
+[c0014] I'll start by reading the card.
+[c0014] → Bash(cat .gello/epics/e01-level-editor/c0014-the-different-block-types-need-to-be-exp.md)
+[c0014] → Bash(git log --oneline -15 && echo "--- board.yaml ---" && cat .gello/board.yaml)
+[c0014] The card has no explicit `## Acceptance criteria` section — the body text is the spec. Let me read the diff.
+[c0014] → Bash(git show --stat 0b68f7a)
+[c0014] → Bash(git show 0b68f7a -- src/ | head -600)
+[c0014] Diff looks scoped. Now let me check the working tree state and run the repo's checks.
+[c0014] → Bash(git status --short src/ && echo "--- card diff ---" && git diff .gello/epics/e01-level-editor/c0014-the-different-block-…)
+[c0014] → Bash(cargo test 2>&1 | tail -40)
+[c0014] → Bash(cargo clippy --all-targets 2>&1 | grep -E "^(warning|error)" | sort | uniq -c | sort -rn | head -30)
+[c0014] → Bash(grep -n "editor_show_palette\|PalettePanel\|redraw\|palette_says" src/editor/palette.rs src/editor/mod.rs | head -40)
+[c0014] → Bash(cargo clippy --all-targets 2>&1 | grep -B2 -A12 "this assertion is always" | head -40)
+[c0014] → Bash(touch src/editor/palette.rs src/editor/mod.rs; cargo build 2>&1 | grep -c "^warning"; echo "--- in editor: ---"; cargo b…)
+[c0014] → Bash(sed -n 655,700p src/editor/palette.rs)
+[c0014] → Bash(sed -n 3020,3040p src/editor/mod.rs; echo "=== click_palette ==="; grep -n "fn click_palette" -A 25 src/editor/mod.rs)
+[c0014] → Bash(grep -rn "erase" src/editor/*.rs | grep -v "^src/editor/mod.rs:2[0-9][0-9][0-9]\|^src/editor/mod.rs:3[0-9][0-9][0-9]" | …)
+[c0014] → Bash(grep -rn "Block(None)\|Block(Some\|stopgap\|until then\|c0009 gives it" src/ ; echo "exit: $?")
+[c0014] → Bash(sed -n 308,318p src/editor/mod.rs; echo "---"; sed -n 845,860p src/editor/mod.rs)
+[c0014] → Bash(grep -n "ROW_WIDTH\|COLUMN_GAP\|ROW_HEIGHT\|SWATCH\|const PANEL\|ROW_FONT_SIZE\|HEADING_WIDTH" src/editor/palette.rs | h…)
+[c0014] → Bash(grep -n "pub const ROW_WIDTH\|pub const COLUMN_GAP\|pub const ROW_HEIGHT\|pub const ROW_FONT_SIZE" src/editor/settings.r…)
+[c0014] → Bash(grep -rn "ROW_WIDTH: f32\|COLUMN_GAP: f32\|ROW_HEIGHT: f32\|ROW_FONT_SIZE: f32" src/editor/; echo "=== panel_text ==="; …)
+[c0014] → Bash(grep -n "LABEL_WIDTH: f32\|VALUE_WIDTH: f32\|BUTTON_WIDTH: f32" src/editor/settings.rs; echo "=== panel_text ==="; grep …)
+[c0014] → Bash(cargo test block 2>&1 | grep -E "^test |test result" | head -30)
+[c0014] → Bash(grep -n "fn entries()" -A 5 src/editor/palette.rs; ls .gello/assets/c0014/ 2>/dev/null || ls assets/c0014 2>/dev/null ||…)
+[c0014] → Read(/Users/stephan/CLionProjects/angleOut/.gello/assets/c0014/image.png)
+[c0014] All checks pass. Let me record the verdict.
+[c0014] → Bash(date +%Y-%m-%dT%H:%M:%S)
+[c0014] → Bash(python3 - <<'EOF' import io p = ".gello/epics/e01-level-editor/c0014-the-different-block-types-need-to-be-exp.md" s = io…)
