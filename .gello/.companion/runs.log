@@ -2007,3 +2007,8 @@
 [c0011] → Bash(grep -rn "EditorLevel\|PaintStroke\|EditorPlugin" src --include="*.rs" | grep -v "^src/editor/" | head)
 [c0011] → Bash(CARGO_MANIFEST_DIR=/Users/stephan/CLionProjects/angleOut timeout 25 cargo run 2>&1 | grep -iE "panic|error|thread|Editor…)
 [c0011] → Bash(python3 - <<'PY' p='.gello/epics/e01-level-editor/c0011-undo-redo.md' s=open(p).read() s=s.replace("- [ ] Cell paints","…)
+[c0011] → Bash(cargo test 2>&1 | grep -E "^test result|^error"; git add src/editor/mod.rs src/editor/history.rs src/editor/settings.rs …)
+[c0011] → Bash(git status --short .gello/epics/; git diff --cached --stat)
+[c0011] → Bash(git log --oneline -5 -- .gello/epics/e01-level-editor/c0011-undo-redo.md; echo "---"; git log --oneline -3)
+[c0011] The companion app commits board changes itself. Committing just the code:
+[c0011] → Bash(git commit -q -F - <<'EOF' c0011: every edit is one you can take back An undo/redo stack over the editor, where an edit …)
