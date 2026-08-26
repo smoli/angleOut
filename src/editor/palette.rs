@@ -10,6 +10,11 @@
 //! is what stops the palette from ever offering a letter the file would not be
 //! read back with.
 //!
+//! What a letter *means* is a different question, and the rows answer it in the
+//! room they have: a behaviour and a trigger carry their words beside them,
+//! where a block is a swatch too narrow for a sentence, so the block row says
+//! [`block_name`] of whichever block is chosen on its own heading.
+//!
 //! # Why the letters need modifiers
 //!
 //! The format writes `A` for a Simple block, for a SittingDuck behaviour *and*
@@ -67,12 +72,14 @@ const ENTRY_BACKGROUND: Color = Color::srgba(0.18, 0.18, 0.24, 0.95);
 /// One thing the palette can set: a character of the token, or the digit behind
 /// it.
 ///
-/// The `Option`s are the format's `.` - the block that is not there, which is
-/// the erase brush, and the trigger that is not there, which is a block in no
-/// group at all.
+/// The trigger's `Option` is the format's `.` in the token's third character -
+/// a block taking part in no trigger at all, which is a thing to paint. The
+/// block has no such `Option`: `.` in the *first* character is how a file says a
+/// cell is empty, which is not a block anybody paints. Clearing a cell is the
+/// right mouse button (`brush_in_hand`), not a swatch.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PaletteEntry {
-    Block(Option<BlockType>),
+    Block(BlockType),
     Behaviour(BlockBehaviour),
     Trigger(Option<TriggerType>),
     Group(TriggerGroup),
@@ -123,9 +130,9 @@ impl PaletteEntry {
     /// token [`block_token`] wrote - so the palette cannot drift from the file.
     pub fn letter(&self) -> char {
         match self {
-            PaletteEntry::Block(None) | PaletteEntry::Trigger(None) => EMPTY_LETTER,
+            PaletteEntry::Trigger(None) => EMPTY_LETTER,
 
-            PaletteEntry::Block(Some(block_type)) => {
+            PaletteEntry::Block(block_type) => {
                 token_char(block_token(block_type, &BlockBehaviour::SittingDuck, None), 0)
             }
 
@@ -163,8 +170,13 @@ impl PaletteEntry {
         Some(Shortcut { modifier: self.modifier(), key: key_for(self.letter())? })
     }
 
-    /// What the entry is called, for the rows that are words rather than
-    /// colour. A swatch and a digit say what they are by being what they are.
+    /// The words written beside this entry's letter, in the rows that are rows
+    /// of words.
+    ///
+    /// Empty for a block and for a digit, which are drawn across a row rather
+    /// than down it and have no room for a sentence each. A digit is its own
+    /// name; a block's is [`block_name`], said once on the row's heading for
+    /// whichever block is chosen.
     pub fn label(&self) -> &'static str {
         match self {
             PaletteEntry::Block(_) | PaletteEntry::Group(_) => "",
@@ -197,15 +209,7 @@ impl PaletteEntry {
     /// list of whole brushes.
     pub fn apply(&self, brush: &mut Brush, group: &mut BrushGroup) {
         match self {
-            // Choosing a block is choosing to paint one, so it is also how the
-            // erase brush is put down again. The two are one row on screen for
-            // exactly that reason: `.` is the format's own "no block here", and
-            // erasing is painting it.
-            PaletteEntry::Block(None) => brush.erase = true,
-            PaletteEntry::Block(Some(block_type)) => {
-                brush.erase = false;
-                brush.block_type = block_type.clone();
-            }
+            PaletteEntry::Block(block_type) => brush.block_type = block_type.clone(),
 
             PaletteEntry::Behaviour(behaviour) => brush.behaviour = behaviour.clone(),
 
@@ -233,8 +237,7 @@ impl PaletteEntry {
     /// show `E` as chosen would be describing a block nobody can author.
     pub fn is_chosen(&self, brush: &Brush, group: &BrushGroup) -> bool {
         match self {
-            PaletteEntry::Block(None) => brush.erase,
-            PaletteEntry::Block(Some(block_type)) => !brush.erase && brush.block_type == *block_type,
+            PaletteEntry::Block(block_type) => brush.block_type == *block_type,
 
             PaletteEntry::Behaviour(behaviour) => {
                 behaviour_letter(behaviour) == behaviour_letter(&brush.behaviour)
@@ -246,6 +249,23 @@ impl PaletteEntry {
 
             PaletteEntry::Group(chosen) => group.0 == *chosen,
         }
+    }
+}
+
+/// What a block type is, in words - the thing a colour and a format letter
+/// cannot say.
+///
+/// How much it takes to break it, mostly, because that is what tells the five
+/// apart in play: `block_spawn` gives `Simple` one hit point, `Hardling` two and
+/// `Concrete` three, `SimpleTop` one but only from above, and an `Obstacle` is
+/// not `Hittable` at all.
+pub fn block_name(block_type: &BlockType) -> &'static str {
+    match block_type {
+        BlockType::Simple => "Regular, 1 hit",
+        BlockType::Hardling => "Tough, 2 hits",
+        BlockType::Concrete => "Concrete, 3 hits",
+        BlockType::SimpleTop => "Regular, top only",
+        BlockType::Obstacle => "Obstacle, never breaks",
     }
 }
 
@@ -391,6 +411,10 @@ pub enum PaletteItemKind {
     /// The row at the top that says what the brush is set to.
     CurrentBrush,
     Heading(String),
+    /// Beside the block row's heading: which block the brush is set to, in
+    /// words. Not an `Entry`, because it says what is chosen rather than
+    /// offering something to choose - a click on it chooses nothing.
+    ChosenBlock,
     Entry(PaletteEntry),
 }
 
@@ -437,16 +461,21 @@ pub fn palette_items(window_width: f32) -> Vec<PaletteItem> {
 
     full_row(&mut items, &mut top, TITLE_HEIGHT, PaletteItemKind::CurrentBrush);
 
-    // The blocks, as swatches across one row - with the erase brush riding along
-    // at the end of it, because it is the same character of the same token.
-    full_row(&mut items, &mut top, ROW_HEIGHT, heading("BLOCK", Modifier::None));
+    // The blocks, as swatches across one row. The heading gives up its right-
+    // hand end to the name of whichever of them is chosen: a swatch is 60
+    // pixels wide and "Obstacle, never breaks" is not, so the words go where
+    // there is room for them and say one block at a time.
+    items.push(PaletteItem {
+        rect: Rect::new(left, top, left + HEADING_WIDTH, top + ROW_HEIGHT),
+        kind: heading("BLOCK", Modifier::None),
+    });
+    items.push(PaletteItem {
+        rect: Rect::new(left + HEADING_WIDTH + COLUMN_GAP, top, left + ROW_WIDTH, top + ROW_HEIGHT),
+        kind: PaletteItemKind::ChosenBlock,
+    });
+    top += ROW_HEIGHT;
 
-    let blocks: Vec<PaletteEntry> = block_types()
-        .into_iter()
-        .map(Some)
-        .chain([None])
-        .map(PaletteEntry::Block)
-        .collect();
+    let blocks: Vec<PaletteEntry> = block_types().into_iter().map(PaletteEntry::Block).collect();
 
     for (index, entry) in blocks.iter().enumerate() {
         items.push(PaletteItem {
@@ -478,6 +507,15 @@ pub fn palette_items(window_width: f32) -> Vec<PaletteItem> {
 
     items
 }
+
+/// How much of the block row's heading is the word "BLOCK", leaving the rest of
+/// it to say which block that is.
+///
+/// The word measures 61 pixels of Orbitron at [`ROW_FONT_SIZE`], so this leaves
+/// it a clear gap before the name; the 240 that remain hold the longest name
+/// there is - "Obstacle, never breaks", at 195 - without wrapping it onto a
+/// second line the row has no height for.
+const HEADING_WIDTH: f32 = 84.0;
 
 /// A heading that says which key its row answers to, so the modifier is on
 /// screen rather than in the commit message.
@@ -597,7 +635,7 @@ pub fn entry_typed(keys: &ButtonInput<KeyCode>) -> Option<PaletteEntry> {
 /// Every entry the palette offers, whatever the window is doing - the list the
 /// keyboard reads, where the mouse reads the rectangles.
 pub fn palette_entries() -> Vec<PaletteEntry> {
-    let blocks = block_types().into_iter().map(Some).chain([None]).map(PaletteEntry::Block);
+    let blocks = block_types().into_iter().map(PaletteEntry::Block);
     let behaviours = behaviours().into_iter().map(PaletteEntry::Behaviour);
     let triggers = trigger_types().into_iter().map(PaletteEntry::Trigger);
     let groups = TRIGGER_GROUPS.map(PaletteEntry::Group);
@@ -698,6 +736,24 @@ pub fn editor_show_palette(
                 ));
             }
 
+            // Which block the swatches below are set to, said in words on the
+            // heading's own row. In the outline's colour rather than the
+            // heading's, because it is naming the swatch that is outlined.
+            PaletteItemKind::ChosenBlock => {
+                commands.spawn((
+                    panel_text(
+                        item.rect,
+                        block_name(&brush.block_type),
+                        ROW_FONT_SIZE,
+                        GOLD.into(),
+                        Justify::Left,
+                        &asset_server,
+                    ),
+                    PalettePanel,
+                    EditorEntity,
+                ));
+            }
+
             PaletteItemKind::Heading(heading) => {
                 commands.spawn((
                     panel_text(
@@ -736,7 +792,7 @@ fn spawn_entry(
     // A block is its colour, so the swatch is that colour with the format's
     // letter written on it rather than a word for it.
     let (background, split) = match entry {
-        PaletteEntry::Block(Some(block_type)) => {
+        PaletteEntry::Block(block_type) => {
             let (color1, color2, split) = block_colours(block_type);
             (color1, split.then_some(color2))
         }
@@ -858,7 +914,7 @@ mod tests {
     /// the order the format documents them.
     #[test]
     fn every_letter_the_format_defines_is_in_the_palette() {
-        assert_eq!(letters(is_block), "ABCDZ.", "the five block types, and the erase brush");
+        assert_eq!(letters(is_block), "ABCDZ", "the five block types, and no sixth");
         assert_eq!(letters(is_behaviour), "ABCDEFGHI", "the nine behaviours");
         assert_eq!(letters(is_trigger), ".ABCRS", "no trigger, the three kinds and the two receivers");
         assert_eq!(letters(is_group), "0123456789", "the ten groups the format has a digit for");
@@ -881,6 +937,60 @@ mod tests {
 
             assert_eq!(seen.len(), before, "the {name} row offers a letter twice");
         }
+    }
+
+    /// The card's first half. A swatch is a colour with a letter on it, and
+    /// neither says what the block *is* - so every block type has a name in
+    /// words for the row's heading to say, and no two of them share one.
+    #[test]
+    fn every_block_type_has_a_name_in_words() {
+        let mut names = vec![];
+
+        for block_type in block_types() {
+            let name = block_name(&block_type);
+
+            assert!(!name.is_empty(), "{block_type:?} has no name in words");
+            names.push(name);
+        }
+
+        let before = names.len();
+        names.sort();
+        names.dedup();
+
+        assert_eq!(names.len(), before, "two block types are named the same thing");
+    }
+
+    /// Where that name goes: on the block row's own heading, beside the word
+    /// "BLOCK" - and not as an entry, because it says what is already chosen
+    /// rather than offering something to choose.
+    #[test]
+    fn the_block_heading_keeps_room_beside_it_for_the_name() {
+        let items = palette_items(WINDOW);
+
+        let heading = items
+            .iter()
+            .find(|item| matches!(&item.kind, PaletteItemKind::Heading(said) if said.starts_with("BLOCK")))
+            .expect("the block row has a heading");
+
+        let name = items
+            .iter()
+            .find(|item| item.kind == PaletteItemKind::ChosenBlock)
+            .expect("the block row has somewhere to say what is chosen");
+
+        assert_eq!(name.rect.min.y, heading.rect.min.y, "the name is on the heading's own row");
+        assert!(
+            name.rect.min.x >= heading.rect.max.x,
+            "the name at {:?} runs back over the heading at {:?}",
+            name.rect,
+            heading.rect
+        );
+        assert!(name.rect.width() > 0.0, "the name has no room to be said in");
+
+        assert_eq!(
+            palette_entry_at(name.rect.center(), WINDOW),
+            None,
+            "the name is a label, not something a click chooses"
+        );
     }
 
 
@@ -917,8 +1027,7 @@ mod tests {
     /// card's question settled on, written down where a change to it would fail.
     #[test]
     fn the_modifier_says_which_character_of_the_token_a_press_is_aimed_at() {
-        assert_eq!(PaletteEntry::Block(Some(BlockType::Simple)).modifier(), Modifier::None);
-        assert_eq!(PaletteEntry::Block(None).modifier(), Modifier::None);
+        assert_eq!(PaletteEntry::Block(BlockType::Simple).modifier(), Modifier::None);
         assert_eq!(PaletteEntry::Behaviour(BlockBehaviour::SittingDuck).modifier(), Modifier::Shift);
         assert_eq!(PaletteEntry::Trigger(Some(TriggerType::Start)).modifier(), Modifier::Alt);
         assert_eq!(PaletteEntry::Trigger(None).modifier(), Modifier::Alt);
@@ -927,7 +1036,7 @@ mod tests {
         // And all three `A`s land on the same key, which is the point of the
         // modifier being the only thing that differs.
         for entry in [
-            PaletteEntry::Block(Some(BlockType::Simple)),
+            PaletteEntry::Block(BlockType::Simple),
             PaletteEntry::Behaviour(BlockBehaviour::SittingDuck),
             PaletteEntry::Trigger(Some(TriggerType::Start)),
         ] {
@@ -1004,7 +1113,7 @@ mod tests {
 
                     for group in groups {
                         let mut chosen = vec![
-                            PaletteEntry::Block(Some(block_type.clone())),
+                            PaletteEntry::Block(block_type.clone()),
                             PaletteEntry::Behaviour(behaviour.clone()),
                         ];
 
@@ -1054,24 +1163,21 @@ mod tests {
         assert_eq!(first, second, "the two orders have to mean the same brush");
     }
 
-    /// Erasing is painting the format's own `.`, which is why it is the last
-    /// swatch of the block row rather than a switch beside the palette.
+    /// The card's second half. `.` is how a *file* says a cell is empty; it is
+    /// not a block anybody paints, so the palette does not offer one. Clearing a
+    /// cell is the right mouse button, which is where a hand goes for it anyway.
     #[test]
-    fn the_last_swatch_of_the_block_row_is_the_erase_brush() {
-        let erasing = brush_of(&[PaletteEntry::Block(None)]);
+    fn nothing_in_the_palette_paints_an_empty_cell() {
+        for entry in entries() {
+            let painted = brush_of(&[entry.clone()]);
 
-        assert!(erasing.erase);
-        assert_eq!(erasing.token(), EMPTY_SLOT);
+            assert!(!painted.erase, "{entry:?} sets the brush to erasing");
+            assert_ne!(painted.token(), EMPTY_SLOT, "{entry:?} paints nothing at all");
+        }
 
-        // And choosing a block is how it is put down again - there is no
-        // separate way back.
-        let painting = brush_of(&[
-            PaletteEntry::Block(None),
-            PaletteEntry::Block(Some(BlockType::Concrete)),
-        ]);
-
-        assert!(!painting.erase);
-        assert_eq!(painting.token(), "CA");
+        // And the brush that empties a cell is still there for the right button
+        // to reach for - it is only the palette that has stopped offering it.
+        assert_eq!(Brush::erasing().token(), EMPTY_SLOT);
     }
 
     /// A row sets its own character and no other. Chosen the hard way: start
@@ -1080,7 +1186,7 @@ mod tests {
     #[test]
     fn an_entry_sets_only_its_own_part_of_the_brush() {
         let start = vec![
-            PaletteEntry::Block(Some(BlockType::Hardling)),
+            PaletteEntry::Block(BlockType::Hardling),
             PaletteEntry::Behaviour(BlockBehaviour::Portal),
             PaletteEntry::Group(4),
             PaletteEntry::Trigger(Some(TriggerType::StartStop)),
@@ -1089,7 +1195,7 @@ mod tests {
         assert_eq!(brush_of(&start).token(), "BIC4");
 
         for (entry, expected) in [
-            (PaletteEntry::Block(Some(BlockType::Obstacle)), "ZIC4"),
+            (PaletteEntry::Block(BlockType::Obstacle), "ZIC4"),
             (PaletteEntry::Behaviour(BlockBehaviour::Vanisher), "BCC4"),
             (PaletteEntry::Trigger(Some(TriggerType::Start)), "BIA4"),
             (PaletteEntry::Trigger(None), "BI"),
@@ -1110,7 +1216,7 @@ mod tests {
     /// make.
     #[test]
     fn exactly_one_entry_of_each_row_is_chosen() {
-        for block in [Some(BlockType::SimpleTop), None] {
+        for block in [BlockType::SimpleTop, BlockType::Obstacle] {
             for group in [0, 5] {
                 for trigger in [None, Some(TriggerType::ReceiverStartingActive)] {
                     let mut brush = Brush::default();

@@ -319,8 +319,9 @@ pub struct HoveredCell(pub Option<(usize, usize)>);
 ///
 /// One brush is a whole token: the block, how it behaves and the trigger it
 /// takes part in - plus the mode that clears a cell instead of filling one.
-/// `c0009` gives it a palette to be set from; until then it is set in code and
-/// driven by the mouse.
+/// `c0009`'s palette sets the first three; the fourth it does not offer, because
+/// the format's `.` is how a *file* says a cell is empty rather than something
+/// to paint (`c0014`). The right mouse button is what reaches for it.
 #[derive(Resource, Debug, Clone, PartialEq)]
 pub struct Brush {
     pub block_type: BlockType,
@@ -333,6 +334,10 @@ pub struct Brush {
     pub trigger: Option<(TriggerType, TriggerGroup)>,
 
     /// Clear the cell rather than fill it.
+    ///
+    /// Never true of the brush the author is holding: it is what
+    /// [`Brush::erasing`] is, and the right button is the only thing that picks
+    /// one up.
     pub erase: bool,
 }
 
@@ -950,10 +955,11 @@ pub fn finish_stroke(
 
 /// The brush the mouse is painting with, or `None` when no button is down.
 ///
-/// The left button paints what the brush says. The right one erases whatever
-/// the brush is set to, which is how a cell gets cleared before `c0009`'s
-/// palette exists to switch the brush's own erase mode on - and is where a level
-/// author's hand goes for it anyway.
+/// The left button paints what the brush says. The right one erases whatever the
+/// brush is set to, and is the only way to clear a cell: the palette offers no
+/// empty block to paint (`c0014`), because `.` is how a file says a cell is
+/// empty rather than a block anybody puts there. It is where a level author's
+/// hand goes for it anyway.
 fn brush_in_hand(buttons: &ButtonInput<MouseButton>, brush: &Brush) -> Option<Brush> {
     if buttons.pressed(MouseButton::Left) {
         Some(brush.clone())
@@ -2112,8 +2118,8 @@ mod tests {
         assert_eq!(blocks_on_screen(&mut app).len(), 2, "the erased block is off screen too");
     }
 
-    /// The right button erases whatever the brush is set to, which is how a cell
-    /// is cleared before `c0009`'s palette can switch the brush's own mode.
+    /// The right button erases whatever the brush is set to, and is the only way
+    /// a cell is cleared - the palette has no empty block to paint.
     #[test]
     fn the_right_button_erases_whatever_the_brush_is_set_to() {
         let mut app = app_in_the_editor(sparse("AA CB AA"));
@@ -2940,7 +2946,7 @@ mod tests {
     use bevy::ui::{BackgroundColor, BorderColor};
 
     use crate::block::block_colours;
-    use crate::editor::palette::{block_types, palette_entries, PaletteChoice, PaletteEntry, PalettePanel};
+    use crate::editor::palette::{block_name, block_types, palette_entries, PaletteChoice, PaletteEntry, PalettePanel};
 
     /// The window every palette test lays out against - the one `editor_app`
     /// gives them.
@@ -3095,7 +3101,7 @@ mod tests {
         let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
 
         for block_type in block_types() {
-            let entry = PaletteEntry::Block(Some(block_type.clone()));
+            let entry = PaletteEntry::Block(block_type.clone());
             let (colour, _, _) = block_colours(&block_type);
 
             let (drawn, _) = drawn_for(&mut app, &entry)
@@ -3144,6 +3150,58 @@ mod tests {
         }
     }
 
+    /// `c0014`'s first half, read off the screen: the block row says in words
+    /// which block the brush is set to, because a swatch is a colour and a
+    /// letter and neither of those is a name.
+    ///
+    /// One at a time and next to the heading, so the name has room to be a
+    /// sentence - the five swatches share 324 pixels between them and "Regular,
+    /// top only" does not fit in a sixty-fifth of that.
+    #[test]
+    fn the_block_row_says_in_words_which_block_is_chosen() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+
+        for block_type in block_types() {
+            click_palette(&mut app, &PaletteEntry::Block(block_type.clone()));
+
+            let said = palette_says(&mut app);
+            let name = block_name(&block_type);
+
+            assert!(
+                said.contains(&name.to_string()),
+                "the palette does not say {name}, only {said:?}"
+            );
+
+            for other in block_types().iter().filter(|other| **other != block_type) {
+                assert!(
+                    !said.contains(&block_name(other).to_string()),
+                    "{block_type:?} is chosen and the palette is also saying {other:?}"
+                );
+            }
+        }
+    }
+
+    /// `c0014`'s second half, read off the screen: there is no sixth swatch.
+    /// `.` is how a file says a cell is empty, not a block to paint - and the
+    /// right button, which clears a cell whatever the brush is set to, is
+    /// untouched by that.
+    #[test]
+    fn the_block_row_has_no_swatch_for_the_empty_cell() {
+        let mut app = app_in_the_editor(sparse("AA CB AA"));
+
+        let world = app.world_mut();
+        let mut choices = world.query::<&PaletteChoice>();
+        let swatches = choices
+            .iter(world)
+            .filter(|choice| matches!(choice.0, PaletteEntry::Block(_)))
+            .count();
+
+        assert_eq!(swatches, block_types().len(), "the block row is not the five block types");
+
+        drag_over(&mut app, MouseButton::Right, &[(1, 0)]);
+        assert_eq!(layout(&app), "AA .. AA", "the right button still clears a cell");
+    }
+
     /// The card's last criterion: what the brush is set to is on screen, spelled
     /// as the token it paints - which is the string the file will be holding.
     #[test]
@@ -3162,11 +3220,11 @@ mod tests {
         says_the_token(&mut app);
 
         for entry in [
-            PaletteEntry::Block(Some(BlockType::Concrete)),
+            PaletteEntry::Block(BlockType::Concrete),
             PaletteEntry::Behaviour(BlockBehaviour::Portal),
             PaletteEntry::Group(6),
             PaletteEntry::Trigger(Some(TriggerType::Start)),
-            PaletteEntry::Block(None),
+            PaletteEntry::Block(BlockType::SimpleTop),
         ] {
             click_palette(&mut app, &entry);
             says_the_token(&mut app);
@@ -3180,7 +3238,7 @@ mod tests {
         let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
 
         let chosen = [
-            PaletteEntry::Block(Some(BlockType::Hardling)),
+            PaletteEntry::Block(BlockType::Hardling),
             PaletteEntry::Behaviour(BlockBehaviour::Spinner),
             PaletteEntry::Group(2),
             PaletteEntry::Trigger(Some(TriggerType::StartStop)),
@@ -3207,7 +3265,7 @@ mod tests {
     fn the_palette_follows_the_window_it_is_drawn_in() {
         let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
 
-        let entry = PaletteEntry::Block(Some(BlockType::Obstacle));
+        let entry = PaletteEntry::Block(BlockType::Obstacle);
         let before = drawn_rect(&mut app, &entry);
 
         resize_the_window(&mut app, UVec2::new(1200, 800));
@@ -3267,7 +3325,7 @@ mod tests {
         let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
         resize_the_window(&mut app, UVec2::new(1200, 800));
 
-        let entry = PaletteEntry::Block(Some(BlockType::Obstacle));
+        let entry = PaletteEntry::Block(BlockType::Obstacle);
         let on_screen = drawn_rect(&mut app, &entry);
 
         put_the_pointer_at(&mut app, Some(on_screen.center()));
