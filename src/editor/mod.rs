@@ -10,6 +10,9 @@
 //! camera framing the play field and the mouse pointer that the game otherwise
 //! hides - plus the cell the pointer is over, which is what makes the grid
 //! something you can aim at. Painting it (`c0007`) goes on top.
+//!
+//! A level is more than its grid, and the rest of it lives in
+//! [`settings`] - the panel in the corner that a click steps a setting on.
 
 use std::f32::consts::FRAC_PI_2;
 
@@ -33,9 +36,12 @@ use crate::level::asset::LevelAsset;
 use crate::level::layout::{block_token, blocks_on_edge, can_shrink, cell_to_world, empty_grid, filled_grid, grid_bounds, grid_dimensions, grow, interpret_grid, set_cell, shrink, world_to_cell, Edge, EMPTY_SLOT};
 use crate::level::TargetLayout::{Custom, FilledGrid, SparseGrid};
 use crate::level::{LevelDefinition, Levels, TargetLayout};
+use crate::editor::settings::{panel_rect, setting_at, spawn_settings_panel, SettingsPanel};
 use crate::materials::block::BlockMaterial;
 use crate::state::GameState;
 use crate::MyAssetPack;
+
+pub mod settings;
 
 /// How far above the play field the editor camera sits. Only the near and far
 /// planes care - the projection is orthographic, so this does not change how
@@ -427,6 +433,12 @@ impl Plugin for EditorPlugin {
                     // painted.
                     (
                         editor_pick_cell,
+                        // Before painting, so that the click that stepped a
+                        // setting is not also a click on whatever is behind the
+                        // panel - and before the two systems that put the level
+                        // back on screen, so a setting changed this frame shows
+                        // this frame.
+                        editor_settings_click,
                         editor_paint,
                         editor_resize,
                         // `resource_exists_and_changed` rather than
@@ -436,6 +448,7 @@ impl Plugin for EditorPlugin {
                         // ask about. `PendingRemoval` below is a
                         // `init_resource`, so it is always there to ask.
                         editor_show_blocks.run_if(resource_exists_and_changed::<EditorLevel>),
+                        editor_show_settings.run_if(resource_exists_and_changed::<EditorLevel>),
                         editor_dress_blocks,
                         editor_show_warning.run_if(resource_changed::<PendingRemoval>),
                         editor_draw_hover,
@@ -503,7 +516,9 @@ fn open_current_level(levels: &Levels, level_assets: &Assets<LevelAsset>) -> Edi
 fn editor_setup(mut commands: Commands) {
     info!(
         "Editor: left button paints, right button erases; an arrow key adds a \
-         row or column at that edge and Shift+arrow takes it away; Escape leaves"
+         row or column at that edge and Shift+arrow takes it away; the panel \
+         top left holds everything about the level that is not its grid; \
+         Escape leaves"
     );
 
     let view = editor_view();
@@ -650,6 +665,15 @@ fn cell_under_cursor(
 ) -> Option<(usize, usize)> {
     let (cols, rows, gap) = editor_level.grid()?;
     let cursor = windows.iter().next()?.cursor_position()?;
+
+    // The settings panel is in front of the play field, and a click on it is
+    // aimed at a setting rather than at the cell it happens to cover. Saying so
+    // here rather than in `editor_paint` means the highlight goes too, so the
+    // panel does not sit on top of a cell that still looks armed.
+    if panel_rect().contains(cursor) {
+        return None;
+    }
+
     let (camera, camera_transform) = cameras.iter().next()?;
     let ray = camera.viewport_to_world(camera_transform, cursor).ok()?;
 
@@ -963,6 +987,49 @@ fn editor_show_warning(
 }
 
 
+/// Steps a setting the author clicked a button of.
+///
+/// The level is written around change detection, as painting is: a click at the
+/// end of a setting's range - or anywhere on the panel that is not a button -
+/// must not look to the rest of the editor like a level that changed.
+fn editor_settings_click(
+    buttons: Res<ButtonInput<MouseButton>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    mut editor_level: ResMut<EditorLevel>,
+) {
+    // The press, not the hold: a stepper walked once per frame the button is
+    // down would run the whole range in a fifth of a second.
+    if !buttons.just_pressed(MouseButton::Left) {
+        return;
+    }
+
+    let Some(cursor) = windows.iter().next().and_then(|window| window.cursor_position()) else { return; };
+    let Some((setting, by)) = setting_at(cursor) else { return; };
+
+    let level = editor_level.bypass_change_detection();
+
+    if setting.step(&mut level.level, by) {
+        editor_level.set_changed();
+    }
+}
+
+/// Puts the settings panel on screen, and puts it there again every time the
+/// level changes - which, for a setting stepped by a click, is the frame it was
+/// clicked in.
+fn editor_show_settings(
+    editor_level: Res<EditorLevel>,
+    shown: Query<Entity, With<SettingsPanel>>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    for entity in &shown {
+        commands.entity(entity).despawn();
+    }
+
+    spawn_settings_panel(&editor_level.level, &asset_server, &mut commands);
+}
+
+
 /// Back to the menu.
 ///
 /// `Escape` is the way out, which is why `close_on_esc` in `main.rs` stands down
@@ -1029,7 +1096,8 @@ mod tests {
     use bevy::camera::{PerspectiveProjection, RenderTargetInfo};
     use bevy::ecs::system::RunSystemOnce;
     use bevy::gizmos::config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigStore};
-    use bevy::input::InputPlugin;
+    use bevy::input::mouse::MouseButtonInput;
+    use bevy::input::{ButtonState, InputPlugin};
     use bevy::math::Dir3;
     use bevy::prelude::State;
     use bevy::state::app::{AppExtStates, StatesPlugin};
@@ -1039,7 +1107,10 @@ mod tests {
     use bevy::MinimalPlugins;
 
     use crate::config::{BLOCK_GAP, BLOCK_WIDTH_H, CAMERA_TILT, TILTED_CAMERA};
+    use crate::editor::settings::{settings_rows, Setting, SettingValue, SETTINGS};
     use crate::level::campaign;
+    use crate::level::WinCriteria;
+    use crate::pickups::PickupType;
 
     /// The window every test picks through. Wider than it is tall, as the game's
     /// own is, so a projection that quietly swapped the two axes would show.
@@ -1458,20 +1529,48 @@ mod tests {
     /// `viewport_to_world` has no viewport to read and nothing to project
     /// through.
     fn give_the_camera_its_viewport(app: &mut App) {
+        let viewport = window_size(app);
         let world = app.world_mut();
         let mut cameras =
             world.query_filtered::<(&mut Camera, &mut Projection), With<EditorCamera>>();
 
         for (mut camera, mut projection) in cameras.iter_mut(world) {
             camera.computed.target_info = Some(RenderTargetInfo {
-                physical_size: VIEWPORT,
+                physical_size: viewport,
                 scale_factor: 1.0,
             });
 
-            let size = VIEWPORT.as_vec2();
+            let size = viewport.as_vec2();
             projection.update(size.x, size.y);
             camera.computed.clip_from_view = projection.get_clip_from_view();
         }
+    }
+
+    /// The window the test is pointing at, in physical pixels - which, at a
+    /// scale factor of 1, is also the pixel space `Window::cursor_position` and
+    /// the settings panel both work in.
+    fn window_size(app: &mut App) -> UVec2 {
+        let world = app.world_mut();
+        let mut windows = world.query_filtered::<&Window, With<PrimaryWindow>>();
+        let window = windows.iter(world).next().expect("the test app has a window");
+
+        window.physical_size()
+    }
+
+    /// Squeezes the window into `size` and hands the camera the viewport that
+    /// goes with it, as `camera_system` would the frame a window was resized.
+    fn resize_the_window(app: &mut App, size: UVec2) {
+        {
+            let world = app.world_mut();
+            let mut windows = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
+
+            for mut window in windows.iter_mut(world) {
+                window.resolution = WindowResolution::new(size.x, size.y);
+            }
+        }
+
+        app.update();
+        give_the_camera_its_viewport(app);
     }
 
     /// An app sitting in the editor with a camera that can be projected through.
@@ -1530,11 +1629,9 @@ mod tests {
 
         let Some(pixel) = pixel else { return false; };
 
-        if pixel.x < 0.0
-            || pixel.y < 0.0
-            || pixel.x >= VIEWPORT.x as f32
-            || pixel.y >= VIEWPORT.y as f32
-        {
+        let viewport = window_size(app).as_vec2();
+
+        if pixel.x < 0.0 || pixel.y < 0.0 || pixel.x >= viewport.x || pixel.y >= viewport.y {
             return false;
         }
 
@@ -2366,6 +2463,225 @@ mod tests {
             blocks_on_screen(&mut app),
             "the blocks a match spawns have to be the blocks the editor was showing"
         );
+    }
+
+
+
+    // --- the settings panel -----------------------------------------------
+
+    /// A real mouse press, as the window reports one.
+    ///
+    /// `InputPlugin` clears `just_pressed` at the top of every frame and fills
+    /// it in again from these messages, so a test that only calls
+    /// `ButtonInput::press` never has one to offer the frame it matters in.
+    fn report_the_button(app: &mut App, button: MouseButton, state: ButtonState) {
+        let window = {
+            let world = app.world_mut();
+            let mut windows = world.query_filtered::<Entity, With<PrimaryWindow>>();
+            windows.iter(world).next().expect("the test app has a window")
+        };
+
+        app.world_mut().write_message(MouseButtonInput { button, state, window });
+    }
+
+    /// A click wherever the pointer is: press, a frame, release, a frame.
+    fn click(app: &mut App) {
+        report_the_button(app, MouseButton::Left, ButtonState::Pressed);
+        app.update();
+        report_the_button(app, MouseButton::Left, ButtonState::Released);
+        app.update();
+    }
+
+    fn button_of(setting: Setting, by: i32) -> Rect {
+        let row = settings_rows()
+            .into_iter()
+            .find(|row| row.setting == setting)
+            .expect("every setting has a row");
+
+        if by < 0 { row.down } else { row.up }
+    }
+
+    /// Clicks one of the panel's buttons the way an author does: pointer on it,
+    /// press, release.
+    fn click_setting(app: &mut App, setting: Setting, by: i32) {
+        put_the_pointer_at(app, Some(button_of(setting, by).center()));
+        click(app);
+    }
+
+    /// What the panel is showing for a setting, read off the screen rather than
+    /// out of the level - which is the only way to tell that the two agree.
+    fn shown_value(app: &mut App, setting: Setting) -> String {
+        let world = app.world_mut();
+        let mut values = world.query::<(&SettingValue, &Text)>();
+
+        values
+            .iter(world)
+            .find(|(value, _)| value.0 == setting)
+            .map(|(_, text)| text.0.clone())
+            .unwrap_or_else(|| panic!("{setting:?} is not on screen"))
+    }
+
+    fn panel_parts(app: &mut App) -> usize {
+        let world = app.world_mut();
+        let mut parts = world.query_filtered::<Entity, With<SettingsPanel>>();
+
+        parts.iter(world).count()
+    }
+
+    #[test]
+    fn the_settings_panel_is_up_while_the_editor_is_and_goes_with_it() {
+        let mut app = editor_app();
+
+        go_to(&mut app, GameState::Editor);
+        assert!(panel_parts(&mut app) > 0, "the editor has to have drawn the panel");
+
+        go_to(&mut app, GameState::InGame);
+        assert_eq!(panel_parts(&mut app), 0, "the panel goes with the rest of the editor");
+    }
+
+    /// The panel opens saying what the level says - all of it, including the
+    /// fields no shipped level sets.
+    #[test]
+    fn every_setting_is_on_screen_saying_what_the_level_holds() {
+        let level = LevelDefinition {
+            background_asset: "ship3_003.glb#Scene12".to_string(),
+            background_scroll_velocity: 20.0,
+            simultaneous_balls: 3,
+            win_criteria: WinCriteria::BlockHitPercentage(0.5),
+            global_pickups: vec![PickupType::MoreBalls(1), PickupType::MoreBalls(1)],
+            default_wall_r: false,
+            targets: SparseGrid("AA AA".to_string(), BLOCK_GAP),
+            ..default()
+        };
+
+        let mut app = app_in_the_editor(level.clone());
+
+        for setting in SETTINGS {
+            assert_eq!(
+                shown_value(&mut app, setting),
+                setting.value(&level),
+                "{setting:?} on screen"
+            );
+        }
+    }
+
+    /// The card's "changes apply to the in-memory level immediately": the click
+    /// is the edit, and the panel says the new thing on the same frame.
+    #[test]
+    fn clicking_a_button_steps_its_setting_and_the_panel_says_so() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(3, 2)));
+
+        click_setting(&mut app, Setting::SimultaneousBalls, 1);
+        assert_eq!(editor_level(&app).level.simultaneous_balls, 2);
+        assert_eq!(shown_value(&mut app, Setting::SimultaneousBalls), "2");
+
+        click_setting(&mut app, Setting::SimultaneousBalls, -1);
+        assert_eq!(editor_level(&app).level.simultaneous_balls, 1);
+        assert_eq!(shown_value(&mut app, Setting::SimultaneousBalls), "1");
+
+        click_setting(&mut app, Setting::Grabbers, 1);
+        assert_eq!(editor_level(&app).level.global_pickups, vec![PickupType::Grabber(1)]);
+        assert_eq!(shown_value(&mut app, Setting::Grabbers), "1");
+
+        click_setting(&mut app, Setting::WallLeft, -1);
+        assert!(!editor_level(&app).level.default_wall_l);
+        assert_eq!(shown_value(&mut app, Setting::WallLeft), "off");
+    }
+
+    /// One click is one step. A stepper walked once per frame the button is down
+    /// would run the whole range in a fifth of a second.
+    #[test]
+    fn holding_a_button_down_steps_its_setting_once() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(3, 2)));
+
+        put_the_pointer_at(&mut app, Some(button_of(Setting::SimultaneousBalls, 1).center()));
+        report_the_button(&mut app, MouseButton::Left, ButtonState::Pressed);
+
+        for _ in 0..10 {
+            app.update();
+        }
+
+        assert_eq!(editor_level(&app).level.simultaneous_balls, 2);
+    }
+
+    /// A click on the panel is aimed at a setting, so it must not also be a
+    /// stroke of paint on whatever the panel happens to be covering.
+    #[test]
+    fn a_click_on_the_panel_paints_nothing() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(3, 2)));
+        let before = layout(&app);
+
+        click_setting(&mut app, Setting::ExtraBalls, 1);
+
+        assert_eq!(layout(&app), before, "the grid is not what the click was aimed at");
+        assert_eq!(editor_level(&app).level.global_pickups.len(), 1, "and the setting did move");
+    }
+
+    /// The panel is drawn in front of the play field, and on a window narrow
+    /// enough it covers cells. The pointer over it is over the panel, not over
+    /// the cell underneath - so the highlight goes too, rather than the panel
+    /// sitting on top of a cell that still looks armed.
+    #[test]
+    fn the_pointer_over_the_panel_is_not_over_a_cell() {
+        let mut app = app_in_the_editor(sparse(&empty_grid(9, 6)));
+
+        // Tall and narrow: the camera keeps the whole play field on screen
+        // whatever the window's shape, which on this one puts the far corner of
+        // the grid behind the panel.
+        resize_the_window(&mut app, UVec2::new(400, 800));
+
+        let mut covered = 0;
+        let mut clear = 0;
+
+        for (col, row) in cells(9, 6) {
+            let centre = cell_to_world(col, row, 9, BLOCK_GAP);
+
+            if !point_at(&mut app, centre) {
+                continue;
+            }
+
+            let pixel = cursor(&mut app).expect("the pointer was just put on screen");
+
+            if panel_rect().contains(pixel) {
+                assert_eq!(hovered(&app), None, "cell ({col}, {row}) is behind the panel");
+                covered += 1;
+            } else {
+                assert_eq!(hovered(&app), Some((col, row)), "cell ({col}, {row}) is in the open");
+                clear += 1;
+            }
+        }
+
+        assert!(covered > 0, "no cell ended up behind the panel - this proves nothing");
+        assert!(clear > 0, "every cell ended up behind the panel - so does this");
+    }
+
+    fn cursor(app: &mut App) -> Option<Vec2> {
+        let world = app.world_mut();
+        let mut windows = world.query_filtered::<&Window, With<PrimaryWindow>>();
+
+        windows.iter(world).next().and_then(|window| window.cursor_position())
+    }
+
+    /// The card's other half: what the panel makes, the level file says. This is
+    /// the whole path - click, level, RON, back - rather than the level built by
+    /// hand that `settings::tests` round-trips.
+    #[test]
+    fn a_level_edited_through_the_panel_round_trips_through_ron() {
+        let mut app = app_in_the_editor(sparse("AA .. AA\n.. AA .."));
+
+        for setting in SETTINGS {
+            click_setting(&mut app, setting, 1);
+        }
+
+        click_setting(&mut app, Setting::WallLeft, -1);
+
+        let edited = editor_level(&app).level.clone();
+        assert_ne!(edited, sparse("AA .. AA\n.. AA .."), "the clicks have to have changed something");
+
+        let written = campaign::level_to_ron(&edited).expect("a level the panel made has to be writable");
+        let read_back = campaign::parse_level(&written).unwrap_or_else(|e| panic!("{e}\n{written}"));
+
+        assert_eq!(read_back, edited, "written as:\n{written}");
     }
 
 }
