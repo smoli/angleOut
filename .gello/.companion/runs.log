@@ -2344,3 +2344,52 @@
 [c0013] → Bash(python3 - <<'EOF' p='src/editor/mod.rs' s=open(p).read() old = """ use crate::config::{BLOCK_GAP, BLOCK_WIDTH_H, CAMERA_…)
 [c0013] Now the card's Notes and Log:
 [c0013] → Bash(cat > /tmp/card_notes.py <<'PY' p='.gello/epics/e01-level-editor/c0013-playtest-round-trip.md' s=open(p).read() old_ac =…)
+[c0013] Now the commit:
+[c0013] → Bash(git add src/editor/playtest.rs src/editor/mod.rs src/events/mod.rs src/level/mod.rs src/level/campaign.rs src/game/mod.r…)
+[c0013] → Bash(git commit -F - <<'MSG' c0013: play the level you are editing, and come back to it `F5` or the `Play` button starts a ma…)
+[c0013] → mcp__gello__set_status(review)
+[c0013] → Bash(cargo build 2>&1 | tail -2; cargo test 2>&1 | grep -E "^test result"; git status --short | grep -E "^(M |A )")
+[c0013] c0013 is in `review`.
+[c0013] **What landed** — `F5` or a `Play` button starts a match on the level as it stands; `Escape` brings the editor back with every unsaved edit intact.
+[c0013] - **One question, one place**: `Levels` gained `playtest: Option<Handle<LevelAsset>>` and `current_handle` prefers it. Arena, blocks, win criteria and the readiness check all go through `current_handle`, so one field redirects all of them — and `handles`/`current_level` are never written, which is the "no campaign progress disturbed" criterion by construction.
+[c0013] - **The played level is a copy** added to `Assets` and dropped when the playtest ends, so nothing on the path reads the file.
+[c0013] - **Win/lose forks**: a playtest goes home to `GameState::Editor` with nothing banked; a campaign match still goes to `PostMatch`. `PlayerState` is set either way, which is how the new fourth panel says "the last playtest was won / lost / back from".
+[c0013] - **The editor clears the stage** on the way in (`playtest_teardown`), since the game's own teardown lives at `OnExit(PostMatch)` which a playtest never visits.
+[c0013] - `close_on_esc` stands down during a playtest; each playtest deals a fresh three balls; `game_start` stops any stray playtest so the menu can't leave the campaign shadowed.
+[c0013] **Verified**: `cargo test` 243 passed / 0 failed (was 218 before), `cargo build` clean at 17 warnings, all pre-existing — none in the new code. Also driven through the real game with a temporary auto-driver (since this session can't send keystrokes), which reverted afterwards: editor → F5 → `state=InMatch playtesting=true blocks=8 ship=1 arena=7` → Escape → `state=Editor playtesting=false blocks=0 balls=0 ships=0 arena=0 editor_blocks=8`.
+[c0013] **Committed** as `b180f57`, not pushed. Four of the ten files (`game`, `player`, `ui`, `ui/stats`) also carry their bevy 0.19 migration — the same situation `c0004` and `c0005` were in, and the commit message discloses it. One thing worth a reviewer's eye: `playtest_teardown` names the match's entity kinds in one list, so a new kind of match entity has to be added there; the test enumerates them so it fails rather than rotting quietly.
+[c0013] ✓ 218 in / 85716 out tokens, $11.8745, 110 turns, 1540.8s
+[c0013] I'll start by reading the card.
+[c0013] → Bash(cat .gello/epics/e01-level-editor/c0013-playtest-round-trip.md)
+[c0013] → Bash(cat .gello/board.yaml && ls .gello/epics/e01-level-editor/)
+[c0013] → Bash(git log --oneline -8 && echo "---" && git show --stat b180f57)
+[c0013] → Bash(git status --short | head -40; echo "--- README build/test instructions"; grep -n -i -A5 -E "cargo|test|build" README.md…)
+[c0013] → Bash(git show b180f57 -- src/level/mod.rs src/level/campaign.rs src/main.rs)
+[c0013] → Bash(cat src/editor/playtest.rs)
+[c0013] → Bash(git show b180f57 -- src/editor/mod.rs)
+[c0013] → Bash(git show b180f57 -- src/events/mod.rs src/game/mod.rs src/player/mod.rs)
+[c0013] → Bash(cargo test 2>&1 | tail -60)
+[c0013] → Bash(git show b180f57 --stat -- src/ui/mod.rs src/ui/stats/mod.rs && git show b180f57 -- src/ui/mod.rs | head -180)
+[c0013] → Bash(git show b180f57^:src/main.rs | grep -n "mod \|Plugin" | head -40)
+[c0013] → Bash(git show b180f57 -- src/ui/stats/mod.rs | sed -n '55,400p')
+[c0013] → Bash(tail -40 /private/tmp/claude-501/-Users-stephan-CLionProjects-angleOut/74f91c01-30e0-46da-ab3b-48c4855e3746/tasks/btj160…)
+[c0013] → Bash(git diff --stat)
+[c0013] → Bash(grep -n "OnExit(GameState::InMatch)\|OnExit(GameState::PostMatch)\|match_despawn\|OnEnter(GameState::InMatch)" -r src/ |…)
+[c0013] → Bash(grep -n "fn editor_open" -A 60 src/editor/mod.rs)
+[c0013] → Bash(sed -n 1,120p src/match/mod.rs)
+[c0013] → Bash(grep -n "fn editor_teardown" -A 40 src/editor/mod.rs)
+[c0013] → Bash(sed -n 120,200p src/match/mod.rs; echo "=== points"; sed -n 30,80p src/points/mod.rs; echo "=== point_setup"; grep -n "f…)
+[c0013] → Bash(sed -n 195,260p src/match/mod.rs)
+[c0013] → Bash(grep -n "fn arena_spawn" -A 60 src/arena/mod.rs | head -80; echo "=== despawn"; grep -n "fn arena_despawn" -A 15 src/are…)
+[c0013] → Bash(grep -n "fn ship_despawn" -A 8 src/ship/mod.rs; grep -n "fn ball_despawn" -A 8 src/ball/mod.rs; grep -n "fn block_despaw…)
+[c0013] → Bash(cargo build 2>&1 | tail -20; echo "=== clippy"; cargo clippy --version 2>&1 | head -2)
+[c0013] → Bash(touch src/main.rs && cargo build 2>&1 | grep -E "^(warning|error)" -A 3 | grep -E "editor/playtest|editor/mod|level/mod|…)
+[c0013] → Bash(cargo build 2>&1 | grep -B4 -A6 "events/mod.rs:30\|player/mod.rs:61" | head -40)
+[c0013] → Bash(sed -n 1,300p src/events/mod.rs)
+[c0013] → Bash(sed -n 1,120p src/player/mod.rs; echo "=== readiness"; sed -n 155,200p src/level/mod.rs)
+[c0013] → Bash(sed -n 20,65p src/game/mod.rs; echo "=== powerups"; sed -n 1,80p src/powerups/mod.rs)
+[c0013] → Bash(grep -n "let mut covered = \[0; 4\]" -B 25 -A 45 src/editor/mod.rs)
+[c0013] → Bash(ls -a | grep -i -E "github|gitlab|makefile|justfile|ci" ; echo "--- none above means no CI config"; grep -rn "clippy\|fm…)
+[c0013] → Bash(cargo clippy 2>&1 | grep -E "^(warning|error)" -A 4 | grep -E "editor/playtest.rs" -B 4 | head -30; echo "--- exit: ${PI…)
+[c0013] → Bash(date +%Y-%m-%dT%H:%M:%S)
+[c0013] → Bash(python3 - <<'PY' import io p = ".gello/epics/e01-level-editor/c0013-playtest-round-trip.md" s = io.open(p, encoding="utf…)

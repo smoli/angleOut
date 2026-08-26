@@ -1,12 +1,14 @@
 ---
 id: c0013
 title: Playtest round trip
-status: in-progress
+status: review
 epic: e01
 depends: [c0007, c0010]
 created: 2026-08-25
 updated: 2026-08-26
-status-changed: 2026-08-26T03:03:29
+status-changed: 2026-08-26T03:28:39
+usage-tokens: 85934
+usage-cost: 11.87452
 ---
 
 ## What
@@ -85,9 +87,87 @@ happened since - but it means the file panel is back to its shortest on the way
 home, and the playtest panel under it moves back up with it. How the *playtest*
 went is kept, and is what the panel says instead.
 
+## Review
+
+### 2026-08-26T03:33:03 — pass
+
+Checked: the six acceptance criteria against the code, the commit's diff
+(`b180f57`), `cargo test` and `cargo build`. `cargo clippy` run as an extra,
+though the repo declares no lint check.
+
+- "A key or button starts a match" — `editor_playtest_shortcut` (F5) and
+  `editor_playtest_click` (the `Play` row of the new panel) both go through
+  `playtest::start_playtest`, and both are registered in the editor's `Update`
+  set (`src/editor/mod.rs:551`). Covered by
+  `playtesting_plays_the_level_as_it_stands_and_not_the_file` and
+  `the_play_button_starts_a_playtest_too`.
+- "The match uses the in-memory level" — `start_playtest` does
+  `level_assets.add(LevelAsset(editor_level.level.clone()))` and points
+  `Levels::playtest` at it; `current_handle` prefers it over the campaign
+  (`src/level/mod.rs:137`). Nothing on that path touches the file. The test
+  paints first and asserts the level played is the edited one, not the one on
+  disk. `readiness` returns `Ready` for a handle from `Assets::add` because it
+  checks `levels.contains(handle)` before asking the asset server, so the
+  match really does start — `a_playtest_starts_a_match_on_the_level_it_was_handed`.
+- "Returning goes back to the editor with every unsaved edit" — `playtest_leave`
+  (Escape, gated `in_state(InMatch).and_then(playtesting)`) sets
+  `GameState::Editor`; `editor_open` returns early when `EditorLevel` already
+  exists, and `editor_teardown` does not remove it. Covered by
+  `coming_back_from_a_playtest_finds_every_unsaved_edit` and
+  `the_level_is_back_on_screen_after_a_playtest`, and again for a second trip by
+  `a_second_playtest_plays_what_was_painted_after_the_first`.
+- "Survives `match_despawn` and the `OnExit(PostMatch)` teardown" — met by
+  construction and read rather than exercised end to end: `game_flow_handler`
+  routes a won or lost playtest to `Editor`, so `PostMatch` is never entered;
+  `match_despawn` (`src/match/mod.rs:75`) only despawns `With<Match>` entities,
+  and `EditorLevel` is a resource. Worth knowing that the editor's test app
+  carries `EditorPlugin` + `EventsPlugin` only, so no test runs a real
+  `match_despawn` around a playtest — the argument here is from the code, not
+  from a red-to-green test.
+- "Leaves no match entities behind" — `playtest_teardown` runs in the
+  `OnEnter(Editor)` chain before the editor spawns anything, and its query is
+  the union of exactly what the game's own teardowns despawn: `arena_despawn`
+  `With<Arena>`, `ship_despawn` `With<Ship>`, `ball_despawn` `With<Ball>`,
+  `block_despawn` `With<Block>`, `pickup_despawn_all` `With<Pickup>`, plus
+  `PointsDisplay`, `MatchStatsUI` and `Environment3d`. The `Match` marker and the
+  particles are correctly left to `OnExit(InMatch)`, which the trip does pass
+  through. `coming_back_from_a_playtest_leaves_no_match_behind` and
+  `clearing_the_stage_leaves_the_editors_own_things_alone` cover it — though the
+  first one's assertion query is the same list as the system's, so it will not
+  catch a *new* kind of match entity going unnamed, only a regression in the
+  ones listed.
+- "Does not advance `current_level` or disturb campaign progress" —
+  `start_playtest`/`stop_playtest` only write the `playtest` field, `next_level`
+  refuses while playtesting, and `game_start` clears any stray playtest.
+  `a_playtest_leaves_the_campaign_exactly_where_it_was`,
+  `a_playtest_does_not_walk_the_campaign_on`,
+  `stopping_a_playtest_hands_the_campaign_back_where_it_was` and
+  `a_new_game_starts_from_the_top_of_the_campaign`.
+- `cargo test`: 243 passed, 0 failed. `cargo build`: clean; its 17 warnings are
+  pre-existing dead code and `non_snake_case` in `block/`, none from this card's
+  files. `cargo clippy` flags two idiom warnings in `src/editor/playtest.rs`
+  (`editor_playtest_click` has 8 params, the `Or<..>` teardown query is a
+  "very complex type") — noise for Bevy systems, and clippy is not a check the
+  repo declares.
+- Diff scope: the bevy 0.19 migration of `src/ui/mod.rs`, `src/ui/stats/mod.rs`,
+  `src/game/mod.rs` and `src/player/mod.rs` rides along. It is load-bearing here
+  — `playtest_teardown` names `MatchStatsUI` and `Environment3d`, `game_start`
+  calls `stop_playtest`, and those modules were still on the 0.9 API — and it
+  follows what `c0004` and `c0005` did on this branch. Read through: the stats
+  rewrite is a faithful `TextBundle`→`Text`/`TextSpan` port with `spawn_stat`
+  factored out, no readout dropped.
+- No test was weakened. The existing edits are `..default()` for the new `Levels`
+  field, and `the_pointer_over_the_editors_own_panels_is_not_over_a_cell` was
+  strengthened rather than relaxed — the chrome list grew from two rects to four
+  and both original `covered[..] > 0` assertions stayed.
+- Not run: the interactive round trip in the running game. The card claims it was
+  verified there; it needs a controller and a window, so I checked the code and
+  the suite instead.
+
 ## Log
 
 - 2026-08-25 created from the e01 epic breakdown
 - 2026-08-25 status → ready (app)
 - 2026-08-26 status → in-progress (agent)
 - 2026-08-26 playtest round trip landed; 243 tests pass, `cargo build` clean, verified in the running game (agent)
+- 2026-08-26 status → review (agent)
