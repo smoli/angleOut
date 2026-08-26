@@ -47,6 +47,7 @@ use crate::level::layout::{block_token, blocks_on_edge, can_shrink, cell_to_worl
 use crate::level::TargetLayout::{Custom, FilledGrid, SparseGrid};
 use crate::level::campaign::levels_dir;
 use crate::level::{LevelDefinition, Levels};
+use crate::editor::choose::{choose_rect, editor_choose_click, editor_choose_shortcut, editor_list_levels, editor_relist_levels, editor_show_choice, LevelChoice};
 use crate::editor::history::{editor_history_click, editor_show_history, editor_undo_redo, editor_watch_the_file, history_rect, remember, EditHistory, HistoryStep};
 use crate::editor::playtest::{editor_playtest_click, editor_playtest_shortcut, editor_show_playtest, playtest_end, playtest_leave, playtest_rect, playtest_teardown, playtesting, LastPlaytest};
 use crate::editor::save::{editor_save_click, editor_save_shortcut, editor_show_save, save_rect, LastSave, LevelsOnDisk, SaveReport};
@@ -56,6 +57,7 @@ use crate::materials::block::BlockMaterial;
 use crate::state::GameState;
 use crate::MyAssetPack;
 
+pub mod choose;
 pub mod history;
 pub mod palette;
 pub mod playtest;
@@ -498,6 +500,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<PaintStroke>()
             .init_resource::<PendingRemoval>()
             .init_resource::<EditHistory>()
+            .init_resource::<LevelChoice>()
             .init_resource::<SaveReport>()
             .init_resource::<LastSave>()
             .init_resource::<LastPlaytest>()
@@ -525,7 +528,12 @@ impl Plugin for EditorPlugin {
                     // home without going through the `OnExit(PostMatch)` the
                     // rest of the game takes a match apart in.
                     (editor_open, playtest_end, playtest_teardown),
-                    (editor_setup, editor_show_cursor, editor_show_history, editor_show_save, editor_show_playtest, editor_show_palette),
+                    // Between the two, on its own: it reads the level
+                    // `editor_open` has just put in front of the editor, to
+                    // point the chooser at it, and the panel below draws what
+                    // it found.
+                    editor_list_levels,
+                    (editor_setup, editor_show_cursor, editor_show_history, editor_show_save, editor_show_playtest, editor_show_choice, editor_show_palette),
                 )
                     .chain(),
             )
@@ -558,13 +566,20 @@ impl Plugin for EditorPlugin {
                         // it because a save can give a level that never had one
                         // a file, and the panel below says which file the next
                         // save would write.
-                        editor_save_click,
-                        editor_save_shortcut,
-                        // And for the panel under that one. A playtest leaves
-                        // the editor, so this is the last thing a click can be
-                        // aimed at down this side.
-                        editor_playtest_click,
-                        editor_playtest_shortcut,
+                        //
+                        // Each panel's pair is nested rather than laid out flat
+                        // because a chain is a tuple, and tuples run out of
+                        // arity before this editor runs out of panels.
+                        (editor_save_click, editor_save_shortcut).chain(),
+                        // And for the panel under that one.
+                        (editor_playtest_click, editor_playtest_shortcut).chain(),
+                        // And for the panel under that one, which is the foot of
+                        // the column. Both of these can put a different level in
+                        // front of the editor, so they come before everything
+                        // that edits one - a paint that landed on the level
+                        // arriving this frame would be an edit the author never
+                        // asked for.
+                        (editor_choose_click, editor_choose_shortcut).chain(),
                         // And for the column down the other side. Before
                         // painting for the same reason as the four above it -
                         // though the palette is also cut out of
@@ -592,18 +607,43 @@ impl Plugin for EditorPlugin {
                         editor_dress_blocks,
                         editor_show_warning.run_if(resource_changed::<PendingRemoval>),
                         editor_show_history.run_if(resource_changed::<EditHistory>),
-                        // Two reasons to be redrawn: what the last save said,
-                        // and the file the next one would write - which a save
-                        // of a level that had never been on disk changes.
-                        editor_show_save.run_if(
-                            resource_changed::<SaveReport>.or_else(resource_exists_and_changed::<EditorLevel>),
-                        ),
-                        // Two reasons of its own: how the last playtest went,
-                        // and the report above it growing or shrinking, which
-                        // moves the whole panel down the column.
-                        editor_show_playtest.run_if(
-                            resource_changed::<LastPlaytest>.or_else(resource_changed::<SaveReport>),
-                        ),
+                        // The bottom three panels of the column, nested for the
+                        // same reason the clicks above are - and chained,
+                        // because the file panel's report is what moves the two
+                        // under it and the list is read again before the panel
+                        // that shows it is drawn.
+                        (
+                            // Two reasons to be redrawn: what the last save
+                            // said, and the file the next one would write -
+                            // which a save of a level that had never been on
+                            // disk changes.
+                            editor_show_save.run_if(
+                                resource_changed::<SaveReport>.or_else(resource_exists_and_changed::<EditorLevel>),
+                            ),
+                            // Two reasons of its own: how the last playtest
+                            // went, and the report above it growing or
+                            // shrinking, which moves the whole panel down the
+                            // column.
+                            editor_show_playtest.run_if(
+                                resource_changed::<LastPlaytest>.or_else(resource_changed::<SaveReport>),
+                            ),
+                            // A save is the one thing that can put a file in the
+                            // directory the chooser is offering, and the report
+                            // changing is how the editor knows one happened.
+                            editor_relist_levels.run_if(resource_changed::<SaveReport>),
+                            // Three reasons to be redrawn: the choice itself,
+                            // the report above it moving the whole panel down
+                            // the column, and the level under edit - whose file
+                            // is what the line under the buttons says, and a
+                            // save of a level that had never been on disk gives
+                            // it one.
+                            editor_show_choice.run_if(
+                                resource_changed::<LevelChoice>
+                                    .or_else(resource_changed::<SaveReport>)
+                                    .or_else(resource_exists_and_changed::<EditorLevel>),
+                            ),
+                        )
+                            .chain(),
                         // The outline follows what the brush is set to, the
                         // group the next trigger will join is remembered beside
                         // the brush rather than in it, and the panel is anchored
@@ -685,7 +725,9 @@ fn editor_setup(mut commands: Commands) {
          row or column at that edge and Shift+arrow takes it away; the panel \
          top left holds everything about the level that is not its grid, and \
          the bar under it takes an edit back - Ctrl+Z to undo, Ctrl+Y or \
-         Ctrl+Shift+Z to redo; Escape leaves"
+         Ctrl+Shift+Z to redo; the panel at the foot of the column says which \
+         level is being edited and opens another - Ctrl+O for the one it names, \
+         Ctrl+N for a blank grid; Escape leaves"
     );
 
     let view = editor_view();
@@ -847,6 +889,7 @@ fn cell_under_cursor(
         || history_rect().contains(cursor)
         || save_rect(report).contains(cursor)
         || playtest_rect(report).contains(cursor)
+        || choose_rect(report).contains(cursor)
         // The width the palette was *drawn* at, as the click on it uses: a
         // window dragged narrower does not move the panel until it is drawn
         // again, and until then this is where it is.
@@ -2894,7 +2937,7 @@ mod tests {
         resize_the_window(&mut app, WINDOW);
 
         // Every piece of the editor's chrome: the column down the left, top to
-        // bottom, and the palette down the right. The two lower panels of the
+        // bottom, and the palette down the right. The three lower panels of the
         // column are in the list because they are part of the answer, not
         // because this window is narrow enough for them to reach a cell - only
         // the two above them, and the palette, are asserted to have caught one.
@@ -2907,10 +2950,11 @@ mod tests {
             history_rect(),
             save_rect(&SaveReport::default()),
             playtest_rect(&SaveReport::default()),
+            choose_rect(&SaveReport::default()),
             palette_rect(WINDOW.x as f32),
         ];
 
-        let mut covered = [0; 5];
+        let mut covered = [0; 6];
         let mut clear = 0;
 
         for (col, row) in cells(9, 6) {
@@ -2936,7 +2980,7 @@ mod tests {
 
         assert!(covered[0] > 0, "no cell ended up behind the settings panel - this proves nothing");
         assert!(covered[1] > 0, "no cell ended up behind the history bar - nor does this");
-        assert!(covered[4] > 0, "no cell ended up behind the palette - nor does that");
+        assert!(covered[5] > 0, "no cell ended up behind the palette - nor does that");
         assert!(clear > 0, "every cell ended up behind the chrome - so does this");
     }
 
@@ -4663,5 +4707,324 @@ mod tests {
         let mut texts = world.query_filtered::<&Text, With<PlaytestPanel>>();
 
         texts.iter(world).any(|text| text.0 == line)
+    }
+
+    // --- c0015: choosing which level to edit -------------------------------
+
+    use crate::editor::choose::{button_of as choose_button, editor_choose_shortcut, ChoiceMessage, ChooseAction, LevelChoice, LevelPanel};
+
+    /// An app in the editor with a directory of its own to open levels out of,
+    /// in place of the repository's `assets/levels`, and - where `editing` says
+    /// so - already working on one of them.
+    ///
+    /// The handle is what carries the path the chooser points itself at, which
+    /// is why it is loaded through the asset server rather than added straight
+    /// to the collection.
+    fn app_choosing_from(name: &str, files: &[(&str, &str)], editing: Option<&str>) -> (App, PathBuf) {
+        let mut app = editor_app();
+        let dir = save_into(&mut app, name);
+
+        for (file, layout) in files {
+            campaign::save_level(&dir.join(file), &sparse(layout)).expect("a level to open");
+        }
+
+        if let Some(editing) = editing {
+            let handle = app
+                .world()
+                .resource::<AssetServer>()
+                .load::<LevelAsset>(campaign::level_asset_path(editing));
+
+            app.world_mut()
+                .resource_mut::<Assets<LevelAsset>>()
+                .insert(handle.id(), LevelAsset(sparse("AA")))
+                .expect("nothing has that id yet");
+
+            app.insert_resource(Levels { handles: vec![handle], current_level: 0, ..default() });
+        }
+
+        go_to(&mut app, GameState::Editor);
+        give_the_camera_its_viewport(&mut app);
+
+        (app, dir)
+    }
+
+    fn app_choosing(name: &str, files: &[(&str, &str)]) -> (App, PathBuf) {
+        app_choosing_from(name, files, None)
+    }
+
+    /// Clicks one of the panel's buttons the way an author does.
+    fn click_choose(app: &mut App, action: ChooseAction) {
+        let button = choose_button(action, app.world().resource::<SaveReport>());
+
+        put_the_pointer_at(app, Some(button.center()));
+        click(app);
+    }
+
+    /// `Ctrl+O` and `Ctrl+N`, run the way the other shortcuts are:
+    /// `InputPlugin` clears `just_pressed` in `PreUpdate`, so a key pressed from
+    /// a test never survives to `Update`.
+    fn press_choose(app: &mut App, key: KeyCode) {
+        {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            keys.press(KeyCode::ControlLeft);
+            keys.press(key);
+        }
+
+        app.world_mut().run_system_once(editor_choose_shortcut).unwrap();
+
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release_all();
+        app.update();
+    }
+
+    fn chosen_file(app: &App) -> Option<String> {
+        app.world().resource::<LevelChoice>().chosen_name().map(str::to_string)
+    }
+
+    /// What the panel has written under its buttons, read off the screen rather
+    /// than out of the resource - which is the only way to tell that the two
+    /// agree.
+    fn level_panel_message(app: &mut App) -> String {
+        let world = app.world_mut();
+        let mut lines = world.query_filtered::<&Text, With<ChoiceMessage>>();
+
+        lines
+            .iter(world)
+            .next()
+            .expect("the panel has a line under its buttons")
+            .0
+            .clone()
+    }
+
+    fn level_panel_parts(app: &mut App) -> usize {
+        let world = app.world_mut();
+        let mut parts = world.query_filtered::<Entity, With<LevelPanel>>();
+
+        parts.iter(world).count()
+    }
+
+    /// The panel opens naming what the author is already working on.
+    #[test]
+    fn entering_the_editor_points_the_chooser_at_the_level_under_edit() {
+        let (app, _dir) = app_choosing_from(
+            "points_at",
+            &[("a.ron", "AA AA"), ("b.ron", "AA AA")],
+            Some("b.ron"),
+        );
+
+        assert_eq!(chosen_file(&app), Some("b.ron".to_string()));
+    }
+
+    /// Stepping is free: it changes what the panel is naming and nothing else.
+    #[test]
+    fn the_steppers_walk_the_directory_without_opening_anything() {
+        let (mut app, _dir) = app_choosing("steps", &[("a.ron", "AA AA"), ("b.ron", "AA .. AA")]);
+        let before = editor_level(&app).clone();
+
+        assert_eq!(chosen_file(&app), Some("a.ron".to_string()));
+
+        click_choose(&mut app, ChooseAction::Forward);
+        assert_eq!(chosen_file(&app), Some("b.ron".to_string()));
+
+        click_choose(&mut app, ChooseAction::Back);
+        assert_eq!(chosen_file(&app), Some("a.ron".to_string()));
+
+        assert_eq!(editor_level(&app), &before, "stepping is not opening");
+    }
+
+    /// The card, in one test: the level the author asked for is the level in
+    /// front of them, blocks and all, and the file it came from is what the next
+    /// save writes back to.
+    #[test]
+    fn open_puts_the_named_file_in_front_of_the_editor() {
+        let (mut app, _dir) = app_choosing("open", &[("a.ron", "AA AA"), ("b.ron", "AA .. AA")]);
+
+        click_choose(&mut app, ChooseAction::Forward);
+        click_choose(&mut app, ChooseAction::Open);
+
+        assert_eq!(layout(&app), "AA .. AA");
+        assert_eq!(editor_level(&app).source_path(), Some("levels/b.ron".to_string()));
+        assert_eq!(blocks_on_screen(&mut app).len(), 2, "the blocks of the level that arrived");
+    }
+
+    /// A level is more than its grid, and all of it has to come across - the
+    /// settings panel is showing the same level the grid is.
+    #[test]
+    fn what_arrives_is_the_whole_level_and_not_only_its_grid() {
+        let mut app = editor_app();
+        let dir = save_into(&mut app, "whole_level");
+
+        let level = LevelDefinition {
+            simultaneous_balls: 3,
+            default_wall_l: false,
+            targets: SparseGrid("AA AA".to_string(), BLOCK_GAP),
+            ..default()
+        };
+        campaign::save_level(&dir.join("a.ron"), &level).expect("a level to open");
+
+        go_to(&mut app, GameState::Editor);
+        click_choose(&mut app, ChooseAction::Open);
+
+        assert_eq!(editor_level(&app).level, level);
+    }
+
+    #[test]
+    fn new_starts_a_blank_level_that_belongs_to_no_file() {
+        let (mut app, _dir) = app_choosing_from("new", &[("a.ron", "AA AA")], Some("a.ron"));
+
+        click_choose(&mut app, ChooseAction::New);
+
+        assert_eq!(editor_level(&app), &EditorLevel::blank());
+    }
+
+    /// The answer on the card: opening replaces what is being edited outright.
+    /// The history goes with it, because every entry in it is a level that
+    /// belonged to the file that has just been closed.
+    #[test]
+    fn opening_a_level_takes_the_unsaved_edits_and_the_history_with_it() {
+        let (mut app, _dir) = app_choosing("discards", &[("a.ron", "AA AA")]);
+
+        paint(&mut app, &[(0, 0)]);
+        assert_ne!(layout(&app), empty_grid(NEW_LEVEL_COLS, NEW_LEVEL_ROWS), "the paint has to have landed");
+        assert_eq!(app.world().resource::<EditHistory>().depth(), (1, 0));
+
+        click_choose(&mut app, ChooseAction::Open);
+
+        assert_eq!(layout(&app), "AA AA", "what was being edited is gone");
+        assert_eq!(app.world().resource::<EditHistory>().depth(), (0, 0), "and so is the way back to it");
+    }
+
+    /// Starting a blank level is the same bargain.
+    #[test]
+    fn a_new_level_drops_the_history_too() {
+        let (mut app, _dir) = app_choosing("new_history", &[("a.ron", "AA AA")]);
+
+        paint(&mut app, &[(0, 0)]);
+        assert_eq!(app.world().resource::<EditHistory>().depth(), (1, 0));
+
+        click_choose(&mut app, ChooseAction::New);
+
+        assert_eq!(app.world().resource::<EditHistory>().depth(), (0, 0));
+    }
+
+    /// A file that will not read is a reason to say so, not a reason to take an
+    /// author's work away from them.
+    #[test]
+    fn a_file_that_will_not_read_leaves_the_level_alone_and_says_so() {
+        let (mut app, dir) = app_choosing("broken", &[("a.ron", "AA AA")]);
+
+        paint(&mut app, &[(0, 0)]);
+        fs::write(dir.join("a.ron"), "this is not a level").expect("a file to break");
+
+        let before = editor_level(&app).clone();
+        click_choose(&mut app, ChooseAction::Open);
+
+        assert_eq!(editor_level(&app), &before, "the level under edit is untouched");
+        assert_eq!(level_panel_message(&mut app), "could not read levels/a.ron");
+    }
+
+    #[test]
+    fn the_shortcuts_do_what_the_two_buttons_do() {
+        let (mut app, _dir) = app_choosing("shortcuts", &[("a.ron", "AA AA")]);
+
+        press_choose(&mut app, KeyCode::KeyO);
+        assert_eq!(layout(&app), "AA AA", "Ctrl+O opens");
+
+        press_choose(&mut app, KeyCode::KeyN);
+        assert_eq!(editor_level(&app), &EditorLevel::blank(), "Ctrl+N starts a blank one");
+    }
+
+    /// The card's own question, answered on screen and kept answered.
+    #[test]
+    fn the_panel_says_which_file_is_being_edited() {
+        let (mut app, _dir) = app_choosing("says", &[("a.ron", "AA AA")]);
+
+        assert_eq!(level_panel_message(&mut app), "editing a level with no file yet");
+
+        click_choose(&mut app, ChooseAction::Open);
+        assert_eq!(level_panel_message(&mut app), "editing levels/a.ron");
+    }
+
+    /// A save is the one thing that can put a file in the directory while the
+    /// editor is up, and a chooser that could not offer it would be one that
+    /// lies about what is there.
+    #[test]
+    fn a_level_saved_for_the_first_time_joins_the_list_the_chooser_offers() {
+        let (mut app, _dir) = app_choosing("relist", &[]);
+        assert_eq!(chosen_file(&app), None, "nothing on disk to name yet");
+
+        press_save(&mut app);
+
+        assert_eq!(chosen_file(&app), Some("level0.ron".to_string()));
+    }
+
+    /// The panel is the editor's, and goes home with it.
+    #[test]
+    fn the_level_panel_is_up_while_the_editor_is_and_goes_with_it() {
+        let (mut app, _dir) = app_choosing("on_screen", &[("a.ron", "AA AA")]);
+        assert!(level_panel_parts(&mut app) > 0, "the editor opens with the panel");
+
+        go_to(&mut app, GameState::InGame);
+        assert_eq!(level_panel_parts(&mut app), 0, "and takes it with it");
+
+        go_to(&mut app, GameState::Editor);
+        assert!(level_panel_parts(&mut app) > 0, "and puts it back up on the way in");
+    }
+
+    /// Choosing a level is not painting one.
+    ///
+    /// The window is the one from
+    /// `the_pointer_over_the_editors_own_panels_is_not_over_a_cell` and the grid
+    /// is a tall one, because the panel is the foot of the column and only a
+    /// grid that reaches that far down has a cell for it to sit on. `New` rather
+    /// than a stepper because the grid is centred and the panel is against the
+    /// left edge: the buttons that can have a cell behind them at all are the
+    /// ones towards the right of the row.
+    ///
+    /// That the level ends up *exactly* blank is what says nothing was painted:
+    /// the click is read before `editor_paint` runs, so a cell that was still
+    /// armed under the panel would leave a token in the level that just
+    /// arrived.
+    #[test]
+    fn a_click_on_the_panel_does_not_paint_the_cell_behind_it() {
+        let (mut app, _dir) = app_choosing("hands_off", &[("a.ron", "AA AA")]);
+
+        resize_the_window(&mut app, UVec2::new(800, 800));
+        app.insert_resource(EditorLevel { source: None, level: sparse(&empty_grid(9, 16)) });
+        app.update();
+
+        let button = choose_button(ChooseAction::New, app.world().resource::<SaveReport>());
+
+        // The cell the pointer would be on if the panel were not in front of it
+        // - asked of the ray directly, because the editor's own answer is the
+        // thing under test.
+        assert!(
+            cell_the_ray_lands_on(&mut app, button.center(), 9, 16).is_some(),
+            "no cell ended up behind the panel - this would prove nothing",
+        );
+
+        // The pointer, before the click: the panel is in front of that cell, so
+        // there is nothing under it to arm. Asked here rather than after the
+        // click, because by then the level under edit is a fresh blank grid with
+        // no cell down there at all - which would be a test that passes for the
+        // wrong reason.
+        put_the_pointer_at(&mut app, Some(button.center()));
+        app.update();
+        assert_eq!(hovered(&app), None, "a cell under the panel is left looking armed");
+
+        click(&mut app);
+
+        assert_eq!(editor_level(&app), &EditorLevel::blank(), "the click was aimed at the panel, and painted nothing");
+    }
+
+    /// Which cell a pixel is over, taking no notice of the editor's chrome -
+    /// [`cell_under_cursor`] with the half of it under test left out.
+    fn cell_the_ray_lands_on(app: &mut App, pixel: Vec2, cols: usize, rows: usize) -> Option<(usize, usize)> {
+        let world = app.world_mut();
+        let mut cameras = world.query_filtered::<(&Camera, &GlobalTransform), With<EditorCamera>>();
+        let (camera, transform) = cameras.iter(world).next().expect("the editor has a camera");
+
+        let ray = camera.viewport_to_world(transform, pixel).ok()?;
+
+        cell_under_ray(ray, cols, rows, BLOCK_GAP)
     }
 }

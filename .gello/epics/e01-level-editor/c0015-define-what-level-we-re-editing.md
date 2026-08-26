@@ -26,24 +26,24 @@ edits and all - and the panel says which file arrived.
 
 ## Acceptance criteria
 
-- [ ] The panel names a level file on disk, and the steppers walk the whole
+- [x] The panel names a level file on disk, and the steppers walk the whole
       directory - every `*.ron` in it except the campaign index, in a stable
       order, wrapping at both ends.
-- [ ] Entering the editor points the chooser at the level under edit, so the
+- [x] Entering the editor points the chooser at the level under edit, so the
       panel opens naming what the author is already working on.
-- [ ] `Open` puts the named file's level in front of the editor: its blocks, its
+- [x] `Open` puts the named file's level in front of the editor: its blocks, its
       settings, and its path as what the next save writes back to.
-- [ ] `New` starts a blank grid that belongs to no file, exactly as an editor
+- [x] `New` starts a blank grid that belongs to no file, exactly as an editor
       that found no level to open does.
-- [ ] Both discard whatever was being edited, without asking, and the panel says
+- [x] Both discard whatever was being edited, without asking, and the panel says
       what arrived - including when the file could not be read, which leaves the
       level under edit alone.
-- [ ] Opening or starting a level drops the undo history: every entry in it is a
+- [x] Opening or starting a level drops the undo history: every entry in it is a
       level that belonged to a different file.
-- [ ] `Ctrl+O` and `Ctrl+N` do the same as the two buttons.
-- [ ] A click anywhere on the panel is aimed at the panel, never at the grid cell
+- [x] `Ctrl+O` and `Ctrl+N` do the same as the two buttons.
+- [x] A click anywhere on the panel is aimed at the panel, never at the grid cell
       behind it.
-- [ ] `cargo build` is clean and `cargo test` passes.
+- [x] `cargo build` is clean and `cargo test` passes.
 
 ## How should the author choose which level to edit?
 
@@ -68,6 +68,76 @@ Constraint on where a chooser can go: the left-hand column is already four panel
 - [ ] Choosing a level should also let me name/rename the file.
 
 Cannot define what level we’e editing right now
+
+## Notes
+
+**As built** - `src/editor/choose.rs` (new), wired into `EditorPlugin` in
+`src/editor/mod.rs`.
+
+- **A fifth panel at the foot of the left-hand column**, under the playtest
+  panel: the name of one level file across the whole row, then `<` `>` `Open`
+  `New` and "2 of 11", then a line saying what is being edited. Laid out and
+  hit-tested against its own rectangles, exactly as the four panels above it are.
+- **The line under the buttons is the card's own question, answered and kept
+  answered**: "editing levels/level0.ron", or "editing a level with no file yet",
+  all the time rather than only in the moment something arrives. It gives way to
+  "could not read levels/x.ron" for as long as that is the last thing that
+  happened.
+- **The list is the directory, not the campaign** - every `*.ron` in
+  `LevelsOnDisk` except `campaign.ron`, sorted, wrapping at both ends. A level
+  that is not in the campaign is scratch, and scratch is what a level halfway
+  through being authored is. A directory that cannot be read is a panel with
+  nothing to offer rather than a panic.
+- **Entering the editor points the chooser at the level under edit**, so the
+  panel opens naming what the author is already working on. A save re-reads the
+  directory (`editor_relist_levels`, on the report changing), because a save is
+  the one thing that can put a file there while the editor is up - and it keeps
+  the author's choice where it is rather than letting a file that sorts in front
+  steal it.
+- **Opening replaces what is being edited outright**, per the answer on the card
+  (option 1 was not ticked either way, so the recommendation stands). What goes
+  with it: the undo history, whose every entry is a level that belonged to the
+  file just closed; the stroke the mouse was in the middle of; the removal
+  warning; `LastSave`; and the save report, because "Saved levels/level0.ron"
+  over a level that is no longer `level0.ron` has stopped being true. A file that
+  will not read changes none of it and says so.
+- **Ctrl+O and Ctrl+N**, said in the panel's title as the three panels above say
+  theirs. The steppers have no shortcut, as the settings panel's steppers have
+  none.
+- **The level is read with `std::fs` and the handle loaded from the asset
+  server**: the editor needs the level this frame, where the asset arrives
+  whenever it arrives - and it is the handle that carries the path a save writes
+  back to and that `c0011` watches for a hand edit. A freshly loaded asset raises
+  `Added`, not `Modified`, so opening does not trip `editor_watch_the_file`.
+- **The name has the whole row, and the steppers sit under it.** Measured in the
+  running game: with `<` `>` either side, `demo_minimal_win_state_error` lays out
+  at 272 pixels of Orbitron in the 264 the row could spare and overflowed onto
+  the stepper. Across the full `ROW_WIDTH` it has 52 pixels to spare. Everything
+  else measured on screen too - title 215/324, "2 of 11" 49/88, "editing
+  levels/level0.ron" 201/324, `Open` 44/84 - and the longest thing the message
+  row can say (`editing levels/demo_minimal_win_state_error.ron`, ~385) is what
+  the two reserved rows under the buttons are for.
+- **Vertical budget**: the panel is 146 tall and the column reaches 726 of 800 on
+  entry, 778 after a save with no complaints. A save carrying a complaint pushes
+  the panel's reserved bottom row past the window edge - the buttons and the
+  message stay on screen, and the panel above it was already the one running out
+  of room first.
+- **`editor_choose_click` and `editor_choose_shortcut` share an `Editing`
+  `SystemParam`** - the level plus the six resources an arriving one displaces -
+  so the two systems and the two functions under them name them once.
+- 33 new tests, 311 green, `cargo build` at 16 warnings and `cargo clippy` clean
+  for the new file, both all pre-existing elsewhere. 20 pure (the listing, the
+  stepping, the wrap, the empty directory, the wording, the panel's geometry) and
+  13 driving a real app against real files in a scratch directory.
+- Seven mutations checked to fail: the panel not excluded from picking, opening
+  keeping the history, entering not pointing the chooser at the level under edit,
+  a failed open replacing the level anyway, the list never being read again after
+  a save, `New` keeping the old file, and the two shortcuts.
+- **Checked in the running game** for the text measurements above, through a
+  temporary system reading `TextLayoutInfo` (reverted). As with `c0014`,
+  `screencapture` cannot reach the display from this session, so how it *looks*
+  rests on those numbers; and the mouse cannot be driven from here, so the
+  clicking is covered by the app-driven tests rather than by hand.
 
 ## Log
 
